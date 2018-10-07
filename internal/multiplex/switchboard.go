@@ -18,6 +18,7 @@ type switchboard struct {
 	// For telling dispatcher how many bytes have been sent after Connection.send.
 	sentNotifyCh chan *sentNotifier
 	dispatCh     chan []byte
+	newConnCh    chan net.Conn
 }
 
 // Some data comes from a Stream to be sent through one of the many
@@ -43,28 +44,27 @@ func (a byQ) Less(i, j int) bool {
 	return a[i].sendQueue < a[j].sendQueue
 }
 
-func makeSwitchboard(conns []net.Conn, sesh *Session) *switchboard {
+// It takes at least 1 conn to start a switchboard
+func makeSwitchboard(conn net.Conn, sesh *Session) *switchboard {
 	sb := &switchboard{
 		session:      sesh,
 		ces:          []*connEnclave{},
 		sentNotifyCh: make(chan *sentNotifier, sentNotifyBacklog),
 		dispatCh:     make(chan []byte, dispatchBacklog),
 	}
-	for _, c := range conns {
-		ce := &connEnclave{
-			sb:         sb,
-			remoteConn: c,
-			sendQueue:  0,
-		}
-		sb.ces = append(sb.ces, ce)
+	ce := &connEnclave{
+		sb:         sb,
+		remoteConn: conn,
+		sendQueue:  0,
 	}
+	sb.ces = append(sb.ces, ce)
 
 	return sb
 }
 
 func (sb *switchboard) run() {
-	go startDispatcher()
-	go startDeplexer()
+	go sb.startDispatcher()
+	go sb.startDeplexer()
 }
 
 // Everytime after a remoteConn sends something, it constructs this struct
@@ -86,6 +86,7 @@ func (ce *connEnclave) send(data []byte) {
 }
 
 // Dispatcher sends data coming from a stream to a remote connection
+// I used channels here because I didn't want to use mutex
 func (sb *switchboard) startDispatcher() {
 	for {
 		select {
@@ -95,6 +96,14 @@ func (sb *switchboard) startDispatcher() {
 			sb.ces[0].sendQueue += len(data)
 		case notified := <-sb.sentNotifyCh:
 			notified.ce.sendQueue -= notified.sent
+			sort.Sort(byQ(sb.ces))
+		case conn := <-sb.newConnCh:
+			newCe := &connEnclave{
+				sb:         sb,
+				remoteConn: conn,
+				sendQueue:  0,
+			}
+			sb.ces = append(sb.ces, newCe)
 			sort.Sort(byQ(sb.ces))
 		}
 	}
@@ -111,6 +120,7 @@ func (sb *switchboard) startDeplexer() {
 				if !sb.session.isStream(frame.StreamID) {
 					sb.session.addStream(frame.StreamID)
 				}
+				sb.session.getStream(frame.ClosingStreamID).Close()
 				sb.session.getStream(frame.StreamID).recvNewFrame(frame)
 			}
 		}()

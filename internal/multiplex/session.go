@@ -7,8 +7,9 @@ import (
 
 const (
 	// Copied from smux
-	errBrokenPipe = "broken pipe"
-	acceptBacklog = 1024
+	errBrokenPipe          = "broken pipe"
+	errRepeatStreamClosing = "trying to close a closed stream"
+	acceptBacklog          = 1024
 
 	closeBacklog = 512
 )
@@ -41,17 +42,25 @@ type Session struct {
 }
 
 // TODO: put this in main maybe?
-func MakeSession(id int, conns []net.Conn) *Session {
+// 1 conn is needed to make a session
+func MakeSession(id int, conn net.Conn, obfs func(*Frame) []byte, deobfs func([]byte) *Frame, obfsedReader func(net.Conn, []byte) (int, error)) *Session {
 	sesh := &Session{
 		id:           id,
+		obfs:         obfs,
+		deobfs:       deobfs,
+		obfsedReader: obfsedReader,
 		nextStreamID: 0,
 		streams:      make(map[uint32]*Stream),
 		acceptCh:     make(chan *Stream, acceptBacklog),
 		closeQCh:     make(chan uint32, closeBacklog),
 	}
-	sesh.sb = makeSwitchboard(conns, sesh)
+	sesh.sb = makeSwitchboard(conn, sesh)
 	sesh.sb.run()
 	return sesh
+}
+
+func (sesh *Session) AddConnection(conn net.Conn) {
+	sesh.sb.newConnCh <- conn
 }
 
 func (sesh *Session) OpenStream() (*Stream, error) {

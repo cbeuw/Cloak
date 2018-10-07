@@ -29,6 +29,9 @@ type Stream struct {
 
 	nextSendSeqM sync.Mutex
 	nextSendSeq  uint32
+
+	closingM sync.Mutex
+	closing  bool
 }
 
 func makeStream(id uint32, sesh *Session) *Stream {
@@ -73,9 +76,9 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 	}
 
 	f := &Frame{
-		StreamID:       stream.id,
-		Seq:            stream.nextSendSeq,
-		ClosedStreamID: closingID,
+		StreamID:        stream.id,
+		Seq:             stream.nextSendSeq,
+		ClosingStreamID: closingID,
 	}
 	copy(f.Payload, in)
 
@@ -91,6 +94,13 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 }
 
 func (stream *Stream) Close() error {
+	// Because closing a closed channel causes panic
+	stream.closingM.Lock()
+	defer stream.closingM.Unlock()
+	if stream.closing {
+		return errors.New(errRepeatStreamClosing)
+	}
+	stream.closing = true
 	stream.session.delStream(stream.id)
 	close(stream.die)
 	close(stream.sortedBufCh)
