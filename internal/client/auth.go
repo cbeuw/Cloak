@@ -47,7 +47,7 @@ func MakeSessionTicket(sta *State) []byte {
 	// Then the hmac is 32 bytes
 	//
 	// 65+56+32=153
-	ct, _ := ecies.Encrypt(rand.Reader, sta.Pub, plain, nil, nil)
+	ct, _ := ecies.Encrypt(rand.Reader, sta.pub, plain, nil, nil)
 	sessionTicket := make([]byte, 192)
 	// The reason for ct[1:] is that, the first byte of ct is always 0x04
 	// This is specified in the section 4.3.6 of ANSI X9.62 (the uncompressed form).

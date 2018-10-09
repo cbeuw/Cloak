@@ -27,7 +27,7 @@ type State struct {
 	SS_REMOTE_PORT string
 	Now            func() time.Time
 	SID            []byte
-	Pub            *ecies.PublicKey
+	pub            *ecies.PublicKey
 	TicketTimeHint int
 	ServerName     string
 	MaskBrowser    string
@@ -88,10 +88,11 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		return errors.New("Failed to parse Key: " + err.Error())
 	}
 	sta.SID = sid
-	sta.Pub = pub
+	sta.pub = pub
 	return nil
 }
 
+// Structure: [SID 32 bytes][marshalled public key]
 func parseKey(b64 string) ([]byte, *ecies.PublicKey, error) {
 	b, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {

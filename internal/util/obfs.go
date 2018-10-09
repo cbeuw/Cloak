@@ -33,16 +33,17 @@ func MakeObfs(key []byte) func(*mux.Frame) []byte {
 		binary.BigEndian.PutUint32(header[4:8], f.Seq)
 		binary.BigEndian.PutUint32(header[8:12], f.ClosingStreamID)
 		// header: [StreamID 4 bytes][Seq 4 bytes][ClosingStreamID 4 bytes]
-		plaintext := make([]byte, 12+len(f.Payload)-16)
-		copy(plaintext[0:12], header)
-		copy(plaintext[12:], f.Payload[16:])
-		// plaintext: [header 12 bytes][Payload[16:]]
+		plainheader := make([]byte, 16)
+		copy(plainheader[0:12], header)
+		copy(plainheader[12:], []byte{0x00, 0x00, 0x00, 0x00})
+		// plainheader: [header 12 bytes][0x00,0x00,0x00,0x00]
 		iv := f.Payload[0:16]
-		ciphertext := encrypt(iv, key, plaintext)
-		obfsed := make([]byte, 16+len(ciphertext))
+		cipherheader := encrypt(iv, key, plainheader)
+		obfsed := make([]byte, len(f.Payload)+12+4)
 		copy(obfsed[0:16], iv)
-		copy(obfsed[16:], ciphertext)
-		// obfsed: [iv 16 bytes][ciphertext]
+		copy(obfsed[16:32], cipherheader)
+		copy(obfsed[32:], f.Payload[16:])
+		// obfsed: [iv 16 bytes][cipherheader 16 bytes][payload w/o iv]
 		ret := AddRecordLayer(obfsed, []byte{0x17}, []byte{0x03, 0x03})
 		return ret
 	}
@@ -52,14 +53,14 @@ func MakeObfs(key []byte) func(*mux.Frame) []byte {
 func MakeDeobfs(key []byte) func([]byte) *mux.Frame {
 	deobfs := func(in []byte) *mux.Frame {
 		peeled := PeelRecordLayer(in)
-		plaintext := decrypt(peeled[0:16], key, peeled[16:])
-		// plaintext: [header 12 bytes][Payload[16:]]
-		streamID := binary.BigEndian.Uint32(plaintext[0:4])
-		seq := binary.BigEndian.Uint32(plaintext[4:8])
-		closingStreamID := binary.BigEndian.Uint32(plaintext[8:12])
-		payload := make([]byte, len(plaintext)-12)
+		plainheader := decrypt(peeled[0:16], key, peeled[16:32])
+		// plainheader: [header 12 bytes][0x00,0x00,0x00,0x00]
+		streamID := binary.BigEndian.Uint32(plainheader[0:4])
+		seq := binary.BigEndian.Uint32(plainheader[4:8])
+		closingStreamID := binary.BigEndian.Uint32(plainheader[8:12])
+		payload := make([]byte, len(peeled)-12-4)
 		copy(payload[0:16], peeled[0:16])
-		copy(payload[16:], plaintext[12:])
+		copy(payload[16:], peeled[32:])
 		ret := &mux.Frame{
 			StreamID:        streamID,
 			Seq:             seq,
