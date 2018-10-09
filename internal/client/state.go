@@ -83,6 +83,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	sta.ServerName = preParse.ServerName
 	sta.TicketTimeHint = preParse.TicketTimeHint
 	sta.MaskBrowser = preParse.MaskBrowser
+	sta.NumConn = preParse.NumConn
 	sid, pub, err := parseKey(preParse.Key)
 	if err != nil {
 		return errors.New("Failed to parse Key: " + err.Error())

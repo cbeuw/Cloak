@@ -31,7 +31,7 @@ func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 }
 
 // This establishes a connection with ckserver and performs a handshake
-func makeRemoteConn(sta *client.State) net.Conn {
+func makeRemoteConn(sta *client.State) (net.Conn, error) {
 
 	d := net.Dialer{Control: protector}
 
@@ -39,12 +39,12 @@ func makeRemoteConn(sta *client.State) net.Conn {
 	remoteConn, err := d.Dial("tcp", sta.SS_REMOTE_HOST+":"+sta.SS_REMOTE_PORT)
 	if err != nil {
 		log.Printf("Connecting to remote: %v\n", err)
-		return nil
+		return nil, err
 	}
 	_, err = remoteConn.Write(clientHello)
 	if err != nil {
 		log.Printf("Sending ClientHello: %v\n", err)
-		return nil
+		return nil, err
 	}
 
 	// Three discarded messages: ServerHello, ChangeCipherSpec and Finished
@@ -53,7 +53,7 @@ func makeRemoteConn(sta *client.State) net.Conn {
 		_, err = util.ReadTillDrain(remoteConn, discardBuf)
 		if err != nil {
 			log.Printf("Reading discarded message %v: %v\n", c, err)
-			return nil
+			return nil, err
 		}
 	}
 
@@ -61,10 +61,10 @@ func makeRemoteConn(sta *client.State) net.Conn {
 	_, err = remoteConn.Write(reply)
 	if err != nil {
 		log.Printf("Sending reply to remote: %v\n", err)
-		return nil
+		return nil, err
 	}
 
-	return remoteConn
+	return remoteConn, nil
 
 }
 
@@ -134,7 +134,10 @@ func main() {
 		log.Fatal("TicketTimeHint cannot be empty or 0")
 	}
 
-	initRemoteConn := makeRemoteConn(sta)
+	initRemoteConn, err := makeRemoteConn(sta)
+	if err != nil {
+		log.Fatalf("Failed to establish connection to remote: %v\n", err)
+	}
 
 	obfs := util.MakeObfs(sta.SID)
 	deobfs := util.MakeDeobfs(sta.SID)
@@ -143,7 +146,11 @@ func main() {
 
 	for i := 0; i < sta.NumConn-1; i++ {
 		go func() {
-			conn := makeRemoteConn(sta)
+			conn, err := makeRemoteConn(sta)
+			if err != nil {
+				log.Printf("Failed to establish new connections to remote: %v\n", err)
+				return
+			}
 			sesh.AddConnection(conn)
 		}()
 	}
@@ -159,10 +166,17 @@ func main() {
 			continue
 		}
 		go func() {
+			data := make([]byte, 10240)
+			i, err := io.ReadAtLeast(ssConn, data, 1)
+			if err != nil {
+				ssConn.Close()
+				return
+			}
 			stream, err := sesh.OpenStream()
 			if err != nil {
 				ssConn.Close()
 			}
+			stream.Write(data[:i])
 			go pipe(ssConn, stream)
 			pipe(stream, ssConn)
 		}()

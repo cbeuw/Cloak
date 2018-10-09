@@ -1,13 +1,15 @@
 package multiplex
 
 import (
+	"log"
 	"net"
 	"sort"
 )
 
 const (
 	sentNotifyBacklog = 1024
-	dispatchBacklog   = 10240
+	dispatchBacklog   = 102400
+	newConnBacklog    = 8
 )
 
 type switchboard struct {
@@ -19,6 +21,7 @@ type switchboard struct {
 	sentNotifyCh chan *sentNotifier
 	dispatCh     chan []byte
 	newConnCh    chan net.Conn
+	closingCECh  chan *connEnclave
 }
 
 // Some data comes from a Stream to be sent through one of the many
@@ -51,6 +54,8 @@ func makeSwitchboard(conn net.Conn, sesh *Session) *switchboard {
 		ces:          []*connEnclave{},
 		sentNotifyCh: make(chan *sentNotifier, sentNotifyBacklog),
 		dispatCh:     make(chan []byte, dispatchBacklog),
+		newConnCh:    make(chan net.Conn, newConnBacklog),
+		closingCECh:  make(chan *connEnclave, 5),
 	}
 	ce := &connEnclave{
 		sb:         sb,
@@ -58,13 +63,10 @@ func makeSwitchboard(conn net.Conn, sesh *Session) *switchboard {
 		sendQueue:  0,
 	}
 	sb.ces = append(sb.ces, ce)
+	go sb.deplex(ce)
 
+	go sb.dispatch()
 	return sb
-}
-
-func (sb *switchboard) run() {
-	go sb.startDispatcher()
-	go sb.startDeplexer()
 }
 
 // Everytime after a remoteConn sends something, it constructs this struct
@@ -87,7 +89,7 @@ func (ce *connEnclave) send(data []byte) {
 
 // Dispatcher sends data coming from a stream to a remote connection
 // I used channels here because I didn't want to use mutex
-func (sb *switchboard) startDispatcher() {
+func (sb *switchboard) dispatch() {
 	for {
 		select {
 		// dispatCh receives data from stream.Write
@@ -104,25 +106,38 @@ func (sb *switchboard) startDispatcher() {
 				sendQueue:  0,
 			}
 			sb.ces = append(sb.ces, newCe)
+			go sb.deplex(newCe)
 			sort.Sort(byQ(sb.ces))
+		case closing := <-sb.closingCECh:
+			for i, ce := range sb.ces {
+				if closing == ce {
+					sb.ces = append(sb.ces[:i], sb.ces[i+1:]...)
+					break
+				}
+			}
+			// TODO: when all connections closed
 		}
 	}
 }
 
-// Deplexer sends data coming from a remote connection to a stream
-func (sb *switchboard) startDeplexer() {
-	for _, ce := range sb.ces {
-		go func() {
-			buf := make([]byte, 20480)
-			for {
-				sb.session.obfsedReader(ce.remoteConn, buf)
-				frame := sb.session.deobfs(buf)
-				if !sb.session.isStream(frame.StreamID) {
-					sb.session.addStream(frame.StreamID)
-				}
-				sb.session.getStream(frame.ClosingStreamID).Close()
-				sb.session.getStream(frame.StreamID).recvNewFrame(frame)
-			}
-		}()
+func (sb *switchboard) deplex(ce *connEnclave) {
+	buf := make([]byte, 20480)
+	for {
+		i, err := sb.session.obfsedReader(ce.remoteConn, buf)
+		if err != nil {
+			log.Println(err)
+			go ce.remoteConn.Close()
+			sb.closingCECh <- ce
+			return
+		}
+		frame := sb.session.deobfs(buf[:i])
+		var stream *Stream
+		if stream = sb.session.getStream(frame.StreamID); stream == nil {
+			stream = sb.session.addStream(frame.StreamID)
+		}
+		if closing := sb.session.getStream(frame.ClosingStreamID); closing != nil {
+			closing.Close()
+		}
+		stream.newFrameCh <- frame
 	}
 }

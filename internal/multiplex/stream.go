@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	readBuffer = 10240
+	readBuffer = 102400
 )
 
 type Stream struct {
@@ -25,6 +25,7 @@ type Stream struct {
 	sh          sorterHeap
 	wrapMode    bool
 
+	newFrameCh  chan *Frame
 	sortedBufCh chan []byte
 
 	nextSendSeqM sync.Mutex
@@ -36,14 +37,19 @@ type Stream struct {
 
 func makeStream(id uint32, sesh *Session) *Stream {
 	stream := &Stream{
-		id:      id,
-		session: sesh,
+		id:          id,
+		session:     sesh,
+		die:         make(chan struct{}),
+		sh:          []*frameNode{},
+		newFrameCh:  make(chan *Frame, 1024),
+		sortedBufCh: make(chan []byte, readBuffer),
 	}
+	go stream.recvNewFrame()
 	return stream
 }
 
 func (stream *Stream) Read(buf []byte) (n int, err error) {
-	if len(buf) == 0 {
+	if len(buf) != 0 {
 		select {
 		case <-stream.die:
 			return 0, errors.New(errBrokenPipe)
@@ -79,8 +85,8 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 		StreamID:        stream.id,
 		Seq:             stream.nextSendSeq,
 		ClosingStreamID: closingID,
+		Payload:         in,
 	}
-	copy(f.Payload, in)
 
 	stream.nextSendSeqM.Lock()
 	stream.nextSendSeq += 1
@@ -103,7 +109,6 @@ func (stream *Stream) Close() error {
 	stream.closing = true
 	stream.session.delStream(stream.id)
 	close(stream.die)
-	close(stream.sortedBufCh)
 	stream.session.closeQCh <- stream.id
 	return nil
 }

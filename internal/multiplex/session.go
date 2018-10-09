@@ -1,6 +1,7 @@
 package multiplex
 
 import (
+	"log"
 	"net"
 	"sync"
 )
@@ -49,13 +50,12 @@ func MakeSession(id int, conn net.Conn, obfs func(*Frame) []byte, deobfs func([]
 		obfs:         obfs,
 		deobfs:       deobfs,
 		obfsedReader: obfsedReader,
-		nextStreamID: 0,
+		nextStreamID: 1,
 		streams:      make(map[uint32]*Stream),
 		acceptCh:     make(chan *Stream, acceptBacklog),
 		closeQCh:     make(chan uint32, closeBacklog),
 	}
 	sesh.sb = makeSwitchboard(conn, sesh)
-	sesh.sb.run()
 	return sesh
 }
 
@@ -80,6 +80,7 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 func (sesh *Session) AcceptStream() (*Stream, error) {
 	stream := <-sesh.acceptCh
 	return stream, nil
+
 }
 
 func (sesh *Session) delStream(id uint32) {
@@ -101,7 +102,13 @@ func (sesh *Session) getStream(id uint32) *Stream {
 	return sesh.streams[id]
 }
 
-func (sesh *Session) addStream(id uint32) {
+// addStream is used when the remote opened a new stream and we got notified
+func (sesh *Session) addStream(id uint32) *Stream {
+	log.Printf("Adding stream %v", id)
 	stream := makeStream(id, sesh)
+	sesh.streamsM.Lock()
+	sesh.streams[id] = stream
+	sesh.streamsM.Unlock()
 	sesh.acceptCh <- stream
+	return stream
 }

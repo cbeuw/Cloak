@@ -89,11 +89,11 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	go func() {
 		var arrSID [32]byte
 		copy(arrSID[:], SID)
-		sesh := sta.GetSession(arrSID)
-		if sesh == nil {
+		var sesh *mux.Session
+		if sesh = sta.GetSession(arrSID); sesh != nil {
 			sesh.AddConnection(conn)
 		} else {
-			sesh := mux.MakeSession(0, conn, util.MakeObfs(SID), util.MakeDeobfs(SID), util.ReadTillDrain)
+			sesh = mux.MakeSession(0, conn, util.MakeObfs(SID), util.MakeDeobfs(SID), util.ReadTillDrain)
 			sta.PutSession(arrSID, sesh)
 		}
 		go func() {
@@ -166,6 +166,7 @@ func main() {
 		SS_REMOTE_PORT: remotePort,
 		Now:            time.Now,
 		UsedRandom:     map[[32]byte]int{},
+		Sessions:       map[[32]byte]*mux.Session{},
 	}
 	err := sta.ParseConfig(pluginOpts)
 	if err != nil {
