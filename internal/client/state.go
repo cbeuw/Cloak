@@ -1,14 +1,16 @@
 package client
 
 import (
-	"crypto/elliptic"
+	"crypto"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/cbeuw/ecies"
 	"io/ioutil"
 	"strings"
+	"sync"
 	"time"
+
+	ecdh "github.com/cbeuw/go-ecdh"
 )
 
 type rawConfig struct {
@@ -25,13 +27,29 @@ type State struct {
 	SS_LOCAL_PORT  string
 	SS_REMOTE_HOST string
 	SS_REMOTE_PORT string
-	Now            func() time.Time
-	SID            []byte
-	pub            *ecies.PublicKey
+
+	Now       func() time.Time
+	SID       []byte
+	staticPub crypto.PublicKey
+	keyPairsM sync.RWMutex
+	keyPairs  map[int64]*keyPair
+
 	TicketTimeHint int
 	ServerName     string
 	MaskBrowser    string
 	NumConn        int
+}
+
+func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
+	ret := &State{
+		SS_LOCAL_HOST:  localHost,
+		SS_LOCAL_PORT:  localPort,
+		SS_REMOTE_HOST: remoteHost,
+		SS_REMOTE_PORT: remotePort,
+		Now:            nowFunc,
+	}
+	ret.keyPairs = make(map[int64]*keyPair)
+	return ret
 }
 
 // semi-colon separated value. This is for Android plugin options
@@ -89,24 +107,29 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		return errors.New("Failed to parse Key: " + err.Error())
 	}
 	sta.SID = sid
-	sta.pub = pub
+	sta.staticPub = pub
 	return nil
 }
 
-// Structure: [SID 32 bytes][marshalled public key]
-func parseKey(b64 string) ([]byte, *ecies.PublicKey, error) {
+// Structure: [SID 32 bytes][marshalled public key 32 bytes]
+func parseKey(b64 string) ([]byte, crypto.PublicKey, error) {
 	b, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
 		return nil, nil, err
 	}
-	sid := b[0:32]
-	marshalled := b[32:]
-	x, y := elliptic.Unmarshal(ecies.DefaultCurve, marshalled)
-	pub := &ecies.PublicKey{
-		X:      x,
-		Y:      y,
-		Curve:  ecies.DefaultCurve,
-		Params: ecies.ParamsFromCurve(ecies.DefaultCurve),
-	}
-	return sid, pub, nil
+	ec := ecdh.NewCurve25519ECDH()
+	pub, _ := ec.Unmarshal(b[32:64])
+	return b[0:32], pub, nil
+}
+
+func (sta *State) getKeyPair(tthInterval int64) *keyPair {
+	sta.keyPairsM.Lock()
+	defer sta.keyPairsM.Unlock()
+	return sta.keyPairs[tthInterval]
+}
+
+func (sta *State) putKeyPair(tthInterval int64, kp *keyPair) {
+	sta.keyPairsM.Lock()
+	sta.keyPairs[tthInterval] = kp
+	sta.keyPairsM.Unlock()
 }

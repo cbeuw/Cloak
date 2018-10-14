@@ -79,7 +79,10 @@ type sentNotifier struct {
 
 func (ce *connEnclave) send(data []byte) {
 	// TODO: error handling
-	n, _ := ce.remoteConn.Write(data)
+	n, err := ce.remoteConn.Write(data)
+	if err != nil {
+		log.Println(err)
+	}
 	sn := &sentNotifier{
 		ce,
 		n,
@@ -121,7 +124,7 @@ func (sb *switchboard) dispatch() {
 }
 
 func (sb *switchboard) deplex(ce *connEnclave) {
-	buf := make([]byte, 20480)
+	buf := make([]byte, 204800)
 	for {
 		i, err := sb.session.obfsedReader(ce.remoteConn, buf)
 		if err != nil {
@@ -136,6 +139,7 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 			stream = sb.session.addStream(frame.StreamID)
 		}
 		if closing := sb.session.getStream(frame.ClosingStreamID); closing != nil {
+			log.Printf("HeaderClosing: %v\n", frame.ClosingStreamID)
 			closing.Close()
 		}
 		stream.newFrameCh <- frame

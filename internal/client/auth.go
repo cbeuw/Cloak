@@ -1,59 +1,57 @@
 package client
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/util"
-	"github.com/cbeuw/ecies"
+	ecdh "github.com/cbeuw/go-ecdh"
+	"io"
 )
 
-func MakeRandomField(sta *State) []byte {
+type keyPair struct {
+	crypto.PrivateKey
+	crypto.PublicKey
+}
 
+func MakeRandomField(sta *State) []byte {
 	t := make([]byte, 8)
-	binary.BigEndian.PutUint64(t, uint64(sta.Now().Unix()/12*60*60))
-	rand := util.PsudoRandBytes(16, sta.Now().UnixNano())
+	binary.BigEndian.PutUint64(t, uint64(sta.Now().Unix()/(12*60*60)))
+	rdm := make([]byte, 16)
+	io.ReadFull(rand.Reader, rdm)
 	preHash := make([]byte, 56)
 	copy(preHash[0:32], sta.SID)
 	copy(preHash[32:40], t)
-	copy(preHash[40:56], rand)
+	copy(preHash[40:56], rdm)
 	h := sha256.New()
 	h.Write(preHash)
 	ret := make([]byte, 32)
-	copy(ret[0:16], rand)
+	copy(ret[0:16], rdm)
 	copy(ret[16:32], h.Sum(nil)[0:16])
 	return ret
 }
 
 func MakeSessionTicket(sta *State) []byte {
-	t := make([]byte, 8)
-	binary.BigEndian.PutUint64(t, uint64(sta.Now().Unix()/int64(sta.TicketTimeHint)))
-	plain := make([]byte, 40)
-	copy(plain, sta.SID)
-	copy(plain[32:], t)
-	// With the default settings (P256, AES128, SHA256) of the ecies package, len(ct)==153.
-	//
-	// ciphertext is composed of 3 parts: marshalled X and Y coordinates on the curve,
-	// iv+ciphertext of the block cipher (aes128 in this case),
-	// and the hmac which is 32 bytes because it's sha256
-	//
-	// The marshalling is done by crypto/elliptic.Marshal. According to the code,
-	// the size after marshall is 65
-	//
-	// IV is 16 bytes. The size of ciphertext is equal to the plaintext, which is 40,
-	// that is 32 bytes of SID + 8 bytes of timestamp/tickettimehint.
-	// 16+40 = 56
-	//
-	// Then the hmac is 32 bytes
-	//
-	// 65+56+32=153
-	ct, _ := ecies.Encrypt(rand.Reader, sta.pub, plain, nil, nil)
-	sessionTicket := make([]byte, 192)
-	// The reason for ct[1:] is that, the first byte of ct is always 0x04
-	// This is specified in the section 4.3.6 of ANSI X9.62 (the uncompressed form).
-	// This is a flag that is useless to us and it will expose our pattern
-	// (because the sessionTicket isn't fully random anymore). Therefore we drop it.
-	copy(sessionTicket, ct[1:])
-	copy(sessionTicket[152:], util.PsudoRandBytes(40, sta.Now().UnixNano()))
-	return sessionTicket
+	// sessionTicket: [marshalled ephemeral pub key 32 bytes][encrypted SID 32 bytes][padding 128 bytes]
+	// The first 16 bytes of the marshalled ephemeral public key is used as the IV
+	// for encrypting the SID
+	tthInterval := sta.Now().Unix() / int64(sta.TicketTimeHint)
+	ec := ecdh.NewCurve25519ECDH()
+	ephKP := sta.getKeyPair(tthInterval)
+	if ephKP == nil {
+		ephPv, ephPub, _ := ec.GenerateKey(rand.Reader)
+		ephKP = &keyPair{
+			ephPv,
+			ephPub,
+		}
+		sta.putKeyPair(tthInterval, ephKP)
+	}
+	ticket := make([]byte, 192)
+	copy(ticket[0:32], ec.Marshal(ephKP.PublicKey))
+	key, _ := ec.GenerateSharedSecret(ephKP.PrivateKey, sta.staticPub)
+	cipherSID := util.AESEncrypt(ticket[0:16], key, sta.SID)
+	copy(ticket[32:64], cipherSID)
+	io.ReadFull(rand.Reader, ticket[64:192])
+	return ticket
 }

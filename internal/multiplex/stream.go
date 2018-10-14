@@ -3,6 +3,7 @@ package multiplex
 import (
 	"errors"
 	"io"
+	"log"
 	"sync"
 )
 
@@ -70,6 +71,7 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 func (stream *Stream) Write(in []byte) (n int, err error) {
 	select {
 	case <-stream.die:
+		log.Printf("Stream %v dying\n", stream.id)
 		return 0, errors.New(errBrokenPipe)
 	default:
 	}
@@ -100,6 +102,8 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 }
 
 func (stream *Stream) Close() error {
+	log.Printf("ID: %v closing\n", stream.id)
+
 	// Because closing a closed channel causes panic
 	stream.closingM.Lock()
 	defer stream.closingM.Unlock()

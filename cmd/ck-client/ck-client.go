@@ -112,13 +112,7 @@ func main() {
 		log.Printf("Starting standalone mode. Listening for ss on %v:%v\n", localHost, localPort)
 	}
 
-	sta := &client.State{
-		SS_LOCAL_HOST:  localHost,
-		SS_LOCAL_PORT:  localPort,
-		SS_REMOTE_HOST: remoteHost,
-		SS_REMOTE_PORT: remotePort,
-		Now:            time.Now,
-	}
+	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now)
 	err := sta.ParseConfig(pluginOpts)
 	if err != nil {
 		log.Fatal(err)

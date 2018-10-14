@@ -2,32 +2,35 @@ package server
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/sha256"
 	"encoding/binary"
-	"github.com/cbeuw/ecies"
 	"log"
+
+	"github.com/cbeuw/Cloak/internal/util"
+	ecdh "github.com/cbeuw/go-ecdh"
 )
 
 // input ticket, return SID
-func decryptSessionTicket(pv *ecies.PrivateKey, ticket []byte) ([]byte, error) {
-	ciphertext := make([]byte, 153)
-	ciphertext[0] = 0x04
-	copy(ciphertext[1:], ticket)
-	plaintext, err := pv.Decrypt(ciphertext, nil, nil)
+func decryptSessionTicket(staticPv crypto.PrivateKey, ticket []byte) ([]byte, error) {
+	ec := ecdh.NewCurve25519ECDH()
+	ephPub, _ := ec.Unmarshal(ticket[0:32])
+	key, err := ec.GenerateSharedSecret(staticPv, ephPub)
 	if err != nil {
 		return nil, err
 	}
-	return plaintext[0:32], nil
+	SID := util.AESDecrypt(ticket[0:16], key, ticket[32:64])
+	return SID, nil
 }
 
 func validateRandom(random []byte, SID []byte, time int64) bool {
 	t := make([]byte, 8)
-	binary.BigEndian.PutUint64(t, uint64(time/12*60*60))
-	rand := random[0:16]
+	binary.BigEndian.PutUint64(t, uint64(time/(12*60*60)))
+	rdm := random[0:16]
 	preHash := make([]byte, 56)
 	copy(preHash[0:32], SID)
 	copy(preHash[32:40], t)
-	copy(preHash[40:56], rand)
+	copy(preHash[40:56], rdm)
 	h := sha256.New()
 	h.Write(preHash)
 	return bytes.Equal(h.Sum(nil)[0:16], random[16:32])
@@ -42,10 +45,12 @@ func TouchStone(ch *ClientHello, sta *State) (bool, []byte) {
 	}
 	sta.putUsedRandom(random)
 
-	SID, err := decryptSessionTicket(sta.pv, ch.extensions[[2]byte{0x00, 0x23}])
+	SID, err := decryptSessionTicket(sta.staticPv, ch.extensions[[2]byte{0x00, 0x23}])
 	if err != nil {
+		log.Printf("ts: %v\n", err)
 		return false, nil
 	}
+	log.Printf("SID: %x\n", SID)
 	isSS := validateRandom(ch.random, SID, sta.Now().Unix())
 	if !isSS {
 		return false, nil

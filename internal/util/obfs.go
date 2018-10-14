@@ -3,12 +3,14 @@ package util
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"encoding/binary"
+	"io"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 )
 
-func encrypt(iv []byte, key []byte, plaintext []byte) []byte {
+func AESEncrypt(iv []byte, key []byte, plaintext []byte) []byte {
 	block, _ := aes.NewCipher(key)
 	ciphertext := make([]byte, len(plaintext))
 	stream := cipher.NewCTR(block, iv)
@@ -16,7 +18,7 @@ func encrypt(iv []byte, key []byte, plaintext []byte) []byte {
 	return ciphertext
 }
 
-func decrypt(iv []byte, key []byte, ciphertext []byte) []byte {
+func AESDecrypt(iv []byte, key []byte, ciphertext []byte) []byte {
 	ret := make([]byte, len(ciphertext))
 	copy(ret, ciphertext) // Because XORKeyStream is inplace, but we don't want the input to be changed
 	block, _ := aes.NewCipher(key)
@@ -32,8 +34,9 @@ func MakeObfs(key []byte) func(*mux.Frame) []byte {
 		binary.BigEndian.PutUint32(header[4:8], f.Seq)
 		binary.BigEndian.PutUint32(header[8:12], f.ClosingStreamID)
 		// header: [StreamID 4 bytes][Seq 4 bytes][ClosingStreamID 4 bytes]
-		iv := CryptoRandBytes(16)
-		cipherheader := encrypt(iv, key, header)
+		iv := make([]byte, 16)
+		io.ReadFull(rand.Reader, iv)
+		cipherheader := AESEncrypt(iv, key, header)
 		obfsed := make([]byte, len(f.Payload)+12+16)
 		copy(obfsed[0:16], iv)
 		copy(obfsed[16:28], cipherheader)
@@ -48,7 +51,7 @@ func MakeObfs(key []byte) func(*mux.Frame) []byte {
 func MakeDeobfs(key []byte) func([]byte) *mux.Frame {
 	deobfs := func(in []byte) *mux.Frame {
 		peeled := PeelRecordLayer(in)
-		header := decrypt(peeled[0:16], key, peeled[16:28])
+		header := AESDecrypt(peeled[0:16], key, peeled[16:28])
 		streamID := binary.BigEndian.Uint32(header[0:4])
 		seq := binary.BigEndian.Uint32(header[4:8])
 		closingStreamID := binary.BigEndian.Uint32(header[8:12])

@@ -19,8 +19,9 @@ var version string
 
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 	for {
-		i, err := io.Copy(dst, src)
-		if err != nil || i == 0 {
+		_, err := io.Copy(dst, src)
+		if err != nil {
+			log.Println(err)
 			go dst.Close()
 			go src.Close()
 			return
@@ -159,15 +160,7 @@ func main() {
 		localPort = strings.Split(*localAddr, ":")[1]
 		log.Printf("Starting standalone mode, listening on %v:%v to ss at %v:%v\n", remoteHost, remotePort, localHost, localPort)
 	}
-	sta := &server.State{
-		SS_LOCAL_HOST:  localHost,
-		SS_LOCAL_PORT:  localPort,
-		SS_REMOTE_HOST: remoteHost,
-		SS_REMOTE_PORT: remotePort,
-		Now:            time.Now,
-		UsedRandom:     map[[32]byte]int{},
-		Sessions:       map[[32]byte]*mux.Session{},
-	}
+	sta := server.InitState(localHost, localPort, remoteHost, remotePort, time.Now)
 	err := sta.ParseConfig(pluginOpts)
 	if err != nil {
 		log.Fatalf("Configuration file error: %v", err)
