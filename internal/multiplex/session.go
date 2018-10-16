@@ -8,7 +8,7 @@ import (
 
 const (
 	// Copied from smux
-	errBrokenPipe          = "broken pipe"
+	errBrokenPipe          = "broken stream"
 	errRepeatStreamClosing = "trying to close a closed stream"
 	acceptBacklog          = 1024
 
@@ -84,9 +84,9 @@ func (sesh *Session) AcceptStream() (*Stream, error) {
 }
 
 func (sesh *Session) delStream(id uint32) {
-	sesh.streamsM.RLock()
+	sesh.streamsM.Lock()
 	delete(sesh.streams, id)
-	sesh.streamsM.RUnlock()
+	sesh.streamsM.Unlock()
 }
 
 func (sesh *Session) isStream(id uint32) bool {

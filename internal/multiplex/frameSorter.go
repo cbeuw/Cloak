@@ -2,6 +2,7 @@ package multiplex
 
 import (
 	"container/heap"
+	"log"
 )
 
 // The data is multiplexed through several TCP connections, therefore the
@@ -57,8 +58,10 @@ func (s *Stream) recvNewFrame() {
 	for {
 		f := <-s.newFrameCh
 		if f == nil {
+			log.Println("nil frame")
 			continue
 		}
+
 		// For the ease of demonstration, assume seq is uint8, i.e. it wraps around after 255
 		fs := &frameNode{
 			f.Seq,

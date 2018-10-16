@@ -6,6 +6,7 @@ import (
 	"io"
 	prand "math/rand"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -45,15 +46,15 @@ func ReadTillDrain(conn net.Conn, buffer []byte) (n int, err error) {
 	}
 
 	dataLength := BtoInt(buffer[3:5])
+	if dataLength > len(buffer) {
+		err = errors.New("Reading TLS message: message size greater than buffer. message size: " + strconv.Itoa(dataLength))
+		return
+	}
 	left := dataLength
 	readPtr := 5
 
 	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	for left != 0 {
-		if readPtr > len(buffer) || readPtr+left > len(buffer) {
-			err = errors.New("Reading TLS message: message size greater than buffer")
-			return
-		}
 		// If left > buffer size (i.e. our message got segmented), the entire MTU is read
 		// if left = buffer size, the entire buffer is all there left to read
 		// if left < buffer size (i.e. multiple messages came together),

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	readBuffer = 102400
+	readBuffer = 20480
 )
 
 type Stream struct {
@@ -50,21 +50,29 @@ func makeStream(id uint32, sesh *Session) *Stream {
 }
 
 func (stream *Stream) Read(buf []byte) (n int, err error) {
-	if len(buf) != 0 {
+	if len(buf) == 0 {
 		select {
 		case <-stream.die:
+			log.Printf("Stream %v dying\n", stream.id)
 			return 0, errors.New(errBrokenPipe)
-		case data := <-stream.sortedBufCh:
-			if len(data) > 0 {
-				copy(buf, data)
-				return len(data), nil
-			} else {
-				// TODO: close stream here or not?
-				return 0, io.EOF
-			}
+		default:
+			return 0, nil
 		}
 	}
-	return 0, errors.New(errBrokenPipe)
+	select {
+	case <-stream.die:
+		log.Printf("Stream %v dying\n", stream.id)
+		return 0, errors.New(errBrokenPipe)
+	default:
+	}
+	data := <-stream.sortedBufCh
+	if len(data) > 0 {
+		copy(buf, data)
+		return len(data), nil
+	} else {
+		// TODO: close stream here or not?
+		return 0, io.EOF
+	}
 
 }
 
@@ -111,8 +119,8 @@ func (stream *Stream) Close() error {
 		return errors.New(errRepeatStreamClosing)
 	}
 	stream.closing = true
-	stream.session.delStream(stream.id)
 	close(stream.die)
+	stream.session.delStream(stream.id)
 	stream.session.closeQCh <- stream.id
 	return nil
 }

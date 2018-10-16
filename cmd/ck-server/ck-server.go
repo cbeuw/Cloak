@@ -6,7 +6,10 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -19,9 +22,8 @@ var version string
 
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 	for {
-		_, err := io.Copy(dst, src)
-		if err != nil {
-			log.Println(err)
+		i, err := io.Copy(dst, src)
+		if err != nil || i == 0 {
 			go dst.Close()
 			go src.Close()
 			return
@@ -102,10 +104,12 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 				newStream, err := sesh.AcceptStream()
 				if err != nil {
 					log.Printf("Failed to get new stream: %v", err)
+					continue
 				}
 				ssConn, err := net.Dial("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
 				if err != nil {
 					log.Printf("Failed to connect to ssserver: %v", err)
+					continue
 				}
 				go pipe(ssConn, newStream)
 				go pipe(newStream, ssConn)
@@ -116,6 +120,10 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 }
 
 func main() {
+	runtime.SetBlockProfileRate(2)
+	go func() {
+		log.Println(http.ListenAndServe("0.0.0.0:8001", nil))
+	}()
 	// Should be 127.0.0.1 to listen to ss-server on this machine
 	var localHost string
 	// server_port in ss config, same as remotePort in plugin mode

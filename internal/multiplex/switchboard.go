@@ -3,7 +3,7 @@ package multiplex
 import (
 	"log"
 	"net"
-	"sort"
+	//"sort"
 )
 
 const (
@@ -79,30 +79,36 @@ type sentNotifier struct {
 
 func (ce *connEnclave) send(data []byte) {
 	// TODO: error handling
-	n, err := ce.remoteConn.Write(data)
+	_, err := ce.remoteConn.Write(data)
 	if err != nil {
+		ce.sb.closingCECh <- ce
 		log.Println(err)
 	}
-	sn := &sentNotifier{
-		ce,
-		n,
-	}
-	ce.sb.sentNotifyCh <- sn
+	/*
+		sn := &sentNotifier{
+			ce,
+			n,
+		}
+		ce.sb.sentNotifyCh <- sn
+	*/
 }
 
 // Dispatcher sends data coming from a stream to a remote connection
 // I used channels here because I didn't want to use mutex
 func (sb *switchboard) dispatch() {
+	var nextCE int
 	for {
 		select {
 		// dispatCh receives data from stream.Write
 		case data := <-sb.dispatCh:
-			go sb.ces[0].send(data)
-			sb.ces[0].sendQueue += len(data)
-		case notified := <-sb.sentNotifyCh:
-			notified.ce.sendQueue -= notified.sent
-			sort.Sort(byQ(sb.ces))
+			go sb.ces[nextCE%len(sb.ces)].send(data)
+			//sb.ces[0].sendQueue += len(data)
+			nextCE += 1
+		/*case notified := <-sb.sentNotifyCh:
+		notified.ce.sendQueue -= notified.sent
+		sort.Sort(byQ(sb.ces))*/
 		case conn := <-sb.newConnCh:
+			log.Println("newConn")
 			newCe := &connEnclave{
 				sb:         sb,
 				remoteConn: conn,
@@ -110,8 +116,9 @@ func (sb *switchboard) dispatch() {
 			}
 			sb.ces = append(sb.ces, newCe)
 			go sb.deplex(newCe)
-			sort.Sort(byQ(sb.ces))
+			//sort.Sort(byQ(sb.ces))
 		case closing := <-sb.closingCECh:
+			log.Println("Closing conn")
 			for i, ce := range sb.ces {
 				if closing == ce {
 					sb.ces = append(sb.ces[:i], sb.ces[i+1:]...)
@@ -124,7 +131,7 @@ func (sb *switchboard) dispatch() {
 }
 
 func (sb *switchboard) deplex(ce *connEnclave) {
-	buf := make([]byte, 204800)
+	buf := make([]byte, 20480)
 	for {
 		i, err := sb.session.obfsedReader(ce.remoteConn, buf)
 		if err != nil {
