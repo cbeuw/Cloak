@@ -20,7 +20,9 @@ import (
 var version string
 
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
-	buf := make([]byte, 20000)
+	// The maximum size of TLS message will be 16396+12. 12 because of the stream header
+	// 16408 is the max TLS message size on Firefox
+	buf := make([]byte, 16396)
 	for {
 		i, err := io.ReadAtLeast(src, buf, 1)
 		if err != nil || i == 0 {
@@ -42,6 +44,7 @@ func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 // This establishes a connection with ckserver and performs a handshake
 func makeRemoteConn(sta *client.State) (net.Conn, error) {
 
+	// For android
 	d := net.Dialer{Control: protector}
 
 	clientHello := TLS.ComposeInitHandshake(sta)
@@ -142,8 +145,8 @@ func main() {
 		log.Fatalf("Failed to establish connection to remote: %v\n", err)
 	}
 
-	obfs := util.MakeObfs(sta.SID[:16])
-	deobfs := util.MakeDeobfs(sta.SID[:16])
+	obfs := util.MakeObfs(sta.SID)
+	deobfs := util.MakeDeobfs(sta.SID)
 	// TODO: where to put obfs deobfs and rtd?
 	sesh := mux.MakeSession(0, initRemoteConn, obfs, deobfs, util.ReadTillDrain)
 

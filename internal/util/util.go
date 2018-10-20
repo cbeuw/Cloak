@@ -1,6 +1,8 @@
 package util
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -9,6 +11,23 @@ import (
 	"strconv"
 	"time"
 )
+
+func AESEncrypt(iv []byte, key []byte, plaintext []byte) []byte {
+	block, _ := aes.NewCipher(key)
+	ciphertext := make([]byte, len(plaintext))
+	stream := cipher.NewCTR(block, iv)
+	stream.XORKeyStream(ciphertext, plaintext)
+	return ciphertext
+}
+
+func AESDecrypt(iv []byte, key []byte, ciphertext []byte) []byte {
+	ret := make([]byte, len(ciphertext))
+	copy(ret, ciphertext) // Because XORKeyStream is inplace, but we don't want the input to be changed
+	block, _ := aes.NewCipher(key)
+	stream := cipher.NewCTR(block, iv)
+	stream.XORKeyStream(ret, ret)
+	return ret
+}
 
 // BtoInt converts a byte slice into int in Big Endian order
 // Uint methods from binary package can be used, but they are messy

@@ -1,54 +1,44 @@
 package util
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
 	"encoding/binary"
-	"io"
 
+	xxhash "github.com/OneOfOne/xxhash"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 )
 
-func AESEncrypt(iv []byte, key []byte, plaintext []byte) []byte {
-	block, _ := aes.NewCipher(key)
-	ciphertext := make([]byte, len(plaintext))
-	stream := cipher.NewCTR(block, iv)
-	stream.XORKeyStream(ciphertext, plaintext)
-	return ciphertext
-}
-
-func AESDecrypt(iv []byte, key []byte, ciphertext []byte) []byte {
-	ret := make([]byte, len(ciphertext))
-	copy(ret, ciphertext) // Because XORKeyStream is inplace, but we don't want the input to be changed
-	block, _ := aes.NewCipher(key)
-	stream := cipher.NewCTR(block, iv)
-	stream.XORKeyStream(ret, ret)
-	return ret
+func genXorKeys(SID []byte, data []byte) (i uint32, ii uint32, iii uint32) {
+	h := xxhash.New32()
+	ret := make([]uint32, 3)
+	preHash := make([]byte, 16)
+	for j := 0; j < 3; j++ {
+		copy(preHash[0:10], SID[j*10:j*10+10])
+		copy(preHash[10:16], data[j*6:j*6+6])
+		h.Write(preHash)
+		ret[j] = h.Sum32()
+	}
+	return ret[0], ret[1], ret[2]
 }
 
 func MakeObfs(key []byte) func(*mux.Frame) []byte {
 	obfs := func(f *mux.Frame) []byte {
-		header := make([]byte, 12)
-		binary.BigEndian.PutUint32(header[0:4], f.StreamID)
-		binary.BigEndian.PutUint32(header[4:8], f.Seq)
-		binary.BigEndian.PutUint32(header[8:12], f.ClosingStreamID)
+		obfsedHeader := make([]byte, 12)
 		// header: [StreamID 4 bytes][Seq 4 bytes][ClosingStreamID 4 bytes]
-		iv := make([]byte, 16)
-		io.ReadFull(rand.Reader, iv)
-		cipherheader := AESEncrypt(iv, key, header)
+		i, ii, iii := genXorKeys(key, f.Payload[0:18])
+		binary.BigEndian.PutUint32(obfsedHeader[0:4], f.StreamID^i)
+		binary.BigEndian.PutUint32(obfsedHeader[4:8], f.Seq^ii)
+		binary.BigEndian.PutUint32(obfsedHeader[8:12], f.ClosingStreamID^iii)
 
 		// Composing final obfsed message
 		// We don't use util.AddRecordLayer here to avoid unnecessary malloc
-		obfsed := make([]byte, 5+16+12+len(f.Payload))
+		obfsed := make([]byte, 5+12+len(f.Payload))
 		obfsed[0] = 0x17
 		obfsed[1] = 0x03
 		obfsed[2] = 0x03
-		binary.BigEndian.PutUint16(obfsed[3:5], uint16(16+12+len(f.Payload)))
-		copy(obfsed[5:21], iv)
-		copy(obfsed[21:33], cipherheader)
-		copy(obfsed[33:], f.Payload)
-		// obfsed: [record layer 5 bytes][iv 16 bytes][cipherheader 12 bytes][payload]
+		binary.BigEndian.PutUint16(obfsed[3:5], uint16(12+len(f.Payload)))
+		copy(obfsed[5:17], obfsedHeader)
+		copy(obfsed[17:], f.Payload)
+		// obfsed: [record layer 5 bytes][cipherheader 12 bytes][payload]
 		return obfsed
 	}
 	return obfs
@@ -57,13 +47,12 @@ func MakeObfs(key []byte) func(*mux.Frame) []byte {
 func MakeDeobfs(key []byte) func([]byte) *mux.Frame {
 	deobfs := func(in []byte) *mux.Frame {
 		peeled := in[5:]
-		header := AESDecrypt(peeled[0:16], key, peeled[16:28])
-		streamID := binary.BigEndian.Uint32(header[0:4])
-		seq := binary.BigEndian.Uint32(header[4:8])
-		closingStreamID := binary.BigEndian.Uint32(header[8:12])
-		payload := make([]byte, len(peeled)-12-16)
-		//log.Printf("Payload: %x\n", payload)
-		copy(payload, peeled[28:])
+		i, ii, iii := genXorKeys(key, peeled[12:30])
+		streamID := binary.BigEndian.Uint32(peeled[0:4]) ^ i
+		seq := binary.BigEndian.Uint32(peeled[4:8]) ^ ii
+		closingStreamID := binary.BigEndian.Uint32(peeled[8:12]) ^ iii
+		payload := make([]byte, len(peeled)-12)
+		copy(payload, peeled[12:])
 		ret := &mux.Frame{
 			StreamID:        streamID,
 			Seq:             seq,

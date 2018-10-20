@@ -21,7 +21,9 @@ import (
 var version string
 
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
-	buf := make([]byte, 20000)
+	// The maximum size of TLS message will be 16396+12. 12 because of the stream header
+	// 16408 is the max TLS message size on Firefox
+	buf := make([]byte, 16396)
 	for {
 		i, err := io.ReadAtLeast(src, buf, 1)
 		if err != nil || i == 0 {
@@ -105,7 +107,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		if sesh = sta.GetSession(arrSID); sesh != nil {
 			sesh.AddConnection(conn)
 		} else {
-			sesh = mux.MakeSession(0, conn, util.MakeObfs(SID[:16]), util.MakeDeobfs(SID[:16]), util.ReadTillDrain)
+			sesh = mux.MakeSession(0, conn, util.MakeObfs(SID), util.MakeDeobfs(SID), util.ReadTillDrain)
 			sta.PutSession(arrSID, sesh)
 		}
 		go func() {

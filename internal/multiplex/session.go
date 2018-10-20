@@ -42,7 +42,6 @@ type Session struct {
 	closeQCh chan uint32
 }
 
-// TODO: put this in main maybe?
 // 1 conn is needed to make a session
 func MakeSession(id int, conn net.Conn, obfs func(*Frame) []byte, deobfs func([]byte) *Frame, obfsedReader func(net.Conn, []byte) (int, error)) *Session {
 	sesh := &Session{

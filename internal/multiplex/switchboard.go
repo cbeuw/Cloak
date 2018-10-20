@@ -12,6 +12,7 @@ const (
 	newConnBacklog    = 8
 )
 
+// switchboard is responsible for keeping the reference of TLS connections between client and server
 type switchboard struct {
 	session *Session
 
@@ -130,6 +131,9 @@ func (sb *switchboard) dispatch() {
 	}
 }
 
+// deplex function costantly reads from a TLS connection
+// it is responsible to act in response to the deobfsed header
+// i.e. should a new stream be added? which existing stream should be closed?
 func (sb *switchboard) deplex(ce *connEnclave) {
 	buf := make([]byte, 20480)
 	for {
