@@ -3,7 +3,7 @@ package multiplex
 import (
 	"log"
 	"net"
-	//"sort"
+	"sort"
 )
 
 const (
@@ -79,18 +79,18 @@ type sentNotifier struct {
 
 func (ce *connEnclave) send(data []byte) {
 	// TODO: error handling
-	_, err := ce.remoteConn.Write(data)
+	n, err := ce.remoteConn.Write(data)
 	if err != nil {
 		ce.sb.closingCECh <- ce
 		log.Println(err)
 	}
-	/*
-		sn := &sentNotifier{
-			ce,
-			n,
-		}
-		ce.sb.sentNotifyCh <- sn
-	*/
+
+	sn := &sentNotifier{
+		ce,
+		n,
+	}
+	ce.sb.sentNotifyCh <- sn
+
 }
 
 // Dispatcher sends data coming from a stream to a remote connection
@@ -102,11 +102,11 @@ func (sb *switchboard) dispatch() {
 		// dispatCh receives data from stream.Write
 		case data := <-sb.dispatCh:
 			go sb.ces[nextCE%len(sb.ces)].send(data)
-			//sb.ces[0].sendQueue += len(data)
+			sb.ces[0].sendQueue += len(data)
 			nextCE += 1
-		/*case notified := <-sb.sentNotifyCh:
-		notified.ce.sendQueue -= notified.sent
-		sort.Sort(byQ(sb.ces))*/
+		case notified := <-sb.sentNotifyCh:
+			notified.ce.sendQueue -= notified.sent
+			sort.Sort(byQ(sb.ces))
 		case conn := <-sb.newConnCh:
 			log.Println("newConn")
 			newCe := &connEnclave{

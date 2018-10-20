@@ -142,8 +142,8 @@ func main() {
 		log.Fatalf("Failed to establish connection to remote: %v\n", err)
 	}
 
-	obfs := util.MakeObfs(sta.SID)
-	deobfs := util.MakeDeobfs(sta.SID)
+	obfs := util.MakeObfs(sta.SID[:16])
+	deobfs := util.MakeDeobfs(sta.SID[:16])
 	// TODO: where to put obfs deobfs and rtd?
 	sesh := mux.MakeSession(0, initRemoteConn, obfs, deobfs, util.ReadTillDrain)
 

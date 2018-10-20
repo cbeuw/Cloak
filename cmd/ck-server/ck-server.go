@@ -9,7 +9,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"runtime"
+	//"runtime"
 	"strings"
 	"time"
 
@@ -105,7 +105,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		if sesh = sta.GetSession(arrSID); sesh != nil {
 			sesh.AddConnection(conn)
 		} else {
-			sesh = mux.MakeSession(0, conn, util.MakeObfs(SID), util.MakeDeobfs(SID), util.ReadTillDrain)
+			sesh = mux.MakeSession(0, conn, util.MakeObfs(SID[:16]), util.MakeDeobfs(SID[:16]), util.ReadTillDrain)
 			sta.PutSession(arrSID, sesh)
 		}
 		go func() {
@@ -129,7 +129,6 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 }
 
 func main() {
-	runtime.SetBlockProfileRate(2)
 	go func() {
 		log.Println(http.ListenAndServe("0.0.0.0:8001", nil))
 	}()

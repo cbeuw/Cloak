@@ -37,20 +37,26 @@ func MakeObfs(key []byte) func(*mux.Frame) []byte {
 		iv := make([]byte, 16)
 		io.ReadFull(rand.Reader, iv)
 		cipherheader := AESEncrypt(iv, key, header)
-		obfsed := make([]byte, len(f.Payload)+12+16)
-		copy(obfsed[0:16], iv)
-		copy(obfsed[16:28], cipherheader)
-		copy(obfsed[28:], f.Payload)
-		// obfsed: [iv 16 bytes][cipherheader 12 bytes][payload]
-		ret := AddRecordLayer(obfsed, []byte{0x17}, []byte{0x03, 0x03})
-		return ret
+
+		// Composing final obfsed message
+		// We don't use util.AddRecordLayer here to avoid unnecessary malloc
+		obfsed := make([]byte, 5+16+12+len(f.Payload))
+		obfsed[0] = 0x17
+		obfsed[1] = 0x03
+		obfsed[2] = 0x03
+		binary.BigEndian.PutUint16(obfsed[3:5], uint16(16+12+len(f.Payload)))
+		copy(obfsed[5:21], iv)
+		copy(obfsed[21:33], cipherheader)
+		copy(obfsed[33:], f.Payload)
+		// obfsed: [record layer 5 bytes][iv 16 bytes][cipherheader 12 bytes][payload]
+		return obfsed
 	}
 	return obfs
 }
 
 func MakeDeobfs(key []byte) func([]byte) *mux.Frame {
 	deobfs := func(in []byte) *mux.Frame {
-		peeled := PeelRecordLayer(in)
+		peeled := in[5:]
 		header := AESDecrypt(peeled[0:16], key, peeled[16:28])
 		streamID := binary.BigEndian.Uint32(header[0:4])
 		seq := binary.BigEndian.Uint32(header[4:8])

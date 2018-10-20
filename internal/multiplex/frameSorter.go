@@ -62,6 +62,18 @@ func (s *Stream) recvNewFrame() {
 			continue
 		}
 
+		if len(s.sh) == 0 && f.Seq == s.nextRecvSeq {
+			s.sortedBufCh <- f.Payload
+
+			s.nextRecvSeq += 1
+			if s.nextRecvSeq == 0 {
+				// when nextN is wrapped, wrapMode becomes false and rev+1
+				s.rev += 1
+				s.wrapMode = false
+			}
+			continue
+		}
+
 		// For the ease of demonstration, assume seq is uint8, i.e. it wraps around after 255
 		fs := &frameNode{
 			f.Seq,
