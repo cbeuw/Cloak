@@ -8,7 +8,7 @@ import (
 
 const (
 	sentNotifyBacklog = 1024
-	dispatchBacklog   = 102400
+	dispatchBacklog   = 10240
 	newConnBacklog    = 8
 )
 
@@ -141,14 +141,19 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 			return
 		}
 		frame := sb.session.deobfs(buf[:i])
-		var stream *Stream
-		if stream = sb.session.getStream(frame.StreamID); stream == nil {
-			stream = sb.session.addStream(frame.StreamID)
-		}
 		if closing := sb.session.getStream(frame.ClosingStreamID); closing != nil {
 			log.Printf("HeaderClosing: %v\n", frame.ClosingStreamID)
 			closing.Close()
 		}
-		stream.newFrameCh <- frame
+		sb.session.nextStreamIDM.Lock()
+		nextID := sb.session.nextStreamID
+		sb.session.nextStreamIDM.Unlock()
+		var stream *Stream
+		if stream = sb.session.getStream(frame.StreamID); nextID <= frame.StreamID && stream == nil {
+			stream = sb.session.addStream(frame.StreamID)
+		}
+		if stream != nil {
+			stream.newFrameCh <- frame
+		}
 	}
 }

@@ -20,9 +20,18 @@ import (
 var version string
 
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
+	buf := make([]byte, 20000)
 	for {
-		i, err := io.Copy(dst, src)
+		i, err := io.ReadAtLeast(src, buf, 1)
 		if err != nil || i == 0 {
+			log.Println(err)
+			go dst.Close()
+			go src.Close()
+			return
+		}
+		i, err = dst.Write(buf[:i])
+		if err != nil || i == 0 {
+			log.Println(err)
 			go dst.Close()
 			go src.Close()
 			return

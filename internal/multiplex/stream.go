@@ -2,7 +2,6 @@ package multiplex
 
 import (
 	"errors"
-	"io"
 	"log"
 	"sync"
 )
@@ -43,7 +42,7 @@ func makeStream(id uint32, sesh *Session) *Stream {
 		die:         make(chan struct{}),
 		sh:          []*frameNode{},
 		newFrameCh:  make(chan *Frame, 1024),
-		sortedBufCh: make(chan []byte, readBuffer),
+		sortedBufCh: make(chan []byte, 4096),
 	}
 	go stream.recvNewFrame()
 	return stream
@@ -63,15 +62,13 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 	case <-stream.die:
 		log.Printf("Stream %v dying\n", stream.id)
 		return 0, errors.New(errBrokenPipe)
-	default:
-	}
-	data := <-stream.sortedBufCh
-	if len(data) > 0 {
+	case data := <-stream.sortedBufCh:
+		if len(buf) < len(data) {
+			log.Println(len(data))
+			return 0, errors.New("buf too small")
+		}
 		copy(buf, data)
 		return len(data), nil
-	} else {
-		// TODO: close stream here or not?
-		return 0, io.EOF
 	}
 
 }
