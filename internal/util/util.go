@@ -46,10 +46,7 @@ func BtoInt(b []byte) int {
 func PsudoRandBytes(length int, seed int64) []byte {
 	prand.Seed(seed)
 	ret := make([]byte, length)
-	for i := 0; i < length; i++ {
-		randByte := byte(prand.Intn(256))
-		ret[i] = randByte
-	}
+	prand.Read(ret)
 	return ret
 }
 

@@ -97,14 +97,12 @@ func (ce *connEnclave) send(data []byte) {
 // Dispatcher sends data coming from a stream to a remote connection
 // I used channels here because I didn't want to use mutex
 func (sb *switchboard) dispatch() {
-	var nextCE int
 	for {
 		select {
 		// dispatCh receives data from stream.Write
 		case data := <-sb.dispatCh:
-			go sb.ces[nextCE%len(sb.ces)].send(data)
+			go sb.ces[0].send(data)
 			sb.ces[0].sendQueue += len(data)
-			nextCE += 1
 		case notified := <-sb.sentNotifyCh:
 			notified.ce.sendQueue -= notified.sent
 			sort.Sort(byQ(sb.ces))
@@ -117,7 +115,6 @@ func (sb *switchboard) dispatch() {
 			}
 			sb.ces = append(sb.ces, newCe)
 			go sb.deplex(newCe)
-			//sort.Sort(byQ(sb.ces))
 		case closing := <-sb.closingCECh:
 			log.Println("Closing conn")
 			for i, ce := range sb.ces {
@@ -126,15 +123,15 @@ func (sb *switchboard) dispatch() {
 					break
 				}
 			}
-			// TODO: when all connections closed
 		}
 	}
 }
 
-// deplex function costantly reads from a TLS connection
+// deplex function costantly reads from a TCP connection
 // it is responsible to act in response to the deobfsed header
 // i.e. should a new stream be added? which existing stream should be closed?
 func (sb *switchboard) deplex(ce *connEnclave) {
+	var highestStream uint32
 	buf := make([]byte, 20480)
 	for {
 		i, err := sb.session.obfsedReader(ce.remoteConn, buf)
@@ -149,12 +146,15 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 			log.Printf("HeaderClosing: %v\n", frame.ClosingStreamID)
 			closing.Close()
 		}
-		sb.session.nextStreamIDM.Lock()
-		nextID := sb.session.nextStreamID
-		sb.session.nextStreamIDM.Unlock()
+
 		var stream *Stream
-		if stream = sb.session.getStream(frame.StreamID); nextID <= frame.StreamID && stream == nil {
+		// If we want to open a new stream, we need to make sure that the newStreamID is indeed new
+		// i.e. it is not a stream that existed before but has been closed
+		// we don't allow streamID reuse.
+		// So here we do a check that the new stream has a higher ID than the highest ID we have got
+		if stream = sb.session.getStream(frame.StreamID); highestStream < frame.StreamID && stream == nil {
 			stream = sb.session.addStream(frame.StreamID)
+			highestStream = frame.StreamID
 		}
 		if stream != nil {
 			stream.newFrameCh <- frame

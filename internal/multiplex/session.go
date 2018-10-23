@@ -1,16 +1,18 @@
 package multiplex
 
 import (
+	"errors"
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 )
 
 const (
+	errBrokenSession        = "broken session"
+	errRepeatSessionClosing = "trying to close a closed session"
 	// Copied from smux
-	errBrokenPipe          = "broken stream"
-	errRepeatStreamClosing = "trying to close a closed stream"
-	acceptBacklog          = 1024
+	acceptBacklog = 1024
 
 	closeBacklog = 512
 )
@@ -25,8 +27,7 @@ type Session struct {
 	// This is supposed to read one TLS message, the same as GoQuiet's ReadTillDrain
 	obfsedReader func(net.Conn, []byte) (int, error)
 
-	nextStreamIDM sync.Mutex
-	nextStreamID  uint32
+	nextStreamID uint32
 
 	streamsM sync.RWMutex
 	streams  map[uint32]*Stream
@@ -40,6 +41,10 @@ type Session struct {
 	// to be read by another stream to send the streamID to notify the remote
 	// that this stream is closed
 	closeQCh chan uint32
+
+	closingM sync.Mutex
+	die      chan struct{}
+	closing  bool
 }
 
 // 1 conn is needed to make a session
@@ -63,13 +68,9 @@ func (sesh *Session) AddConnection(conn net.Conn) {
 }
 
 func (sesh *Session) OpenStream() (*Stream, error) {
-	sesh.nextStreamIDM.Lock()
-	id := sesh.nextStreamID
-	sesh.nextStreamID += 1
-	sesh.nextStreamIDM.Unlock()
-
+	id := atomic.AddUint32(&sesh.nextStreamID, 1)
+	id -= 1 // Because atomic.AddUint32 returns the value after incrementation
 	stream := makeStream(id, sesh)
-
 	sesh.streamsM.Lock()
 	sesh.streams[id] = stream
 	sesh.streamsM.Unlock()
@@ -77,8 +78,12 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 }
 
 func (sesh *Session) AcceptStream() (*Stream, error) {
-	stream := <-sesh.acceptCh
-	return stream, nil
+	select {
+	case <-sesh.die:
+		return nil, errors.New(errBrokenSession)
+	case stream := <-sesh.acceptCh:
+		return stream, nil
+	}
 
 }
 
@@ -89,15 +94,15 @@ func (sesh *Session) delStream(id uint32) {
 }
 
 func (sesh *Session) isStream(id uint32) bool {
-	sesh.streamsM.Lock()
+	sesh.streamsM.RLock()
 	_, ok := sesh.streams[id]
-	sesh.streamsM.Unlock()
+	sesh.streamsM.RUnlock()
 	return ok
 }
 
 func (sesh *Session) getStream(id uint32) *Stream {
-	sesh.streamsM.Lock()
-	defer sesh.streamsM.Unlock()
+	sesh.streamsM.RLock()
+	defer sesh.streamsM.RUnlock()
 	return sesh.streams[id]
 }
 
@@ -110,4 +115,29 @@ func (sesh *Session) addStream(id uint32) *Stream {
 	sesh.streamsM.Unlock()
 	sesh.acceptCh <- stream
 	return stream
+}
+
+func (sesh *Session) Close() error {
+	// Because closing a closed channel causes panic
+	sesh.closingM.Lock()
+	defer sesh.closingM.Unlock()
+	if sesh.closing {
+		return errors.New(errRepeatSessionClosing)
+	}
+	sesh.closing = true
+	close(sesh.die)
+	sesh.streamsM.Lock()
+	for id, stream := range sesh.streams {
+		// If we call stream.Close() here, streamsM will result in a deadlock
+		// because stream.Close calls sesh.delStream, which locks the mutex.
+		// so we need to implement a method of stream that closes the stream without calling
+		// sesh.delStream
+		// This can also be seen in smux
+		go stream.closeNoDelMap()
+		delete(sesh.streams, id)
+	}
+	sesh.streamsM.Unlock()
+
+	return nil
+
 }

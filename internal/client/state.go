@@ -29,6 +29,7 @@ type State struct {
 	SS_REMOTE_PORT string
 
 	Now       func() time.Time
+	opaque    int64
 	SID       []byte
 	staticPub crypto.PublicKey
 	keyPairsM sync.RWMutex
@@ -40,13 +41,14 @@ type State struct {
 	NumConn        int
 }
 
-func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
+func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time, opaque int64) *State {
 	ret := &State{
 		SS_LOCAL_HOST:  localHost,
 		SS_LOCAL_PORT:  localPort,
 		SS_REMOTE_HOST: remoteHost,
 		SS_REMOTE_PORT: remotePort,
 		Now:            nowFunc,
+		opaque:         opaque,
 	}
 	ret.keyPairs = make(map[int64]*keyPair)
 	return ret

@@ -7,6 +7,8 @@ import (
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 )
 
+// For each frame, the three parts of the header is xored with three keys.
+// The keys are generated from the SID and the payload of the frame.
 func genXorKeys(SID []byte, data []byte) (i uint32, ii uint32, iii uint32) {
 	h := xxhash.New32()
 	ret := make([]uint32, 3)

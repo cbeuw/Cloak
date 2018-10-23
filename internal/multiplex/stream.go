@@ -4,20 +4,18 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"sync/atomic"
 )
 
 const (
-	readBuffer = 20480
+	errBrokenStream        = "broken stream"
+	errRepeatStreamClosing = "trying to close a closed stream"
 )
 
 type Stream struct {
 	id uint32
 
 	session *Session
-
-	// Copied from smux
-	dieM sync.Mutex
-	die  chan struct{}
 
 	// Explanations of the following 4 fields can be found in frameSorter.go
 	nextRecvSeq uint32
@@ -28,10 +26,10 @@ type Stream struct {
 	newFrameCh  chan *Frame
 	sortedBufCh chan []byte
 
-	nextSendSeqM sync.Mutex
-	nextSendSeq  uint32
+	nextSendSeq uint32
 
 	closingM sync.Mutex
+	die      chan struct{}
 	closing  bool
 }
 
@@ -53,7 +51,7 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 		select {
 		case <-stream.die:
 			log.Printf("Stream %v dying\n", stream.id)
-			return 0, errors.New(errBrokenPipe)
+			return 0, errors.New(errBrokenStream)
 		default:
 			return 0, nil
 		}
@@ -61,7 +59,7 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 	select {
 	case <-stream.die:
 		log.Printf("Stream %v dying\n", stream.id)
-		return 0, errors.New(errBrokenPipe)
+		return 0, errors.New(errBrokenStream)
 	case data := <-stream.sortedBufCh:
 		if len(buf) < len(data) {
 			log.Println(len(data))
@@ -77,7 +75,7 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 	select {
 	case <-stream.die:
 		log.Printf("Stream %v dying\n", stream.id)
-		return 0, errors.New(errBrokenPipe)
+		return 0, errors.New(errBrokenStream)
 	default:
 	}
 
@@ -95,9 +93,7 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 		Payload:         in,
 	}
 
-	stream.nextSendSeqM.Lock()
-	stream.nextSendSeq += 1
-	stream.nextSendSeqM.Unlock()
+	atomic.AddUint32(&stream.nextSendSeq, 1)
 
 	tlsRecord := stream.session.obfs(f)
 	stream.session.sb.dispatCh <- tlsRecord
@@ -109,7 +105,7 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 func (stream *Stream) Close() error {
 	log.Printf("ID: %v closing\n", stream.id)
 
-	// Because closing a closed channel causes panic
+	// Lock here because closing a closed channel causes panic
 	stream.closingM.Lock()
 	defer stream.closingM.Unlock()
 	if stream.closing {
@@ -118,6 +114,23 @@ func (stream *Stream) Close() error {
 	stream.closing = true
 	close(stream.die)
 	stream.session.delStream(stream.id)
+	stream.session.closeQCh <- stream.id
+	return nil
+}
+
+// Same as Close() but no call to session.delStream.
+// This is called in session.Close() to avoid mutex deadlock
+func (stream *Stream) closeNoDelMap() error {
+	log.Printf("ID: %v closing\n", stream.id)
+
+	// Lock here because closing a closed channel causes panic
+	stream.closingM.Lock()
+	defer stream.closingM.Unlock()
+	if stream.closing {
+		return errors.New(errRepeatStreamClosing)
+	}
+	stream.closing = true
+	close(stream.die)
 	stream.session.closeQCh <- stream.id
 	return nil
 }

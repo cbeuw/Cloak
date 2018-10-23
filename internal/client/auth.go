@@ -52,6 +52,6 @@ func MakeSessionTicket(sta *State) []byte {
 	key, _ := ec.GenerateSharedSecret(ephKP.PrivateKey, sta.staticPub)
 	cipherSID := util.AESEncrypt(ticket[0:16], key, sta.SID)
 	copy(ticket[32:64], cipherSID)
-	io.ReadFull(rand.Reader, ticket[64:192])
+	copy(ticket[64:192], util.PsudoRandBytes(128, tthInterval+sta.opaque))
 	return ticket
 }

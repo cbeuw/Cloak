@@ -124,7 +124,9 @@ func main() {
 		log.Printf("Starting standalone mode. Listening for ss on %v:%v\n", localHost, localPort)
 	}
 
-	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now)
+	opaque := time.Now().UnixNano()
+	// opaque is used to generate the padding of session ticket
+	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now, opaque)
 	err := sta.ParseConfig(pluginOpts)
 	if err != nil {
 		log.Fatal(err)
