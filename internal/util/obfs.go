@@ -25,11 +25,11 @@ func genXorKeys(SID []byte, data []byte) (i uint32, ii uint32, iii uint32) {
 func MakeObfs(key []byte) func(*mux.Frame) []byte {
 	obfs := func(f *mux.Frame) []byte {
 		obfsedHeader := make([]byte, 12)
-		// header: [StreamID 4 bytes][Seq 4 bytes][ClosingStreamID 4 bytes]
+		// header: [StreamID 4 bytes][Seq 4 bytes][Closing 4 bytes]
 		i, ii, iii := genXorKeys(key, f.Payload[0:18])
 		binary.BigEndian.PutUint32(obfsedHeader[0:4], f.StreamID^i)
 		binary.BigEndian.PutUint32(obfsedHeader[4:8], f.Seq^ii)
-		binary.BigEndian.PutUint32(obfsedHeader[8:12], f.ClosingStreamID^iii)
+		binary.BigEndian.PutUint32(obfsedHeader[8:12], f.Closing^iii)
 
 		// Composing final obfsed message
 		// We don't use util.AddRecordLayer here to avoid unnecessary malloc
@@ -52,14 +52,14 @@ func MakeDeobfs(key []byte) func([]byte) *mux.Frame {
 		i, ii, iii := genXorKeys(key, peeled[12:30])
 		streamID := binary.BigEndian.Uint32(peeled[0:4]) ^ i
 		seq := binary.BigEndian.Uint32(peeled[4:8]) ^ ii
-		closingStreamID := binary.BigEndian.Uint32(peeled[8:12]) ^ iii
+		closing := binary.BigEndian.Uint32(peeled[8:12]) ^ iii
 		payload := make([]byte, len(peeled)-12)
 		copy(payload, peeled[12:])
 		ret := &mux.Frame{
-			StreamID:        streamID,
-			Seq:             seq,
-			ClosingStreamID: closingStreamID,
-			Payload:         payload,
+			StreamID: streamID,
+			Seq:      seq,
+			Closing:  closing,
+			Payload:  payload,
 		}
 		return ret
 	}

@@ -145,7 +145,6 @@ func (sb *switchboard) dispatch() {
 // it is responsible to act in response to the deobfsed header
 // i.e. should a new stream be added? which existing stream should be closed?
 func (sb *switchboard) deplex(ce *connEnclave) {
-	var highestStream uint32
 	buf := make([]byte, 20480)
 	for {
 		i, err := sb.session.obfsedReader(ce.remoteConn, buf)
@@ -156,22 +155,10 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 			return
 		}
 		frame := sb.session.deobfs(buf[:i])
-		if closing := sb.session.getStream(frame.ClosingStreamID); closing != nil {
-			log.Printf("HeaderClosing: %v\n", frame.ClosingStreamID)
-			closing.Close()
-		}
-
 		var stream *Stream
-		// If we want to open a new stream, we need to make sure that the newStreamID is indeed new
-		// i.e. it is not a stream that existed before but has been closed
-		// we don't allow streamID reuse.
-		// So here we do a check that the new stream has a higher ID than the highest ID we have got
-		if stream = sb.session.getStream(frame.StreamID); highestStream < frame.StreamID && stream == nil {
+		if stream = sb.session.getStream(frame.StreamID); stream == nil {
 			stream = sb.session.addStream(frame.StreamID)
-			highestStream = frame.StreamID
 		}
-		if stream != nil {
-			stream.newFrameCh <- frame
-		}
+		stream.newFrameCh <- frame
 	}
 }

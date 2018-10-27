@@ -28,6 +28,7 @@ type Session struct {
 	// This is supposed to read one TLS message, the same as GoQuiet's ReadTillDrain
 	obfsedReader func(net.Conn, []byte) (int, error)
 
+	// atomic
 	nextStreamID uint32
 
 	streamsM sync.RWMutex
@@ -38,10 +39,6 @@ type Session struct {
 
 	// For accepting new streams
 	acceptCh chan *Stream
-	// Once a stream.Close is called, it sends its streamID to this channel
-	// to be read by another stream to send the streamID to notify the remote
-	// that this stream is closed
-	closeQCh chan uint32
 
 	closingM sync.Mutex
 	die      chan struct{}
@@ -58,7 +55,6 @@ func MakeSession(id int, conn net.Conn, obfs func(*Frame) []byte, deobfs func([]
 		nextStreamID: 1,
 		streams:      make(map[uint32]*Stream),
 		acceptCh:     make(chan *Stream, acceptBacklog),
-		closeQCh:     make(chan uint32, closeBacklog),
 		die:          make(chan struct{}),
 	}
 	sesh.sb = makeSwitchboard(conn, sesh)

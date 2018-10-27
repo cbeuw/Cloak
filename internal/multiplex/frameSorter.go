@@ -68,6 +68,11 @@ func (s *Stream) recvNewFrame() {
 		}
 
 		if len(s.sh) == 0 && f.Seq == s.nextRecvSeq {
+			if f.Closing == 1 {
+				s.passiveClose()
+				return
+			}
+
 			s.sortedBufCh <- f.Payload
 
 			s.nextRecvSeq += 1
@@ -107,8 +112,13 @@ func (s *Stream) recvNewFrame() {
 
 		// Keep popping from the heap until empty or to the point that the wanted seq was not received
 		for len(s.sh) > 0 && s.sh[0].seq == s.nextRecvSeq {
+			frame := heap.Pop(&s.sh).(*frameNode).frame
 
-			payload := heap.Pop(&s.sh).(*frameNode).frame.Payload
+			if frame.Closing == 1 {
+				s.passiveClose()
+				return
+			}
+			payload := frame.Payload
 			s.sortedBufCh <- payload
 
 			s.nextRecvSeq += 1

@@ -3,6 +3,8 @@ package multiplex
 import (
 	"errors"
 	"log"
+	"math"
+	prand "math/rand"
 	"sync"
 	"sync/atomic"
 )
@@ -26,6 +28,7 @@ type Stream struct {
 	// sortedBufCh are order-sorted data ready to be read raw
 	sortedBufCh chan []byte
 
+	// atomic
 	nextSendSeq uint32
 
 	closingM sync.Mutex
@@ -81,18 +84,11 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 	default:
 	}
 
-	var closingID uint32
-
-	select {
-	case closingID = <-stream.session.closeQCh:
-	default:
-	}
-
 	f := &Frame{
-		StreamID:        stream.id,
-		Seq:             stream.nextSendSeq,
-		ClosingStreamID: closingID,
-		Payload:         in,
+		StreamID: stream.id,
+		Seq:      atomic.LoadUint32(&stream.nextSendSeq),
+		Closing:  0,
+		Payload:  in,
 	}
 
 	atomic.AddUint32(&stream.nextSendSeq, 1)
@@ -104,8 +100,8 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 
 }
 
-func (stream *Stream) Close() error {
-	log.Printf("ID: %v closing\n", stream.id)
+// only close locally. Used when the stream close is notified by the remote
+func (stream *Stream) passiveClose() error {
 
 	// Lock here because closing a closed channel causes panic
 	stream.closingM.Lock()
@@ -113,10 +109,41 @@ func (stream *Stream) Close() error {
 	if stream.closing {
 		return errRepeatStreamClosing
 	}
+	log.Printf("ID: %v passiveclosing\n", stream.id)
 	stream.closing = true
 	close(stream.die)
 	stream.session.delStream(stream.id)
-	stream.session.closeQCh <- stream.id
+	return nil
+}
+
+// active close. Close locally and tell the remote that this stream is being closed
+func (stream *Stream) Close() error {
+
+	// Lock here because closing a closed channel causes panic
+	stream.closingM.Lock()
+	defer stream.closingM.Unlock()
+	if stream.closing {
+		return errRepeatStreamClosing
+	}
+	log.Printf("ID: %v closing\n", stream.id)
+	stream.closing = true
+	close(stream.die)
+
+	prand.Seed(int64(stream.id))
+	padLen := int(math.Floor(prand.Float64()*200 + 300))
+	log.Println(padLen)
+	pad := make([]byte, padLen)
+	prand.Read(pad)
+	f := &Frame{
+		StreamID: stream.id,
+		Seq:      atomic.LoadUint32(&stream.nextSendSeq),
+		Closing:  1,
+		Payload:  pad,
+	}
+	tlsRecord := stream.session.obfs(f)
+	stream.session.sb.dispatCh <- tlsRecord
+
+	stream.session.delStream(stream.id)
 	return nil
 }
 
@@ -133,6 +160,5 @@ func (stream *Stream) closeNoDelMap() error {
 	}
 	stream.closing = true
 	close(stream.die)
-	stream.session.closeQCh <- stream.id
 	return nil
 }
