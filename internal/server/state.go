@@ -116,8 +116,8 @@ func (sta *State) ParseConfig(conf string) (err error) {
 }
 
 func (sta *State) GetSession(SID [32]byte) *mux.Session {
-	sta.sessionsM.Lock()
-	defer sta.sessionsM.Unlock()
+	sta.sessionsM.RLock()
+	defer sta.sessionsM.RUnlock()
 	if sesh, ok := sta.sessions[SID]; ok {
 		return sesh
 	} else {
@@ -128,6 +128,12 @@ func (sta *State) GetSession(SID [32]byte) *mux.Session {
 func (sta *State) PutSession(SID [32]byte, sesh *mux.Session) {
 	sta.sessionsM.Lock()
 	sta.sessions[SID] = sesh
+	sta.sessionsM.Unlock()
+}
+
+func (sta *State) DelSession(SID [32]byte) {
+	sta.sessionsM.Lock()
+	delete(sta.sessions, SID)
 	sta.sessionsM.Unlock()
 }
 

@@ -9,13 +9,14 @@ import (
 )
 
 const (
-	errBrokenSession        = "broken session"
-	errRepeatSessionClosing = "trying to close a closed session"
 	// Copied from smux
 	acceptBacklog = 1024
 
 	closeBacklog = 512
 )
+
+var ErrBrokenSession = errors.New("broken session")
+var errRepeatSessionClosing = errors.New("trying to close a closed session")
 
 type Session struct {
 	id int
@@ -58,6 +59,7 @@ func MakeSession(id int, conn net.Conn, obfs func(*Frame) []byte, deobfs func([]
 		streams:      make(map[uint32]*Stream),
 		acceptCh:     make(chan *Stream, acceptBacklog),
 		closeQCh:     make(chan uint32, closeBacklog),
+		die:          make(chan struct{}),
 	}
 	sesh.sb = makeSwitchboard(conn, sesh)
 	return sesh
@@ -80,7 +82,7 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 func (sesh *Session) AcceptStream() (*Stream, error) {
 	select {
 	case <-sesh.die:
-		return nil, errors.New(errBrokenSession)
+		return nil, ErrBrokenSession
 	case stream := <-sesh.acceptCh:
 		return stream, nil
 	}
@@ -122,7 +124,7 @@ func (sesh *Session) Close() error {
 	sesh.closingM.Lock()
 	defer sesh.closingM.Unlock()
 	if sesh.closing {
-		return errors.New(errRepeatSessionClosing)
+		return errRepeatSessionClosing
 	}
 	sesh.closing = true
 	close(sesh.die)
@@ -138,6 +140,7 @@ func (sesh *Session) Close() error {
 	}
 	sesh.streamsM.Unlock()
 
+	close(sesh.sb.die)
 	return nil
 
 }

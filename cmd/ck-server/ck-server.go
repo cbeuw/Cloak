@@ -9,7 +9,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	//"runtime"
+	"runtime"
 	"strings"
 	"time"
 
@@ -115,7 +115,12 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 				newStream, err := sesh.AcceptStream()
 				if err != nil {
 					log.Printf("Failed to get new stream: %v", err)
-					continue
+					if err == mux.ErrBrokenSession {
+						sta.DelSession(arrSID)
+						return
+					} else {
+						continue
+					}
 				}
 				ssConn, err := net.Dial("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
 				if err != nil {
@@ -131,6 +136,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 }
 
 func main() {
+	runtime.SetBlockProfileRate(5)
 	go func() {
 		log.Println(http.ListenAndServe("0.0.0.0:8001", nil))
 	}()

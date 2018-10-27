@@ -20,9 +20,12 @@ type switchboard struct {
 
 	// For telling dispatcher how many bytes have been sent after Connection.send.
 	sentNotifyCh chan *sentNotifier
-	dispatCh     chan []byte
-	newConnCh    chan net.Conn
-	closingCECh  chan *connEnclave
+	// dispatCh is used by streams to send new data to remote
+	dispatCh    chan []byte
+	newConnCh   chan net.Conn
+	closingCECh chan *connEnclave
+	die         chan struct{}
+	closing     bool
 }
 
 // Some data comes from a Stream to be sent through one of the many
@@ -57,6 +60,7 @@ func makeSwitchboard(conn net.Conn, sesh *Session) *switchboard {
 		dispatCh:     make(chan []byte, dispatchBacklog),
 		newConnCh:    make(chan net.Conn, newConnBacklog),
 		closingCECh:  make(chan *connEnclave, 5),
+		die:          make(chan struct{}),
 	}
 	ce := &connEnclave{
 		sb:         sb,
@@ -97,6 +101,7 @@ func (ce *connEnclave) send(data []byte) {
 // Dispatcher sends data coming from a stream to a remote connection
 // I used channels here because I didn't want to use mutex
 func (sb *switchboard) dispatch() {
+	var dying bool
 	for {
 		select {
 		// dispatCh receives data from stream.Write
@@ -123,6 +128,15 @@ func (sb *switchboard) dispatch() {
 					break
 				}
 			}
+			if len(sb.ces) == 0 && !dying {
+				sb.session.Close()
+			}
+		case <-sb.die:
+			dying = true
+			for _, ce := range sb.ces {
+				ce.remoteConn.Close()
+			}
+			return
 		}
 	}
 }

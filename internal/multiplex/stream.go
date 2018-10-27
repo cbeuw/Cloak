@@ -7,10 +7,8 @@ import (
 	"sync/atomic"
 )
 
-const (
-	errBrokenStream        = "broken stream"
-	errRepeatStreamClosing = "trying to close a closed stream"
-)
+var errBrokenStream = errors.New("broken stream")
+var errRepeatStreamClosing = errors.New("trying to close a closed stream")
 
 type Stream struct {
 	id uint32
@@ -23,14 +21,18 @@ type Stream struct {
 	sh          sorterHeap
 	wrapMode    bool
 
-	newFrameCh  chan *Frame
+	// New frames are received through newFrameCh by frameSorter
+	newFrameCh chan *Frame
+	// sortedBufCh are order-sorted data ready to be read raw
 	sortedBufCh chan []byte
 
 	nextSendSeq uint32
 
 	closingM sync.Mutex
-	die      chan struct{}
-	closing  bool
+	// close(die) is used to notify different goroutines that this stream is closing
+	die chan struct{}
+	// to prevent closing a closed channel
+	closing bool
 }
 
 func makeStream(id uint32, sesh *Session) *Stream {
@@ -51,7 +53,7 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 		select {
 		case <-stream.die:
 			log.Printf("Stream %v dying\n", stream.id)
-			return 0, errors.New(errBrokenStream)
+			return 0, errBrokenStream
 		default:
 			return 0, nil
 		}
@@ -59,7 +61,7 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 	select {
 	case <-stream.die:
 		log.Printf("Stream %v dying\n", stream.id)
-		return 0, errors.New(errBrokenStream)
+		return 0, errBrokenStream
 	case data := <-stream.sortedBufCh:
 		if len(buf) < len(data) {
 			log.Println(len(data))
@@ -75,7 +77,7 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 	select {
 	case <-stream.die:
 		log.Printf("Stream %v dying\n", stream.id)
-		return 0, errors.New(errBrokenStream)
+		return 0, errBrokenStream
 	default:
 	}
 
@@ -109,7 +111,7 @@ func (stream *Stream) Close() error {
 	stream.closingM.Lock()
 	defer stream.closingM.Unlock()
 	if stream.closing {
-		return errors.New(errRepeatStreamClosing)
+		return errRepeatStreamClosing
 	}
 	stream.closing = true
 	close(stream.die)
@@ -127,7 +129,7 @@ func (stream *Stream) closeNoDelMap() error {
 	stream.closingM.Lock()
 	defer stream.closingM.Unlock()
 	if stream.closing {
-		return errors.New(errRepeatStreamClosing)
+		return errRepeatStreamClosing
 	}
 	stream.closing = true
 	close(stream.die)

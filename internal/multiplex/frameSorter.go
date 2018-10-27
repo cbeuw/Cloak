@@ -56,7 +56,12 @@ func (sh *sorterHeap) Pop() interface{} {
 
 func (s *Stream) recvNewFrame() {
 	for {
-		f := <-s.newFrameCh
+		var f *Frame
+		select {
+		case <-s.die:
+			return
+		case f = <-s.newFrameCh:
+		}
 		if f == nil {
 			log.Println("nil frame")
 			continue
