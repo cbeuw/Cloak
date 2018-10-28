@@ -3,7 +3,8 @@ package multiplex
 import (
 	"log"
 	"net"
-	"sort"
+	"sync"
+	"sync/atomic"
 )
 
 const (
@@ -16,51 +17,26 @@ const (
 type switchboard struct {
 	session *Session
 
-	ces []*connEnclave
-
-	// For telling dispatcher how many bytes have been sent after Connection.send.
-	sentNotifyCh chan *sentNotifier
-	// dispatCh is used by streams to send new data to remote
-	dispatCh    chan []byte
-	newConnCh   chan net.Conn
-	closingCECh chan *connEnclave
-	die         chan struct{}
-	closing     bool
+	optimum atomic.Value
+	cesM    sync.RWMutex
+	ces     []*connEnclave
 }
 
 // Some data comes from a Stream to be sent through one of the many
 // remoteConn, but which remoteConn should we use to send the data?
 //
 // In this case, we pick the remoteConn that has about the smallest sendQueue.
-// Though "smallest" is not guaranteed because it doesn't has to be
 type connEnclave struct {
 	sb         *switchboard
 	remoteConn net.Conn
-	sendQueue  int
-}
-
-type byQ []*connEnclave
-
-func (a byQ) Len() int {
-	return len(a)
-}
-func (a byQ) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-func (a byQ) Less(i, j int) bool {
-	return a[i].sendQueue < a[j].sendQueue
+	sendQueue  uint32
 }
 
 // It takes at least 1 conn to start a switchboard
 func makeSwitchboard(conn net.Conn, sesh *Session) *switchboard {
 	sb := &switchboard{
-		session:      sesh,
-		ces:          []*connEnclave{},
-		sentNotifyCh: make(chan *sentNotifier, sentNotifyBacklog),
-		dispatCh:     make(chan []byte, dispatchBacklog),
-		newConnCh:    make(chan net.Conn, newConnBacklog),
-		closingCECh:  make(chan *connEnclave, 5),
-		die:          make(chan struct{}),
+		session: sesh,
+		ces:     []*connEnclave{},
 	}
 	ce := &connEnclave{
 		sb:         sb,
@@ -70,80 +46,74 @@ func makeSwitchboard(conn net.Conn, sesh *Session) *switchboard {
 	sb.ces = append(sb.ces, ce)
 	go sb.deplex(ce)
 
-	go sb.dispatch()
 	return sb
 }
 
-// Everytime after a remoteConn sends something, it constructs this struct
-// Which is sent back to dispatch() through sentNotifyCh to tell dispatch
-// how many bytes it has sent
-type sentNotifier struct {
-	ce   *connEnclave
-	sent int
-}
-
-func (ce *connEnclave) send(data []byte) {
-	// TODO: error handling
+func (sb *switchboard) send(data []byte) (int, error) {
+	ce := sb.optimum.Load().(*connEnclave)
+	atomic.AddUint32(&ce.sendQueue, uint32(len(data)))
+	go sb.updateOptimum()
 	n, err := ce.remoteConn.Write(data)
 	if err != nil {
-		ce.sb.closingCECh <- ce
-		log.Println(err)
+		return 0, err
+		// TODO
 	}
-
-	sn := &sentNotifier{
-		ce,
-		n,
-	}
-	ce.sb.sentNotifyCh <- sn
-
+	atomic.AddUint32(&ce.sendQueue, ^uint32(n-1))
+	go sb.updateOptimum()
+	return n, nil
 }
 
-// Dispatcher sends data coming from a stream to a remote connection
-// I used channels here because I didn't want to use mutex
-func (sb *switchboard) dispatch() {
-	var dying bool
-	for {
-		select {
-		// dispatCh receives data from stream.Write
-		case data := <-sb.dispatCh:
-			go sb.ces[0].send(data)
-			sb.ces[0].sendQueue += len(data)
-		case notified := <-sb.sentNotifyCh:
-			notified.ce.sendQueue -= notified.sent
-			sort.Sort(byQ(sb.ces))
-		case conn := <-sb.newConnCh:
-			log.Println("newConn")
-			newCe := &connEnclave{
-				sb:         sb,
-				remoteConn: conn,
-				sendQueue:  0,
-			}
-			sb.ces = append(sb.ces, newCe)
-			go sb.deplex(newCe)
-		case closing := <-sb.closingCECh:
-			log.Println("Closing conn")
-			for i, ce := range sb.ces {
-				if closing == ce {
-					sb.ces = append(sb.ces[:i], sb.ces[i+1:]...)
-					break
-				}
-			}
-			if len(sb.ces) == 0 && !dying {
-				sb.session.Close()
-			}
-		case <-sb.die:
-			dying = true
-			for _, ce := range sb.ces {
-				ce.remoteConn.Close()
-			}
-			return
+func (sb *switchboard) updateOptimum() {
+	currentOpti := sb.optimum.Load().(*connEnclave)
+	currentOptiQ := atomic.LoadUint32(&currentOpti.sendQueue)
+	sb.cesM.RLock()
+	for _, ce := range sb.ces {
+		ceQ := atomic.LoadUint32(&ce.sendQueue)
+		if ceQ < currentOptiQ {
+			currentOpti = ce
+			currentOptiQ = ceQ
 		}
 	}
+	sb.cesM.RUnlock()
+	sb.optimum.Store(currentOpti)
 }
 
-// deplex function costantly reads from a TCP connection
-// it is responsible to act in response to the deobfsed header
-// i.e. should a new stream be added? which existing stream should be closed?
+func (sb *switchboard) addConn(conn net.Conn) {
+
+	newCe := &connEnclave{
+		sb:         sb,
+		remoteConn: conn,
+		sendQueue:  0,
+	}
+	sb.cesM.Lock()
+	sb.ces = append(sb.ces, newCe)
+	sb.cesM.Unlock()
+	sb.optimum.Store(newCe)
+	go sb.deplex(newCe)
+}
+
+func (sb *switchboard) removeConn(closing *connEnclave) {
+	sb.cesM.Lock()
+	for i, ce := range sb.ces {
+		if closing == ce {
+			sb.ces = append(sb.ces[:i], sb.ces[i+1:]...)
+			break
+		}
+	}
+	sb.cesM.Unlock()
+	if len(sb.ces) == 0 {
+		sb.session.Close()
+	}
+}
+
+func (sb *switchboard) shutdown() {
+	for _, ce := range sb.ces {
+		ce.remoteConn.Close()
+	}
+}
+
+// deplex function costantly reads from a TCP connection, call deobfs and distribute it
+// to the corresponding frame
 func (sb *switchboard) deplex(ce *connEnclave) {
 	buf := make([]byte, 20480)
 	for {
@@ -151,7 +121,7 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 		if err != nil {
 			log.Println(err)
 			go ce.remoteConn.Close()
-			sb.closingCECh <- ce
+			sb.removeConn(ce)
 			return
 		}
 		frame := sb.session.deobfs(buf[:i])

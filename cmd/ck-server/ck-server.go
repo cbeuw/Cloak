@@ -6,10 +6,10 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/http"
-	_ "net/http/pprof"
+	//"net/http"
+	//_ "net/http/pprof"
 	"os"
-	"runtime"
+	//"runtime"
 	"strings"
 	"time"
 
@@ -27,14 +27,12 @@ func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 	for {
 		i, err := io.ReadAtLeast(src, buf, 1)
 		if err != nil || i == 0 {
-			log.Println(err)
 			go dst.Close()
 			go src.Close()
 			return
 		}
 		i, err = dst.Write(buf[:i])
 		if err != nil || i == 0 {
-			log.Println(err)
 			go dst.Close()
 			go src.Close()
 			return
@@ -136,10 +134,10 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 }
 
 func main() {
-	runtime.SetBlockProfileRate(5)
-	go func() {
-		log.Println(http.ListenAndServe("0.0.0.0:8001", nil))
-	}()
+	//runtime.SetBlockProfileRate(5)
+	//go func() {
+	//	log.Println(http.ListenAndServe("0.0.0.0:8001", nil))
+	//}()
 	// Should be 127.0.0.1 to listen to ss-server on this machine
 	var localHost string
 	// server_port in ss config, same as remotePort in plugin mode

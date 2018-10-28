@@ -55,7 +55,6 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 	if len(buf) == 0 {
 		select {
 		case <-stream.die:
-			log.Printf("Stream %v dying\n", stream.id)
 			return 0, errBrokenStream
 		default:
 			return 0, nil
@@ -63,7 +62,6 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 	}
 	select {
 	case <-stream.die:
-		log.Printf("Stream %v dying\n", stream.id)
 		return 0, errBrokenStream
 	case data := <-stream.sortedBufCh:
 		if len(buf) < len(data) {
@@ -79,7 +77,6 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 func (stream *Stream) Write(in []byte) (n int, err error) {
 	select {
 	case <-stream.die:
-		log.Printf("Stream %v dying\n", stream.id)
 		return 0, errBrokenStream
 	default:
 	}
@@ -94,9 +91,9 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 	atomic.AddUint32(&stream.nextSendSeq, 1)
 
 	tlsRecord := stream.session.obfs(f)
-	stream.session.sb.dispatCh <- tlsRecord
+	n, err = stream.session.sb.send(tlsRecord)
 
-	return len(in), nil
+	return
 
 }
 
@@ -109,7 +106,6 @@ func (stream *Stream) passiveClose() error {
 	if stream.closing {
 		return errRepeatStreamClosing
 	}
-	log.Printf("ID: %v passiveclosing\n", stream.id)
 	stream.closing = true
 	close(stream.die)
 	stream.session.delStream(stream.id)
@@ -125,13 +121,11 @@ func (stream *Stream) Close() error {
 	if stream.closing {
 		return errRepeatStreamClosing
 	}
-	log.Printf("ID: %v closing\n", stream.id)
 	stream.closing = true
 	close(stream.die)
 
 	prand.Seed(int64(stream.id))
 	padLen := int(math.Floor(prand.Float64()*200 + 300))
-	log.Println(padLen)
 	pad := make([]byte, padLen)
 	prand.Read(pad)
 	f := &Frame{
@@ -141,7 +135,7 @@ func (stream *Stream) Close() error {
 		Payload:  pad,
 	}
 	tlsRecord := stream.session.obfs(f)
-	stream.session.sb.dispatCh <- tlsRecord
+	stream.session.sb.send(tlsRecord)
 
 	stream.session.delStream(stream.id)
 	return nil
@@ -150,7 +144,6 @@ func (stream *Stream) Close() error {
 // Same as Close() but no call to session.delStream.
 // This is called in session.Close() to avoid mutex deadlock
 func (stream *Stream) closeNoDelMap() error {
-	log.Printf("ID: %v closing\n", stream.id)
 
 	// Lock here because closing a closed channel causes panic
 	stream.closingM.Lock()

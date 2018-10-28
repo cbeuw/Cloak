@@ -2,7 +2,6 @@ package multiplex
 
 import (
 	"errors"
-	"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -62,7 +61,7 @@ func MakeSession(id int, conn net.Conn, obfs func(*Frame) []byte, deobfs func([]
 }
 
 func (sesh *Session) AddConnection(conn net.Conn) {
-	sesh.sb.newConnCh <- conn
+	sesh.sb.addConn(conn)
 }
 
 func (sesh *Session) OpenStream() (*Stream, error) {
@@ -106,7 +105,6 @@ func (sesh *Session) getStream(id uint32) *Stream {
 
 // addStream is used when the remote opened a new stream and we got notified
 func (sesh *Session) addStream(id uint32) *Stream {
-	log.Printf("Adding stream %v", id)
 	stream := makeStream(id, sesh)
 	sesh.streamsM.Lock()
 	sesh.streams[id] = stream
@@ -136,7 +134,7 @@ func (sesh *Session) Close() error {
 	}
 	sesh.streamsM.Unlock()
 
-	close(sesh.sb.die)
+	sesh.sb.shutdown()
 	return nil
 
 }

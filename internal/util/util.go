@@ -9,7 +9,6 @@ import (
 	prand "math/rand"
 	"net"
 	"strconv"
-	"time"
 )
 
 func AESEncrypt(iv []byte, key []byte, plaintext []byte) []byte {
@@ -69,7 +68,6 @@ func ReadTillDrain(conn net.Conn, buffer []byte) (n int, err error) {
 	left := dataLength
 	readPtr := 5
 
-	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	for left != 0 {
 		// If left > buffer size (i.e. our message got segmented), the entire MTU is read
 		// if left = buffer size, the entire buffer is all there left to read
@@ -82,7 +80,6 @@ func ReadTillDrain(conn net.Conn, buffer []byte) (n int, err error) {
 		left -= i
 		readPtr += i
 	}
-	conn.SetReadDeadline(time.Time{})
 
 	n = 5 + dataLength
 	return
