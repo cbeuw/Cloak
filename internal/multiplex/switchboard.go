@@ -1,21 +1,21 @@
 package multiplex
 
 import (
+	"errors"
 	"log"
 	"net"
 	"sync"
 	"sync/atomic"
-)
 
-const (
-	sentNotifyBacklog = 1024
-	dispatchBacklog   = 10240
-	newConnBacklog    = 8
+	"github.com/juju/ratelimit"
 )
 
 // switchboard is responsible for keeping the reference of TLS connections between client and server
 type switchboard struct {
 	session *Session
+
+	wtb *ratelimit.Bucket
+	rtb *ratelimit.Bucket
 
 	optimum atomic.Value
 	cesM    sync.RWMutex
@@ -33,24 +33,25 @@ type connEnclave struct {
 }
 
 // It takes at least 1 conn to start a switchboard
-func makeSwitchboard(conn net.Conn, sesh *Session) *switchboard {
+// TODO: does it really?
+func makeSwitchboard(sesh *Session, uprate, downrate float64) *switchboard {
 	sb := &switchboard{
 		session: sesh,
+		wtb:     ratelimit.NewBucketWithRate(uprate, int64(uprate)),
+		rtb:     ratelimit.NewBucketWithRate(downrate, int64(downrate)),
 		ces:     []*connEnclave{},
 	}
-	ce := &connEnclave{
-		sb:         sb,
-		remoteConn: conn,
-		sendQueue:  0,
-	}
-	sb.ces = append(sb.ces, ce)
-	go sb.deplex(ce)
-
 	return sb
 }
 
+var errNilOptimum error = errors.New("The optimal connection is nil")
+
 func (sb *switchboard) send(data []byte) (int, error) {
 	ce := sb.optimum.Load().(*connEnclave)
+	if ce == nil {
+		return 0, errNilOptimum
+	}
+	sb.wtb.Wait(int64(len(data)))
 	atomic.AddUint32(&ce.sendQueue, uint32(len(data)))
 	go sb.updateOptimum()
 	n, err := ce.remoteConn.Write(data)
@@ -118,6 +119,7 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 	buf := make([]byte, 20480)
 	for {
 		i, err := sb.session.obfsedReader(ce.remoteConn, buf)
+		sb.rtb.Wait(int64(i))
 		if err != nil {
 			log.Println(err)
 			go ce.remoteConn.Close()

@@ -10,8 +10,6 @@ import (
 const (
 	// Copied from smux
 	acceptBacklog = 1024
-
-	closeBacklog = 512
 )
 
 var ErrBrokenSession = errors.New("broken session")
@@ -45,7 +43,7 @@ type Session struct {
 }
 
 // 1 conn is needed to make a session
-func MakeSession(id int, conn net.Conn, obfs func(*Frame) []byte, deobfs func([]byte) *Frame, obfsedReader func(net.Conn, []byte) (int, error)) *Session {
+func MakeSession(id int, uprate, downrate float64, obfs func(*Frame) []byte, deobfs func([]byte) *Frame, obfsedReader func(net.Conn, []byte) (int, error)) *Session {
 	sesh := &Session{
 		id:           id,
 		obfs:         obfs,
@@ -56,7 +54,7 @@ func MakeSession(id int, conn net.Conn, obfs func(*Frame) []byte, deobfs func([]
 		acceptCh:     make(chan *Stream, acceptBacklog),
 		die:          make(chan struct{}),
 	}
-	sesh.sb = makeSwitchboard(conn, sesh)
+	sesh.sb = makeSwitchboard(sesh, uprate, downrate)
 	return sesh
 }
 

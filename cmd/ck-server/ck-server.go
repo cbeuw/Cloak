@@ -102,12 +102,11 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		var arrSID [32]byte
 		copy(arrSID[:], SID)
 		var sesh *mux.Session
-		if sesh = sta.GetSession(arrSID); sesh != nil {
-			sesh.AddConnection(conn)
-		} else {
-			sesh = mux.MakeSession(0, conn, util.MakeObfs(SID), util.MakeDeobfs(SID), util.ReadTillDrain)
+		if sesh = sta.GetSession(arrSID); sesh == nil {
+			sesh = mux.MakeSession(0, 1e9, 1e9, util.MakeObfs(SID), util.MakeDeobfs(SID), util.ReadTillDrain)
 			sta.PutSession(arrSID, sesh)
 		}
+		sesh.AddConnection(conn)
 		go func() {
 			for {
 				newStream, err := sesh.AcceptStream()

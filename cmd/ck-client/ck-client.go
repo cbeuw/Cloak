@@ -140,17 +140,11 @@ func main() {
 		log.Fatal("TicketTimeHint cannot be empty or 0")
 	}
 
-	initRemoteConn, err := makeRemoteConn(sta)
-	if err != nil {
-		log.Fatalf("Failed to establish connection to remote: %v\n", err)
-	}
-
 	obfs := util.MakeObfs(sta.SID)
 	deobfs := util.MakeDeobfs(sta.SID)
-	// TODO: where to put obfs deobfs and rtd?
-	sesh := mux.MakeSession(0, initRemoteConn, obfs, deobfs, util.ReadTillDrain)
+	sesh := mux.MakeSession(0, 1e9, 1e9, obfs, deobfs, util.ReadTillDrain)
 
-	for i := 0; i < sta.NumConn-1; i++ {
+	for i := 0; i < sta.NumConn; i++ {
 		go func() {
 			conn, err := makeRemoteConn(sta)
 			if err != nil {
