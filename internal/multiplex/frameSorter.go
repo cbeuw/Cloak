@@ -15,8 +15,7 @@ import (
 // make sure packets arrive in order.
 //
 // Cloak packets will have a 32-bit sequence number on them, so we know in which order
-// they should be sent to shadowsocks. In the case that the packets arrive out-of-order,
-// the code in this file provides buffering and sorting.
+// they should be sent to shadowsocks. The code in this file provides buffering and sorting.
 //
 // Similar to TCP, the next seq number after 2^32-1 is 0. This is called wrap around.
 //
@@ -54,6 +53,12 @@ func (sh *sorterHeap) Pop() interface{} {
 	return x
 }
 
+func (s *Stream) writeNewFrame(f *Frame) {
+	s.newFrameCh <- f
+}
+
+// recvNewFrame is a forever running loop which receives frames unordered,
+// cache and order them and send them into sortedBufCh
 func (s *Stream) recvNewFrame() {
 	for {
 		var f *Frame
@@ -69,7 +74,7 @@ func (s *Stream) recvNewFrame() {
 
 		if len(s.sh) == 0 && f.Seq == s.nextRecvSeq {
 			if f.Closing == 1 {
-				s.passiveClose()
+				s.sortedBufCh <- []byte{}
 				return
 			}
 
@@ -115,7 +120,7 @@ func (s *Stream) recvNewFrame() {
 			frame := heap.Pop(&s.sh).(*frameNode).frame
 
 			if frame.Closing == 1 {
-				s.passiveClose()
+				s.sortedBufCh <- []byte{}
 				return
 			}
 			payload := frame.Payload

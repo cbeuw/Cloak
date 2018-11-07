@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	mux "github.com/cbeuw/Cloak/internal/multiplex"
+	"github.com/cbeuw/Cloak/internal/server/usermanager"
 )
 
 type rawConfig struct {
@@ -31,25 +31,28 @@ type State struct {
 
 	Now         func() time.Time
 	staticPv    crypto.PrivateKey
+	Userpanel   *usermanager.Userpanel
 	usedRandomM sync.RWMutex
 	usedRandom  map[[32]byte]int
-	sessionsM   sync.RWMutex
-	sessions    map[[32]byte]*mux.Session
 
 	WebServerAddr string
 }
 
-func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
+func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time, dbPath string) (*State, error) {
+	up, err := usermanager.MakeUserpanel(dbPath)
+	if err != nil {
+		return nil, err
+	}
 	ret := &State{
 		SS_LOCAL_HOST:  localHost,
 		SS_LOCAL_PORT:  localPort,
 		SS_REMOTE_HOST: remoteHost,
 		SS_REMOTE_PORT: remotePort,
 		Now:            nowFunc,
+		Userpanel:      up,
 	}
 	ret.usedRandom = make(map[[32]byte]int)
-	ret.sessions = make(map[[32]byte]*mux.Session)
-	return ret
+	return ret, nil
 }
 
 // semi-colon separated value.
@@ -113,28 +116,6 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	}
 	sta.staticPv = pv
 	return nil
-}
-
-func (sta *State) GetSession(SID [32]byte) *mux.Session {
-	sta.sessionsM.RLock()
-	defer sta.sessionsM.RUnlock()
-	if sesh, ok := sta.sessions[SID]; ok {
-		return sesh
-	} else {
-		return nil
-	}
-}
-
-func (sta *State) PutSession(SID [32]byte, sesh *mux.Session) {
-	sta.sessionsM.Lock()
-	sta.sessions[SID] = sesh
-	sta.sessionsM.Unlock()
-}
-
-func (sta *State) DelSession(SID [32]byte) {
-	sta.sessionsM.Lock()
-	delete(sta.sessions, SID)
-	sta.sessionsM.Unlock()
 }
 
 func (sta *State) getUsedRandom(random [32]byte) int {

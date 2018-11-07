@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"time"
@@ -60,7 +61,7 @@ func makeRemoteConn(sta *client.State) (net.Conn, error) {
 	// Three discarded messages: ServerHello, ChangeCipherSpec and Finished
 	discardBuf := make([]byte, 1024)
 	for c := 0; c < 3; c++ {
-		_, err = util.ReadTillDrain(remoteConn, discardBuf)
+		_, err = util.ReadTLS(remoteConn, discardBuf)
 		if err != nil {
 			log.Printf("Reading discarded message %v: %v\n", c, err)
 			return nil, err
@@ -122,9 +123,13 @@ func main() {
 		log.Printf("Starting standalone mode. Listening for ss on %v:%v\n", localHost, localPort)
 	}
 
-	opaque := time.Now().UnixNano()
+	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
+	// sessionID is limited to its UID.
+	rand.Seed(time.Now().UnixNano())
+	sessionID := rand.Uint32()
+
 	// opaque is used to generate the padding of session ticket
-	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now, opaque)
+	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now, sessionID)
 	err := sta.ParseConfig(pluginOpts)
 	if err != nil {
 		log.Fatal(err)
@@ -140,19 +145,19 @@ func main() {
 		log.Fatal("TicketTimeHint cannot be empty or 0")
 	}
 
-	obfs := util.MakeObfs(sta.SID)
-	deobfs := util.MakeDeobfs(sta.SID)
-	sesh := mux.MakeSession(0, 1e9, 1e9, obfs, deobfs, util.ReadTillDrain)
+	valve := mux.MakeValve(1e9, 1e9, 1e9, 1e9)
+	obfs := util.MakeObfs(sta.UID)
+	deobfs := util.MakeDeobfs(sta.UID)
+	sesh := mux.MakeSession(0, valve, obfs, deobfs, util.ReadTLS)
 
+	// TODO: use sync group
 	for i := 0; i < sta.NumConn; i++ {
-		go func() {
-			conn, err := makeRemoteConn(sta)
-			if err != nil {
-				log.Printf("Failed to establish new connections to remote: %v\n", err)
-				return
-			}
-			sesh.AddConnection(conn)
-		}()
+		conn, err := makeRemoteConn(sta)
+		if err != nil {
+			log.Printf("Failed to establish new connections to remote: %v\n", err)
+			return
+		}
+		sesh.AddConnection(conn)
 	}
 
 	listener, err := net.Listen("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
@@ -175,8 +180,12 @@ func main() {
 			stream, err := sesh.OpenStream()
 			if err != nil {
 				ssConn.Close()
+				return
 			}
-			stream.Write(data[:i])
+			_, err = stream.Write(data[:i])
+			if err != nil {
+				log.Println(err)
+			}
 			go pipe(ssConn, stream)
 			pipe(stream, ssConn)
 		}()

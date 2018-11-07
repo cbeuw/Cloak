@@ -2,6 +2,7 @@ package multiplex
 
 import (
 	"errors"
+	"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -16,14 +17,14 @@ var ErrBrokenSession = errors.New("broken session")
 var errRepeatSessionClosing = errors.New("trying to close a closed session")
 
 type Session struct {
-	id int
+	id uint32 // This field isn't acutally used
 
 	// Used in Stream.Write. Add multiplexing headers, encrypt and add TLS header
 	obfs func(*Frame) []byte
 	// Remove TLS header, decrypt and unmarshall multiplexing headers
 	deobfs func([]byte) *Frame
 	// This is supposed to read one TLS message, the same as GoQuiet's ReadTillDrain
-	obfsedReader func(net.Conn, []byte) (int, error)
+	obfsedRead func(net.Conn, []byte) (int, error)
 
 	// atomic
 	nextStreamID uint32
@@ -37,24 +38,25 @@ type Session struct {
 	// For accepting new streams
 	acceptCh chan *Stream
 
+	// TODO: use sync.Once for this
 	closingM sync.Mutex
 	die      chan struct{}
 	closing  bool
 }
 
 // 1 conn is needed to make a session
-func MakeSession(id int, uprate, downrate float64, obfs func(*Frame) []byte, deobfs func([]byte) *Frame, obfsedReader func(net.Conn, []byte) (int, error)) *Session {
+func MakeSession(id uint32, valve *Valve, obfs func(*Frame) []byte, deobfs func([]byte) *Frame, obfsedRead func(net.Conn, []byte) (int, error)) *Session {
 	sesh := &Session{
 		id:           id,
 		obfs:         obfs,
 		deobfs:       deobfs,
-		obfsedReader: obfsedReader,
+		obfsedRead:   obfsedRead,
 		nextStreamID: 1,
 		streams:      make(map[uint32]*Stream),
 		acceptCh:     make(chan *Stream, acceptBacklog),
 		die:          make(chan struct{}),
 	}
-	sesh.sb = makeSwitchboard(sesh, uprate, downrate)
+	sesh.sb = makeSwitchboard(sesh, valve)
 	return sesh
 }
 
@@ -63,12 +65,18 @@ func (sesh *Session) AddConnection(conn net.Conn) {
 }
 
 func (sesh *Session) OpenStream() (*Stream, error) {
-	id := atomic.AddUint32(&sesh.nextStreamID, 1)
-	id -= 1 // Because atomic.AddUint32 returns the value after incrementation
+	select {
+	case <-sesh.die:
+		return nil, ErrBrokenSession
+	default:
+	}
+	id := atomic.AddUint32(&sesh.nextStreamID, 1) - 1
+	// Because atomic.AddUint32 returns the value after incrementation
 	stream := makeStream(id, sesh)
 	sesh.streamsM.Lock()
 	sesh.streams[id] = stream
 	sesh.streamsM.Unlock()
+	log.Printf("Opening stream %v\n", id)
 	return stream, nil
 }
 
@@ -108,6 +116,7 @@ func (sesh *Session) addStream(id uint32) *Stream {
 	sesh.streams[id] = stream
 	sesh.streamsM.Unlock()
 	sesh.acceptCh <- stream
+	log.Printf("Adding stream %v\n", id)
 	return stream
 }
 

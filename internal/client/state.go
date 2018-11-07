@@ -29,8 +29,8 @@ type State struct {
 	SS_REMOTE_PORT string
 
 	Now       func() time.Time
-	opaque    int64
-	SID       []byte
+	sessionID uint32
+	UID       []byte
 	staticPub crypto.PublicKey
 	keyPairsM sync.RWMutex
 	keyPairs  map[int64]*keyPair
@@ -41,14 +41,14 @@ type State struct {
 	NumConn        int
 }
 
-func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time, opaque int64) *State {
+func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time, sessionID uint32) *State {
 	ret := &State{
 		SS_LOCAL_HOST:  localHost,
 		SS_LOCAL_PORT:  localPort,
 		SS_REMOTE_HOST: remoteHost,
 		SS_REMOTE_PORT: remotePort,
 		Now:            nowFunc,
-		opaque:         opaque,
+		sessionID:      sessionID,
 	}
 	ret.keyPairs = make(map[int64]*keyPair)
 	return ret
@@ -56,6 +56,7 @@ func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func
 
 // semi-colon separated value. This is for Android plugin options
 func ssvToJson(ssv string) (ret []byte) {
+	// TODO: base64 encoded data has =. How to escape?
 	unescape := func(s string) string {
 		r := strings.Replace(s, "\\\\", "\\", -1)
 		r = strings.Replace(r, "\\=", "=", -1)
@@ -104,16 +105,16 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	sta.TicketTimeHint = preParse.TicketTimeHint
 	sta.MaskBrowser = preParse.MaskBrowser
 	sta.NumConn = preParse.NumConn
-	sid, pub, err := parseKey(preParse.Key)
+	uid, pub, err := parseKey(preParse.Key)
 	if err != nil {
 		return errors.New("Failed to parse Key: " + err.Error())
 	}
-	sta.SID = sid
+	sta.UID = uid
 	sta.staticPub = pub
 	return nil
 }
 
-// Structure: [SID 32 bytes][marshalled public key 32 bytes]
+// Structure: [UID 32 bytes][marshalled public key 32 bytes]
 func parseKey(b64 string) ([]byte, crypto.PublicKey, error) {
 	b, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {

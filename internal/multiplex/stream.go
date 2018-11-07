@@ -31,7 +31,7 @@ type Stream struct {
 	// atomic
 	nextSendSeq uint32
 
-	closingM sync.Mutex
+	closingM sync.RWMutex
 	// close(die) is used to notify different goroutines that this stream is closing
 	die chan struct{}
 	// to prevent closing a closed channel
@@ -45,7 +45,7 @@ func makeStream(id uint32, sesh *Session) *Stream {
 		die:         make(chan struct{}),
 		sh:          []*frameNode{},
 		newFrameCh:  make(chan *Frame, 1024),
-		sortedBufCh: make(chan []byte, 4096),
+		sortedBufCh: make(chan []byte, 1024),
 	}
 	go stream.recvNewFrame()
 	return stream
@@ -64,6 +64,10 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 	case <-stream.die:
 		return 0, errBrokenStream
 	case data := <-stream.sortedBufCh:
+		if len(data) == 0 {
+			stream.passiveClose()
+			return 0, errBrokenStream
+		}
 		if len(buf) < len(data) {
 			log.Println(len(data))
 			return 0, errors.New("buf too small")
@@ -75,6 +79,13 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 }
 
 func (stream *Stream) Write(in []byte) (n int, err error) {
+	// RWMutex used here isn't really for RW.
+	// we use it to exploit the fact that RLock doesn't create contention.
+	// The use of RWMutex is so that the stream will not actively close
+	// in the middle of the execution of Write. This may cause the closing frame
+	// to be sent before the data frame and cause loss of packet.
+	stream.closingM.RLock()
+	defer stream.closingM.RUnlock()
 	select {
 	case <-stream.die:
 		return 0, errBrokenStream
@@ -83,12 +94,10 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 
 	f := &Frame{
 		StreamID: stream.id,
-		Seq:      atomic.LoadUint32(&stream.nextSendSeq),
+		Seq:      atomic.AddUint32(&stream.nextSendSeq, 1) - 1,
 		Closing:  0,
 		Payload:  in,
 	}
-
-	atomic.AddUint32(&stream.nextSendSeq, 1)
 
 	tlsRecord := stream.session.obfs(f)
 	n, err = stream.session.sb.send(tlsRecord)
@@ -97,9 +106,7 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 
 }
 
-// only close locally. Used when the stream close is notified by the remote
-func (stream *Stream) passiveClose() error {
-
+func (stream *Stream) shutdown() error {
 	// Lock here because closing a closed channel causes panic
 	stream.closingM.Lock()
 	defer stream.closingM.Unlock()
@@ -108,29 +115,36 @@ func (stream *Stream) passiveClose() error {
 	}
 	stream.closing = true
 	close(stream.die)
+	return nil
+}
+
+// only close locally. Used when the stream close is notified by the remote
+func (stream *Stream) passiveClose() error {
+	err := stream.shutdown()
+	if err != nil {
+		return err
+	}
 	stream.session.delStream(stream.id)
+	log.Printf("%v passive closing\n", stream.id)
 	return nil
 }
 
 // active close. Close locally and tell the remote that this stream is being closed
 func (stream *Stream) Close() error {
 
-	// Lock here because closing a closed channel causes panic
-	stream.closingM.Lock()
-	defer stream.closingM.Unlock()
-	if stream.closing {
-		return errRepeatStreamClosing
+	err := stream.shutdown()
+	if err != nil {
+		return err
 	}
-	stream.closing = true
-	close(stream.die)
 
+	// Notify remote that this stream is closed
 	prand.Seed(int64(stream.id))
 	padLen := int(math.Floor(prand.Float64()*200 + 300))
 	pad := make([]byte, padLen)
 	prand.Read(pad)
 	f := &Frame{
 		StreamID: stream.id,
-		Seq:      atomic.LoadUint32(&stream.nextSendSeq),
+		Seq:      atomic.AddUint32(&stream.nextSendSeq, 1) - 1,
 		Closing:  1,
 		Payload:  pad,
 	}
@@ -138,20 +152,12 @@ func (stream *Stream) Close() error {
 	stream.session.sb.send(tlsRecord)
 
 	stream.session.delStream(stream.id)
+	log.Printf("%v actively closed\n", stream.id)
 	return nil
 }
 
 // Same as Close() but no call to session.delStream.
 // This is called in session.Close() to avoid mutex deadlock
 func (stream *Stream) closeNoDelMap() error {
-
-	// Lock here because closing a closed channel causes panic
-	stream.closingM.Lock()
-	defer stream.closingM.Unlock()
-	if stream.closing {
-		return errRepeatStreamClosing
-	}
-	stream.closing = true
-	close(stream.die)
-	return nil
+	return stream.shutdown()
 }

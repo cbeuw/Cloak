@@ -6,20 +6,34 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
-
-	"github.com/juju/ratelimit"
 )
 
 // switchboard is responsible for keeping the reference of TLS connections between client and server
 type switchboard struct {
 	session *Session
 
-	wtb *ratelimit.Bucket
-	rtb *ratelimit.Bucket
+	*Valve
 
-	optimum atomic.Value
+	// optimum is the connEnclave with the smallest sendQueue
+	optimum atomic.Value // *connEnclave
 	cesM    sync.RWMutex
 	ces     []*connEnclave
+
+	//debug
+	hM   sync.Mutex
+	used map[uint32]bool
+}
+
+func (sb *switchboard) getOptimum() *connEnclave {
+	if i := sb.optimum.Load(); i == nil {
+		return nil
+	} else {
+		return i.(*connEnclave)
+	}
+}
+
+func (sb *switchboard) setOptimum(ce *connEnclave) {
+	sb.optimum.Store(ce)
 }
 
 // Some data comes from a Stream to be sent through one of the many
@@ -27,37 +41,43 @@ type switchboard struct {
 //
 // In this case, we pick the remoteConn that has about the smallest sendQueue.
 type connEnclave struct {
-	sb         *switchboard
 	remoteConn net.Conn
 	sendQueue  uint32
 }
 
-// It takes at least 1 conn to start a switchboard
-// TODO: does it really?
-func makeSwitchboard(sesh *Session, uprate, downrate float64) *switchboard {
+func makeSwitchboard(sesh *Session, valve *Valve) *switchboard {
+	// rates are uint64 because in the usermanager we want the bandwidth to be atomically
+	// operated (so that the bandwidth can change on the fly).
 	sb := &switchboard{
 		session: sesh,
-		wtb:     ratelimit.NewBucketWithRate(uprate, int64(uprate)),
-		rtb:     ratelimit.NewBucketWithRate(downrate, int64(downrate)),
+		Valve:   valve,
 		ces:     []*connEnclave{},
+		used:    make(map[uint32]bool),
 	}
 	return sb
 }
 
 var errNilOptimum error = errors.New("The optimal connection is nil")
 
+var ErrNoRxCredit error = errors.New("No Rx credit is left")
+var ErrNoTxCredit error = errors.New("No Tx credit is left")
+
 func (sb *switchboard) send(data []byte) (int, error) {
-	ce := sb.optimum.Load().(*connEnclave)
+	ce := sb.getOptimum()
 	if ce == nil {
 		return 0, errNilOptimum
 	}
-	sb.wtb.Wait(int64(len(data)))
 	atomic.AddUint32(&ce.sendQueue, uint32(len(data)))
 	go sb.updateOptimum()
 	n, err := ce.remoteConn.Write(data)
 	if err != nil {
-		return 0, err
+		return n, err
 		// TODO
+	}
+	if sb.AddTxCredit(-int64(n)) < 0 {
+		log.Println(ErrNoTxCredit)
+		defer sb.session.Close()
+		return n, ErrNoTxCredit
 	}
 	atomic.AddUint32(&ce.sendQueue, ^uint32(n-1))
 	go sb.updateOptimum()
@@ -65,7 +85,7 @@ func (sb *switchboard) send(data []byte) (int, error) {
 }
 
 func (sb *switchboard) updateOptimum() {
-	currentOpti := sb.optimum.Load().(*connEnclave)
+	currentOpti := sb.getOptimum()
 	currentOptiQ := atomic.LoadUint32(&currentOpti.sendQueue)
 	sb.cesM.RLock()
 	for _, ce := range sb.ces {
@@ -76,20 +96,18 @@ func (sb *switchboard) updateOptimum() {
 		}
 	}
 	sb.cesM.RUnlock()
-	sb.optimum.Store(currentOpti)
+	sb.setOptimum(currentOpti)
 }
 
 func (sb *switchboard) addConn(conn net.Conn) {
-
 	newCe := &connEnclave{
-		sb:         sb,
 		remoteConn: conn,
 		sendQueue:  0,
 	}
 	sb.cesM.Lock()
 	sb.ces = append(sb.ces, newCe)
 	sb.cesM.Unlock()
-	sb.optimum.Store(newCe)
+	sb.setOptimum(newCe)
 	go sb.deplex(newCe)
 }
 
@@ -101,10 +119,10 @@ func (sb *switchboard) removeConn(closing *connEnclave) {
 			break
 		}
 	}
-	sb.cesM.Unlock()
 	if len(sb.ces) == 0 {
 		sb.session.Close()
 	}
+	sb.cesM.Unlock()
 }
 
 func (sb *switchboard) shutdown() {
@@ -118,19 +136,40 @@ func (sb *switchboard) shutdown() {
 func (sb *switchboard) deplex(ce *connEnclave) {
 	buf := make([]byte, 20480)
 	for {
-		i, err := sb.session.obfsedReader(ce.remoteConn, buf)
-		sb.rtb.Wait(int64(i))
+		n, err := sb.session.obfsedRead(ce.remoteConn, buf)
+		sb.rxWait(n)
 		if err != nil {
 			log.Println(err)
 			go ce.remoteConn.Close()
 			sb.removeConn(ce)
 			return
 		}
-		frame := sb.session.deobfs(buf[:i])
+		if sb.AddRxCredit(-int64(n)) < 0 {
+			log.Println(ErrNoRxCredit)
+			sb.session.Close()
+			return
+		}
+		frame := sb.session.deobfs(buf[:n])
+
+		//debug
+
 		var stream *Stream
 		if stream = sb.session.getStream(frame.StreamID); stream == nil {
+			if frame.Closing == 1 {
+				// if the frame is telling us to close a closed stream
+				// (this happens when ss-server and ss-local closes the stream
+				// simutaneously), we don't do anything
+				continue
+			}
+			//debug
+			sb.hM.Lock()
+			if sb.used[frame.StreamID] {
+				log.Printf("%v lost!\n", frame.StreamID)
+			}
+			sb.used[frame.StreamID] = true
+			sb.hM.Unlock()
 			stream = sb.session.addStream(frame.StreamID)
 		}
-		stream.newFrameCh <- frame
+		stream.writeNewFrame(frame)
 	}
 }

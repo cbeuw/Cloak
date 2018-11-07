@@ -1,15 +1,16 @@
 package main
 
 import (
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
-	//"net/http"
-	//_ "net/http/pprof"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
-	//"runtime"
+	"runtime"
 	"strings"
 	"time"
 
@@ -70,14 +71,21 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	isSS, SID := server.TouchStone(ch, sta)
+	isSS, UID, sessionID := server.TouchStone(ch, sta)
 	if !isSS {
 		log.Printf("+1 non SS TLS traffic from %v\n", conn.RemoteAddr())
 		goWeb(data)
 		return
 	}
 
-	// TODO: verify SID
+	var arrUID [32]byte
+	copy(arrUID[:], UID)
+	user, err := sta.Userpanel.GetAndActivateUser(arrUID)
+	log.Printf("UID: %x\n", UID)
+	if err != nil {
+		log.Printf("+1 unauthorised user from %v, uid: %x\n", conn.RemoteAddr(), UID)
+		goWeb(data)
+	}
 
 	reply := server.ComposeReply(ch)
 	_, err = conn.Write(reply)
@@ -90,7 +98,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	// Two discarded messages: ChangeCipherSpec and Finished
 	discardBuf := make([]byte, 1024)
 	for c := 0; c < 2; c++ {
-		_, err = util.ReadTillDrain(conn, discardBuf)
+		_, err = util.ReadTLS(conn, discardBuf)
 		if err != nil {
 			log.Printf("Reading discarded message %v: %v\n", c, err)
 			go conn.Close()
@@ -98,45 +106,36 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		}
 	}
 
-	go func() {
-		var arrSID [32]byte
-		copy(arrSID[:], SID)
-		var sesh *mux.Session
-		if sesh = sta.GetSession(arrSID); sesh == nil {
-			sesh = mux.MakeSession(0, 1e9, 1e9, util.MakeObfs(SID), util.MakeDeobfs(SID), util.ReadTillDrain)
-			sta.PutSession(arrSID, sesh)
-		}
-		sesh.AddConnection(conn)
-		go func() {
-			for {
-				newStream, err := sesh.AcceptStream()
-				if err != nil {
-					log.Printf("Failed to get new stream: %v", err)
-					if err == mux.ErrBrokenSession {
-						sta.DelSession(arrSID)
-						return
-					} else {
-						continue
-					}
-				}
-				ssConn, err := net.Dial("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
-				if err != nil {
-					log.Printf("Failed to connect to ssserver: %v", err)
-					continue
-				}
-				go pipe(ssConn, newStream)
-				go pipe(newStream, ssConn)
+	// FIXME: the following code should not be executed for every single remote connection
+	sesh := user.GetOrCreateSession(sessionID, util.MakeObfs(UID), util.MakeDeobfs(UID), util.ReadTLS)
+	sesh.AddConnection(conn)
+	for {
+		newStream, err := sesh.AcceptStream()
+		if err != nil {
+			log.Printf("Failed to get new stream: %v", err)
+			if err == mux.ErrBrokenSession {
+				user.DelSession(sessionID)
+				return
+			} else {
+				continue
 			}
-		}()
-	}()
+		}
+		ssConn, err := net.Dial("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
+		if err != nil {
+			log.Printf("Failed to connect to ssserver: %v", err)
+			continue
+		}
+		go pipe(ssConn, newStream)
+		go pipe(newStream, ssConn)
+	}
 
 }
 
 func main() {
-	//runtime.SetBlockProfileRate(5)
-	//go func() {
-	//	log.Println(http.ListenAndServe("0.0.0.0:8001", nil))
-	//}()
+	runtime.SetBlockProfileRate(5)
+	go func() {
+		log.Println(http.ListenAndServe("0.0.0.0:8001", nil))
+	}()
 	// Should be 127.0.0.1 to listen to ss-server on this machine
 	var localHost string
 	// server_port in ss config, same as remotePort in plugin mode
@@ -181,7 +180,13 @@ func main() {
 		localPort = strings.Split(*localAddr, ":")[1]
 		log.Printf("Starting standalone mode, listening on %v:%v to ss at %v:%v\n", remoteHost, remotePort, localHost, localPort)
 	}
-	sta := server.InitState(localHost, localPort, remoteHost, remotePort, time.Now)
+	sta, _ := server.InitState(localHost, localPort, remoteHost, remotePort, time.Now, "userinfo.db")
+
+	//debug
+	var arrUID [32]byte
+	UID, _ := hex.DecodeString("50d858e0985ecc7f60418aaf0cc5ab587f42c2570a884095a9e8ccacd0f6545c")
+	copy(arrUID[:], UID)
+	sta.Userpanel.AddNewUser(arrUID, 10, 1e12, 1e12, 1e12, 1e12)
 	err := sta.ParseConfig(pluginOpts)
 	if err != nil {
 		log.Fatalf("Configuration file error: %v", err)
