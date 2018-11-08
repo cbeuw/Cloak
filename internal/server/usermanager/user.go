@@ -1,11 +1,12 @@
 package usermanager
 
 import (
-	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	"log"
 	"net"
 	"sync"
 	"sync/atomic"
+
+	mux "github.com/cbeuw/Cloak/internal/multiplex"
 )
 
 /*
@@ -18,7 +19,7 @@ type userParams struct {
 }
 */
 
-type user struct {
+type User struct {
 	up *Userpanel
 
 	uid [32]byte
@@ -31,9 +32,9 @@ type user struct {
 	sessions  map[uint32]*mux.Session
 }
 
-func MakeUser(up *Userpanel, uid [32]byte, sessionsCap uint32, upRate, downRate, upCredit, downCredit int64) *user {
+func MakeUser(up *Userpanel, uid [32]byte, sessionsCap uint32, upRate, downRate, upCredit, downCredit int64) *User {
 	valve := mux.MakeValve(upRate, downRate, upCredit, downCredit)
-	u := &user{
+	u := &User{
 		up:          up,
 		uid:         uid,
 		valve:       valve,
@@ -43,27 +44,23 @@ func MakeUser(up *Userpanel, uid [32]byte, sessionsCap uint32, upRate, downRate,
 	return u
 }
 
-func (u *user) setSessionsCap(cap uint32) {
+func (u *User) setSessionsCap(cap uint32) {
 	atomic.StoreUint32(&u.sessionsCap, cap)
 }
 
-func (u *user) GetSession(sessionID uint32) *mux.Session {
+func (u *User) GetSession(sessionID uint32) *mux.Session {
 	u.sessionsM.RLock()
 	defer u.sessionsM.RUnlock()
-	if sesh, ok := u.sessions[sessionID]; ok {
-		return sesh
-	} else {
-		return nil
-	}
+	return u.sessions[sessionID]
 }
 
-func (u *user) PutSession(sessionID uint32, sesh *mux.Session) {
+func (u *User) PutSession(sessionID uint32, sesh *mux.Session) {
 	u.sessionsM.Lock()
 	u.sessions[sessionID] = sesh
 	u.sessionsM.Unlock()
 }
 
-func (u *user) DelSession(sessionID uint32) {
+func (u *User) DelSession(sessionID uint32) {
 	u.sessionsM.Lock()
 	delete(u.sessions, sessionID)
 	if len(u.sessions) == 0 {
@@ -74,13 +71,15 @@ func (u *user) DelSession(sessionID uint32) {
 	u.sessionsM.Unlock()
 }
 
-func (u *user) GetOrCreateSession(sessionID uint32, obfs func(*mux.Frame) []byte, deobfs func([]byte) *mux.Frame, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session) {
-	log.Printf("getting sessionID %v\n", sessionID)
-	if sesh = u.GetSession(sessionID); sesh != nil {
-		return
+func (u *User) GetOrCreateSession(sessionID uint32, obfs func(*mux.Frame) []byte, deobfs func([]byte) *mux.Frame, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool) {
+	u.sessionsM.Lock()
+	defer u.sessionsM.Unlock()
+	if sesh = u.sessions[sessionID]; sesh != nil {
+		return sesh, true
 	} else {
+		log.Printf("Creating session %v\n", sessionID)
 		sesh = mux.MakeSession(sessionID, u.valve, obfs, deobfs, obfsedRead)
-		u.PutSession(sessionID, sesh)
-		return
+		u.sessions[sessionID] = sesh
+		return sesh, false
 	}
 }

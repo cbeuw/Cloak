@@ -81,7 +81,6 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	var arrUID [32]byte
 	copy(arrUID[:], UID)
 	user, err := sta.Userpanel.GetAndActivateUser(arrUID)
-	log.Printf("UID: %x\n", UID)
 	if err != nil {
 		log.Printf("+1 unauthorised user from %v, uid: %x\n", conn.RemoteAddr(), UID)
 		goWeb(data)
@@ -106,27 +105,31 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		}
 	}
 
-	// FIXME: the following code should not be executed for every single remote connection
-	sesh := user.GetOrCreateSession(sessionID, util.MakeObfs(UID), util.MakeDeobfs(UID), util.ReadTLS)
-	sesh.AddConnection(conn)
-	for {
-		newStream, err := sesh.AcceptStream()
-		if err != nil {
-			log.Printf("Failed to get new stream: %v", err)
-			if err == mux.ErrBrokenSession {
-				user.DelSession(sessionID)
-				return
-			} else {
+	if sesh, existing := user.GetOrCreateSession(sessionID, util.MakeObfs(UID), util.MakeDeobfs(UID), util.ReadTLS); existing {
+		sesh.AddConnection(conn)
+		return
+	} else {
+		log.Printf("UID: %x\n", UID)
+		sesh.AddConnection(conn)
+		for {
+			newStream, err := sesh.AcceptStream()
+			if err != nil {
+				log.Printf("Failed to get new stream: %v", err)
+				if err == mux.ErrBrokenSession {
+					user.DelSession(sessionID)
+					return
+				} else {
+					continue
+				}
+			}
+			ssConn, err := net.Dial("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
+			if err != nil {
+				log.Printf("Failed to connect to ssserver: %v", err)
 				continue
 			}
+			go pipe(ssConn, newStream)
+			go pipe(newStream, ssConn)
 		}
-		ssConn, err := net.Dial("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
-		if err != nil {
-			log.Printf("Failed to connect to ssserver: %v", err)
-			continue
-		}
-		go pipe(ssConn, newStream)
-		go pipe(newStream, ssConn)
 	}
 
 }

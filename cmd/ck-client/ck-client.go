@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/cbeuw/Cloak/internal/client"
@@ -150,15 +151,21 @@ func main() {
 	deobfs := util.MakeDeobfs(sta.UID)
 	sesh := mux.MakeSession(0, valve, obfs, deobfs, util.ReadTLS)
 
+	var wg sync.WaitGroup
 	// TODO: use sync group
 	for i := 0; i < sta.NumConn; i++ {
-		conn, err := makeRemoteConn(sta)
-		if err != nil {
-			log.Printf("Failed to establish new connections to remote: %v\n", err)
-			return
-		}
-		sesh.AddConnection(conn)
+		wg.Add(1)
+		go func() {
+			conn, err := makeRemoteConn(sta)
+			if err != nil {
+				log.Printf("Failed to establish new connections to remote: %v\n", err)
+				return
+			}
+			sesh.AddConnection(conn)
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 
 	listener, err := net.Listen("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
 	if err != nil {

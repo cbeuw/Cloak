@@ -3,15 +3,16 @@ package usermanager
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/boltdb/bolt"
 	"sync"
+
+	"github.com/boltdb/bolt"
 )
 
 type Userpanel struct {
 	db *bolt.DB
 
 	activeUsersM sync.RWMutex
-	activeUsers  map[[32]byte]*user
+	activeUsers  map[[32]byte]*User
 }
 
 func MakeUserpanel(dbPath string) (*Userpanel, error) {
@@ -21,7 +22,7 @@ func MakeUserpanel(dbPath string) (*Userpanel, error) {
 	}
 	up := &Userpanel{
 		db:          db,
-		activeUsers: make(map[[32]byte]*user),
+		activeUsers: make(map[[32]byte]*User),
 	}
 	return up, nil
 }
@@ -30,13 +31,12 @@ var ErrUserNotFound = errors.New("User does not exist in memory or db")
 
 // GetUser is used to retrieve a user if s/he is active, or to retrieve the user's infor
 // from the db and mark it as an active user
-func (up *Userpanel) GetAndActivateUser(UID [32]byte) (*user, error) {
-	up.activeUsersM.RLock()
+func (up *Userpanel) GetAndActivateUser(UID [32]byte) (*User, error) {
+	up.activeUsersM.Lock()
+	defer up.activeUsersM.Unlock()
 	if user, ok := up.activeUsers[UID]; ok {
-		up.activeUsersM.RUnlock()
 		return user, nil
 	}
-	up.activeUsersM.RUnlock()
 
 	var sessionsCap uint32
 	var upRate, downRate, upCredit, downCredit int64
@@ -57,9 +57,7 @@ func (up *Userpanel) GetAndActivateUser(UID [32]byte) (*user, error) {
 	}
 	// TODO: put all of these parameters in a struct instead
 	u := MakeUser(up, UID, sessionsCap, upRate, downRate, upCredit, downCredit)
-	up.activeUsersM.Lock()
 	up.activeUsers[UID] = u
-	up.activeUsersM.Unlock()
 	return u, nil
 }
 
@@ -136,7 +134,7 @@ func (up *Userpanel) delActiveUser(UID [32]byte) {
 	up.activeUsersM.Unlock()
 }
 
-func (up *Userpanel) getActiveUser(UID [32]byte) *user {
+func (up *Userpanel) getActiveUser(UID [32]byte) *User {
 	up.activeUsersM.RLock()
 	defer up.activeUsersM.RUnlock()
 	return up.activeUsers[UID]
