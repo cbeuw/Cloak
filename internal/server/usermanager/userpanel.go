@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/boltdb/bolt"
 )
@@ -24,6 +25,10 @@ func MakeUserpanel(dbPath string) (*Userpanel, error) {
 		db:          db,
 		activeUsers: make(map[[32]byte]*User),
 	}
+	go func() {
+		time.Sleep(time.Second * 10)
+		up.updateCredits()
+	}()
 	return up, nil
 }
 
@@ -146,4 +151,28 @@ func (up *Userpanel) SetSessionsCap(UID [32]byte, newSessionsCap uint32) error {
 	}
 	err := up.updateDBEntryUint32(UID, "sessionsCap", newSessionsCap)
 	return err
+}
+
+func (up *Userpanel) updateCredits() {
+	up.activeUsersM.RLock()
+	defer u.activeUsersM.RUnlock()
+	for _, user := range up.activeUsers {
+		up.db.Update(func(tx *bolt.Tx) error {
+			b := tx.Bucket(u.uid[:])
+			if b == nil {
+				return ErrUserNotFound
+			}
+			oct := make([]byte, 8)
+			binary.BigEndian.PutUint64(oct, uint64(u.valve.GetRxCredit()))
+			if err := b.Put([]byte("rxCredit"), oct); err != nil {
+				return err
+			}
+			binary.BigEndian.PutUint64(oct, uint64(u.valve.GetTxCredit()))
+			if err := b.Put([]byte("txCredit"), oct); err != nil {
+				return err
+			}
+			return nil
+
+		})
+	}
 }

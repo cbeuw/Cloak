@@ -146,7 +146,7 @@ func main() {
 		log.Fatal("TicketTimeHint cannot be empty or 0")
 	}
 
-	valve := mux.MakeValve(1e9, 1e9, 1e9, 1e9)
+	valve := mux.MakeValve(1e12, 1e12, 1e12, 1e12)
 	obfs := util.MakeObfs(sta.UID)
 	deobfs := util.MakeDeobfs(sta.UID)
 	sesh := mux.MakeSession(0, valve, obfs, deobfs, util.ReadTLS)

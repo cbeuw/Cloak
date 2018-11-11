@@ -47,6 +47,14 @@ func (v *Valve) txWait(n int) {
 	v.txtb.Load().(*ratelimit.Bucket).Wait(int64(n))
 }
 
+func (v *Valve) GetRxCredit() int64 {
+	return atomic.LoadInt64(&v.rxCredit)
+}
+
+func (v *Valve) GetTxCredit() int64 {
+	return atomic.LoadInt64(&v.txCredit)
+}
+
 // n can be negative
 func (v *Valve) AddRxCredit(n int64) int64 {
 	return atomic.AddInt64(&v.rxCredit, n)
