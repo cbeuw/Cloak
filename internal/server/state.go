@@ -15,6 +15,7 @@ import (
 type rawConfig struct {
 	WebServerAddr string
 	Key           string
+	AdminUID      string
 }
 type stateManager interface {
 	ParseConfig(string) error
@@ -30,6 +31,7 @@ type State struct {
 	SS_REMOTE_PORT string
 
 	Now         func() time.Time
+	AdminUID    []byte
 	staticPv    crypto.PrivateKey
 	Userpanel   *usermanager.Userpanel
 	usedRandomM sync.RWMutex
@@ -91,6 +93,17 @@ func parseKey(b64 string) (crypto.PrivateKey, error) {
 	return &pv, nil
 }
 
+// base64 encoded 32 byte adminUID
+func parseAdminUID(b64 string) ([]byte, error) {
+	uid, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return nil, err
+	}
+	return uid, nil
+}
+
+// TODO: specify which parse fails
+
 // ParseConfig parses the config (either a path to json or in-line ssv config) into a State variable
 func (sta *State) ParseConfig(conf string) (err error) {
 	var content []byte
@@ -115,6 +128,12 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		return err
 	}
 	sta.staticPv = pv
+
+	adminUID, err := parseAdminUID(preParse.AdminUID)
+	if err != nil {
+		return err
+	}
+	sta.AdminUID = adminUID
 	return nil
 }
 

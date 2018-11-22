@@ -91,6 +91,8 @@ func main() {
 	var remotePort string
 	var pluginOpts string
 
+	var isAdmin *bool
+
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	log_init()
@@ -108,6 +110,7 @@ func main() {
 		flag.StringVar(&remotePort, "p", "443", "remotePort: proxy port, should be 443")
 		flag.StringVar(&pluginOpts, "c", "ckclient.json", "pluginOpts: path to ckclient.json or options seperated with semicolons")
 		askVersion := flag.Bool("v", false, "Print the version number")
+		isAdmin = flag.Bool("a", false, "Admin mode")
 		printUsage := flag.Bool("h", false, "Print this message")
 		flag.Parse()
 
@@ -136,6 +139,25 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if *isAdmin {
+		a := adminHandshake(sta)
+		buf := make([]byte, 16000)
+		for {
+			req := a.getCommand()
+			a.adminConn.Write(req)
+			n, err := a.adminConn.Read(buf)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			resp, err := a.checkAndDecrypt(buf[:n])
+			if err != nil {
+				log.Println(err)
+			}
+			fmt.Println(string(resp))
+		}
+		return
+	}
 	if sta.SS_LOCAL_PORT == "" {
 		log.Fatal("Must specify localPort")
 	}
@@ -146,7 +168,8 @@ func main() {
 		log.Fatal("TicketTimeHint cannot be empty or 0")
 	}
 
-	valve := mux.MakeValve(1e12, 1e12, 1e12, 1e12)
+	var UNLIMITED int64 = 1e12
+	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED, &UNLIMITED)
 	obfs := util.MakeObfs(sta.UID)
 	deobfs := util.MakeDeobfs(sta.UID)
 	sesh := mux.MakeSession(0, valve, obfs, deobfs, util.ReadTLS)

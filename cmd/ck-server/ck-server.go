@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/hex"
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -78,12 +78,50 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	var arrUID [32]byte
-	copy(arrUID[:], UID)
-	user, err := sta.Userpanel.GetAndActivateUser(arrUID)
+	if bytes.Equal(UID, sta.AdminUID) {
+		reply := server.ComposeReply(ch)
+		_, err = conn.Write(reply)
+		if err != nil {
+			log.Printf("Sending reply to remote: %v\n", err)
+			go conn.Close()
+			return
+		}
+
+		// Two discarded messages: ChangeCipherSpec and Finished
+		discardBuf := make([]byte, 1024)
+		for c := 0; c < 2; c++ {
+			_, err = util.ReadTLS(conn, discardBuf)
+			if err != nil {
+				log.Printf("Reading discarded message %v: %v\n", c, err)
+				go conn.Close()
+				return
+			}
+		}
+
+		c := sta.Userpanel.MakeController(sta.AdminUID)
+		for {
+			n, err := conn.Read(data)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			resp, err := c.HandleRequest(data[:n])
+			if err != nil {
+				return
+			}
+			_, err = conn.Write(resp)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+		}
+
+	}
+	user, err := sta.Userpanel.GetAndActivateUser(UID)
 	if err != nil {
 		log.Printf("+1 unauthorised user from %v, uid: %x\n", conn.RemoteAddr(), UID)
 		goWeb(data)
+		return
 	}
 
 	reply := server.ComposeReply(ch)
@@ -185,11 +223,6 @@ func main() {
 	}
 	sta, _ := server.InitState(localHost, localPort, remoteHost, remotePort, time.Now, "userinfo.db")
 
-	//debug
-	var arrUID [32]byte
-	UID, _ := hex.DecodeString("50d858e0985ecc7f60418aaf0cc5ab587f42c2570a884095a9e8ccacd0f6545c")
-	copy(arrUID[:], UID)
-	sta.Userpanel.AddNewUser(arrUID, 10, 1e12, 1e12, 1e12, 1e12)
 	err := sta.ParseConfig(pluginOpts)
 	if err != nil {
 		log.Fatalf("Configuration file error: %v", err)

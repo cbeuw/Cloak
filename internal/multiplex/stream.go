@@ -85,9 +85,9 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 	// in the middle of the execution of Write. This may cause the closing frame
 	// to be sent before the data frame and cause loss of packet.
 	stream.closingM.RLock()
-	defer stream.closingM.RUnlock()
 	select {
 	case <-stream.die:
+		stream.closingM.RUnlock()
 		return 0, errBrokenStream
 	default:
 	}
@@ -101,6 +101,7 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 
 	tlsRecord := stream.session.obfs(f)
 	n, err = stream.session.sb.send(tlsRecord)
+	stream.closingM.RUnlock()
 
 	return
 
@@ -109,12 +110,13 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 func (stream *Stream) shutdown() error {
 	// Lock here because closing a closed channel causes panic
 	stream.closingM.Lock()
-	defer stream.closingM.Unlock()
 	if stream.closing {
+		stream.closingM.Unlock()
 		return errRepeatStreamClosing
 	}
 	stream.closing = true
 	close(stream.die)
+	stream.closingM.Unlock()
 	return nil
 }
 
@@ -149,6 +151,8 @@ func (stream *Stream) Close() error {
 		Payload:  pad,
 	}
 	tlsRecord := stream.session.obfs(f)
+	// FIXME: despite sb.send being always called after Write(), the actual TCP sending
+	// may still be out of order
 	stream.session.sb.send(tlsRecord)
 
 	stream.session.delStream(stream.id)

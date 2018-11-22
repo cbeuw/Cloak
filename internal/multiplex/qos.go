@@ -17,11 +17,11 @@ type Valve struct {
 	rxtb atomic.Value // *ratelimit.Bucket
 	txtb atomic.Value // *ratelimit.Bucket
 
-	rxCredit int64
-	txCredit int64
+	rxCredit *int64
+	txCredit *int64
 }
 
-func MakeValve(rxRate, txRate, rxCredit, txCredit int64) *Valve {
+func MakeValve(rxRate, txRate int64, rxCredit, txCredit *int64) *Valve {
 	v := &Valve{
 		rxCredit: rxCredit,
 		txCredit: txCredit,
@@ -30,6 +30,8 @@ func MakeValve(rxRate, txRate, rxCredit, txCredit int64) *Valve {
 	v.SetTxRate(txRate)
 	return v
 }
+
+// TODO: inline formatting
 
 func (v *Valve) SetRxRate(rate int64) {
 	v.rxtb.Store(ratelimit.NewBucketWithRate(float64(rate), rate))
@@ -47,20 +49,28 @@ func (v *Valve) txWait(n int) {
 	v.txtb.Load().(*ratelimit.Bucket).Wait(int64(n))
 }
 
+func (v *Valve) SetRxCredit(n int64) {
+	atomic.StoreInt64(v.rxCredit, n)
+}
+
+func (v *Valve) SetTxCredit(n int64) {
+	atomic.StoreInt64(v.txCredit, n)
+}
+
 func (v *Valve) GetRxCredit() int64 {
-	return atomic.LoadInt64(&v.rxCredit)
+	return atomic.LoadInt64(v.rxCredit)
 }
 
 func (v *Valve) GetTxCredit() int64 {
-	return atomic.LoadInt64(&v.txCredit)
+	return atomic.LoadInt64(v.txCredit)
 }
 
 // n can be negative
 func (v *Valve) AddRxCredit(n int64) int64 {
-	return atomic.AddInt64(&v.rxCredit, n)
+	return atomic.AddInt64(v.rxCredit, n)
 }
 
 // n can be negative
 func (v *Valve) AddTxCredit(n int64) int64 {
-	return atomic.AddInt64(&v.txCredit, n)
+	return atomic.AddInt64(v.txCredit, n)
 }

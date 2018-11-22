@@ -105,8 +105,9 @@ func (sesh *Session) isStream(id uint32) bool {
 
 func (sesh *Session) getStream(id uint32) *Stream {
 	sesh.streamsM.RLock()
-	defer sesh.streamsM.RUnlock()
-	return sesh.streams[id]
+	ret := sesh.streams[id]
+	sesh.streamsM.RUnlock()
+	return ret
 }
 
 // addStream is used when the remote opened a new stream and we got notified
@@ -123,8 +124,8 @@ func (sesh *Session) addStream(id uint32) *Stream {
 func (sesh *Session) Close() error {
 	// Because closing a closed channel causes panic
 	sesh.closingM.Lock()
-	defer sesh.closingM.Unlock()
 	if sesh.closing {
+		sesh.closingM.Unlock()
 		return errRepeatSessionClosing
 	}
 	sesh.closing = true

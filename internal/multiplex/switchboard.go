@@ -19,9 +19,11 @@ type switchboard struct {
 	cesM    sync.RWMutex
 	ces     []*connEnclave
 
-	//debug
-	hM   sync.Mutex
-	used map[uint32]bool
+	/*
+		//debug
+		hM   sync.Mutex
+		used map[uint32]bool
+	*/
 }
 
 func (sb *switchboard) getOptimum() *connEnclave {
@@ -52,7 +54,8 @@ func makeSwitchboard(sesh *Session, valve *Valve) *switchboard {
 		session: sesh,
 		Valve:   valve,
 		ces:     []*connEnclave{},
-		used:    make(map[uint32]bool),
+		//debug
+		// used: make(map[uint32]bool),
 	}
 	return sb
 }
@@ -151,9 +154,8 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 		}
 		frame := sb.session.deobfs(buf[:n])
 
-		//debug
-
 		var stream *Stream
+		// FIXME: get-then-put without lock
 		if stream = sb.session.getStream(frame.StreamID); stream == nil {
 			if frame.Closing == 1 {
 				// if the frame is telling us to close a closed stream
@@ -162,12 +164,14 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 				continue
 			}
 			//debug
-			sb.hM.Lock()
-			if sb.used[frame.StreamID] {
-				log.Printf("%v lost!\n", frame.StreamID)
-			}
-			sb.used[frame.StreamID] = true
-			sb.hM.Unlock()
+			/*
+				sb.hM.Lock()
+				if sb.used[frame.StreamID] {
+					log.Printf("%v lost!\n", frame.StreamID)
+				}
+				sb.used[frame.StreamID] = true
+				sb.hM.Unlock()
+			*/
 			stream = sb.session.addStream(frame.StreamID)
 		}
 		stream.writeNewFrame(frame)
