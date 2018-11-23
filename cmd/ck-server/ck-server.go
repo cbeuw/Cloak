@@ -152,8 +152,9 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		for {
 			newStream, err := sesh.AcceptStream()
 			if err != nil {
-				log.Printf("Failed to get new stream: %v", err)
+				log.Printf("Failed to get new stream: %v\n", err)
 				if err == mux.ErrBrokenSession {
+					log.Printf("Session closed: %x:%v\n", UID, sessionID)
 					user.DelSession(sessionID)
 					return
 				} else {
@@ -162,7 +163,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			}
 			ssConn, err := net.Dial("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
 			if err != nil {
-				log.Printf("Failed to connect to ssserver: %v", err)
+				log.Printf("Failed to connect to ssserver: %v\n", err)
 				continue
 			}
 			go pipe(ssConn, newStream)
