@@ -11,7 +11,6 @@ import (
 // The keys are generated from the SID and the payload of the frame.
 // FIXME: this code will panic if len(data)<18.
 func genXorKeys(secret []byte, data []byte) (i uint32, ii uint32, iii uint32) {
-
 	h := xxhash.New32()
 	ret := make([]uint32, 3)
 	preHash := make([]byte, 16)
@@ -22,8 +21,6 @@ func genXorKeys(secret []byte, data []byte) (i uint32, ii uint32, iii uint32) {
 		ret[j] = h.Sum32()
 	}
 	return ret[0], ret[1], ret[2]
-
-	return 0, 0, 0
 }
 
 func MakeObfs(key []byte) func(*mux.Frame) []byte {
