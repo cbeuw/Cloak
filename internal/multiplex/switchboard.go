@@ -154,6 +154,17 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 		}
 		frame := sb.session.deobfs(buf[:n])
 
+		// FIXME: there has been a bug in which a packet has
+		// a seemingly corrupted StreamID (e.g. when the largest streamID is something like 3000
+		// and suddently a streamID of 3358661675 is added.
+		// It happens once ~6 hours and the occourance is realy unstable
+		// I couldn't find a way to reproduce it. But I do have some clue.
+		// I commented out the util.genXorKeys function so that the stream headers are being
+		// sent in plaintext, and this bug didn't happen again. So I suspect it has to do
+		// with xxHash. Either it's to do with my usage of the libary or the implementation
+		// of the library. Maybe there's a race somewhere? I may eventually use another
+		// method to encrypt the headers. xxHash isn't cryptographic afterall.
+
 		stream := sb.session.getOrAddStream(frame.StreamID, frame.Closing == 1)
 		// if the frame is telling us to close a closed stream
 		// (this happens when ss-server and ss-local closes the stream
