@@ -22,6 +22,7 @@ import (
 var version string
 
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
+	// TODO: auto reconnect
 	// The maximum size of TLS message will be 16396+12. 12 because of the stream header
 	// 16408 is the max TLS message size on Firefox
 	buf := make([]byte, 16396)
@@ -175,7 +176,6 @@ func main() {
 	sesh := mux.MakeSession(0, valve, obfs, deobfs, util.ReadTLS)
 
 	var wg sync.WaitGroup
-	// TODO: use sync group
 	for i := 0; i < sta.NumConn; i++ {
 		wg.Add(1)
 		go func() {
@@ -190,6 +190,7 @@ func main() {
 	}
 	wg.Wait()
 
+	// TODO: ipv6
 	listener, err := net.Listen("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
 	if err != nil {
 		log.Fatal(err)

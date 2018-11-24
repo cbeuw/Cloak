@@ -56,7 +56,7 @@ func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func
 
 // semi-colon separated value. This is for Android plugin options
 func ssvToJson(ssv string) (ret []byte) {
-	// TODO: base64 encoded data has =. How to escape?
+	// FIXME: base64 encoded data has =. How to escape?
 	unescape := func(s string) string {
 		r := strings.Replace(s, "\\\\", "\\", -1)
 		r = strings.Replace(r, "\\=", "=", -1)

@@ -154,26 +154,21 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 		}
 		frame := sb.session.deobfs(buf[:n])
 
-		var stream *Stream
-		// FIXME: get-then-put without lock
-		if stream = sb.session.getStream(frame.StreamID); stream == nil {
-			if frame.Closing == 1 {
-				// if the frame is telling us to close a closed stream
-				// (this happens when ss-server and ss-local closes the stream
-				// simutaneously), we don't do anything
-				continue
-			}
-			//debug
-			/*
-				sb.hM.Lock()
-				if sb.used[frame.StreamID] {
-					log.Printf("%v lost!\n", frame.StreamID)
-				}
-				sb.used[frame.StreamID] = true
-				sb.hM.Unlock()
-			*/
-			stream = sb.session.addStream(frame.StreamID)
+		stream := sb.session.getOrAddStream(frame.StreamID, frame.Closing == 1)
+		// if the frame is telling us to close a closed stream
+		// (this happens when ss-server and ss-local closes the stream
+		// simutaneously), we don't do anything
+		if stream != nil {
+			stream.writeNewFrame(frame)
 		}
-		stream.writeNewFrame(frame)
+		//debug
+		/*
+			sb.hM.Lock()
+			if sb.used[frame.StreamID] {
+				log.Printf("%v lost!\n", frame.StreamID)
+			}
+			sb.used[frame.StreamID] = true
+			sb.hM.Unlock()
+		*/
 	}
 }

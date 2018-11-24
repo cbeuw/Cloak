@@ -69,8 +69,9 @@ func (u *User) updateInfo(uinfo UserInfo) {
 
 func (u *User) GetSession(sessionID uint32) *mux.Session {
 	u.sessionsM.RLock()
-	defer u.sessionsM.RUnlock()
-	return u.sessions[sessionID]
+	sesh := u.sessions[sessionID]
+	u.sessionsM.RUnlock()
+	return sesh
 }
 
 func (u *User) PutSession(sessionID uint32, sesh *mux.Session) {
@@ -93,13 +94,14 @@ func (u *User) DelSession(sessionID uint32) {
 func (u *User) GetOrCreateSession(sessionID uint32, obfs func(*mux.Frame) []byte, deobfs func([]byte) *mux.Frame, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool) {
 	// TODO: session cap
 	u.sessionsM.Lock()
-	defer u.sessionsM.Unlock()
 	if sesh = u.sessions[sessionID]; sesh != nil {
+		u.sessionsM.Unlock()
 		return sesh, true
 	} else {
 		log.Printf("Creating session %v\n", sessionID)
 		sesh = mux.MakeSession(sessionID, u.valve, obfs, deobfs, obfsedRead)
 		u.sessions[sessionID] = sesh
+		u.sessionsM.Unlock()
 		return sesh, false
 	}
 }
