@@ -229,6 +229,10 @@ func main() {
 		log.Fatalf("Configuration file error: %v", err)
 	}
 
+	if sta.AdminUID == nil {
+		log.Fatalln("AdminUID cannot be empty!")
+	}
+
 	go sta.UsedRandomCleaner()
 
 	listen := func(addr, port string) {
