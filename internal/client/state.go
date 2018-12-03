@@ -15,7 +15,8 @@ import (
 
 type rawConfig struct {
 	ServerName     string
-	Key            string
+	UID            string
+	PublicKey      string
 	TicketTimeHint int
 	MaskBrowser    string
 	NumConn        int
@@ -105,24 +106,23 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	sta.TicketTimeHint = preParse.TicketTimeHint
 	sta.MaskBrowser = preParse.MaskBrowser
 	sta.NumConn = preParse.NumConn
-	uid, pub, err := parseKey(preParse.Key)
+	uid, err := base64.StdEncoding.DecodeString(preParse.UID)
 	if err != nil {
-		return errors.New("Failed to parse Key: " + err.Error())
+		return errors.New("Failed to parse UID: " + err.Error())
 	}
 	sta.UID = uid
-	sta.staticPub = pub
-	return nil
-}
 
-// Structure: [UID 32 bytes][marshalled public key 32 bytes]
-func parseKey(b64 string) ([]byte, crypto.PublicKey, error) {
-	b, err := base64.StdEncoding.DecodeString(b64)
+	pubBytes, err := base64.StdEncoding.DecodeString(preParse.PublicKey)
 	if err != nil {
-		return nil, nil, err
+		return errors.New("Failed to parse Public key: " + err.Error())
 	}
 	ec := ecdh.NewCurve25519ECDH()
-	pub, _ := ec.Unmarshal(b[32:64])
-	return b[0:32], pub, nil
+	pub, ok := ec.Unmarshal(pubBytes)
+	if !ok {
+		return errors.New("Failed to unmarshal Public key")
+	}
+	sta.staticPub = pub
+	return nil
 }
 
 func (sta *State) getKeyPair(tthInterval int64) *keyPair {

@@ -1,6 +1,7 @@
 {
+	"UID":"iGAO85zysIyR4c09CyZSLdNhtP/ckcYu7nIPI082AHA=",
+	"PublicKey":"IYoUzkle/T/kriE+Ufdm7AHQtIeGnBWbhhlTbmDpUUI=",
 	"ServerName":"www.bing.com",
-	"Key":"UNhY4JhezH9gQYqvDMWrWH9CwlcKiECVqejMrND2VFy2wjljjjqJWGiNoAYpWscJ0VEVkewo6o8S/jcNdNxFLQ==",
 	"TicketTimeHint":3600,
 	"NumConn":4,
 	"MaskBrowser":"chrome"

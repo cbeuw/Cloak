@@ -11,6 +11,8 @@ import (
 	"log"
 )
 
+// FIXME: sanity checks. The server may panic due to user input
+
 /*
 0	reserved
 1	listActiveUsers		none		[]uids

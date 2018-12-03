@@ -14,7 +14,7 @@ import (
 
 type rawConfig struct {
 	WebServerAddr string
-	Key           string
+	PrivateKey    string
 	AdminUID      string
 }
 type stateManager interface {
@@ -82,17 +82,6 @@ func ssvToJson(ssv string) (ret []byte) {
 	return ret
 }
 
-// base64 encoded 32 byte private key
-func parseKey(b64 string) (crypto.PrivateKey, error) {
-	b, err := base64.StdEncoding.DecodeString(b64)
-	if err != nil {
-		return nil, err
-	}
-	var pv [32]byte
-	copy(pv[:], b)
-	return &pv, nil
-}
-
 // base64 encoded 32 byte adminUID
 func parseAdminUID(b64 string) ([]byte, error) {
 	uid, err := base64.StdEncoding.DecodeString(b64)
@@ -123,11 +112,14 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	}
 
 	sta.WebServerAddr = preParse.WebServerAddr
-	pv, err := parseKey(preParse.Key)
+
+	pvBytes, err := base64.StdEncoding.DecodeString(preParse.PrivateKey)
 	if err != nil {
 		return err
 	}
-	sta.staticPv = pv
+	var pv [32]byte
+	copy(pv[:], pvBytes)
+	sta.staticPv = &pv
 
 	adminUID, err := parseAdminUID(preParse.AdminUID)
 	if err != nil {

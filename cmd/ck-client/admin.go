@@ -81,6 +81,10 @@ func adminHandshake(sta *client.State) *administrator {
 
 func (a *administrator) getCommand() []byte {
 	fmt.Println("Select your command")
+	fmt.Println(`1       listActiveUsers         none            []uids
+2       listAllUsers            none            []userinfo
+3       getUserInfo             uid             userinfo
+4       addNewUser              userinfo        ok`)
 	var cmd string
 	fmt.Scanln(&cmd)
 	switch cmd {
@@ -97,14 +101,21 @@ func (a *administrator) getCommand() []byte {
 	case "4":
 		var uinfo UserInfo
 		var b64UID string
+		fmt.Printf("UID:")
 		fmt.Scanln(&b64UID)
 		UID, _ := base64.StdEncoding.DecodeString(b64UID)
 		uinfo.UID = UID
+		fmt.Printf("SessionsCap:")
 		fmt.Scanf("%d", &uinfo.SessionsCap)
+		fmt.Printf("UpRate:")
 		fmt.Scanf("%d", &uinfo.UpRate)
+		fmt.Printf("DownRate:")
 		fmt.Scanf("%d", &uinfo.DownRate)
+		fmt.Printf("UpCredit:")
 		fmt.Scanf("%d", &uinfo.UpCredit)
+		fmt.Printf("DownCredit:")
 		fmt.Scanf("%d", &uinfo.DownCredit)
+		fmt.Printf("ExpiryTime:")
 		fmt.Scanf("%d", &uinfo.ExpiryTime)
 		marshed, _ := json.Marshal(uinfo)
 		return a.request(append([]byte{0x04}, marshed...))
