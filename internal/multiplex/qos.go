@@ -31,46 +31,24 @@ func MakeValve(rxRate, txRate int64, rxCredit, txCredit *int64) *Valve {
 	return v
 }
 
-// TODO: inline formatting
+func (v *Valve) SetRxRate(rate int64) { v.rxtb.Store(ratelimit.NewBucketWithRate(float64(rate), rate)) }
 
-func (v *Valve) SetRxRate(rate int64) {
-	v.rxtb.Store(ratelimit.NewBucketWithRate(float64(rate), rate))
-}
+func (v *Valve) SetTxRate(rate int64) { v.txtb.Store(ratelimit.NewBucketWithRate(float64(rate), rate)) }
 
-func (v *Valve) SetTxRate(rate int64) {
-	v.txtb.Store(ratelimit.NewBucketWithRate(float64(rate), rate))
-}
+func (v *Valve) rxWait(n int) { v.rxtb.Load().(*ratelimit.Bucket).Wait(int64(n)) }
 
-func (v *Valve) rxWait(n int) {
-	v.rxtb.Load().(*ratelimit.Bucket).Wait(int64(n))
-}
+func (v *Valve) txWait(n int) { v.txtb.Load().(*ratelimit.Bucket).Wait(int64(n)) }
 
-func (v *Valve) txWait(n int) {
-	v.txtb.Load().(*ratelimit.Bucket).Wait(int64(n))
-}
+func (v *Valve) SetRxCredit(n int64) { atomic.StoreInt64(v.rxCredit, n) }
 
-func (v *Valve) SetRxCredit(n int64) {
-	atomic.StoreInt64(v.rxCredit, n)
-}
+func (v *Valve) SetTxCredit(n int64) { atomic.StoreInt64(v.txCredit, n) }
 
-func (v *Valve) SetTxCredit(n int64) {
-	atomic.StoreInt64(v.txCredit, n)
-}
+func (v *Valve) GetRxCredit() int64 { return atomic.LoadInt64(v.rxCredit) }
 
-func (v *Valve) GetRxCredit() int64 {
-	return atomic.LoadInt64(v.rxCredit)
-}
-
-func (v *Valve) GetTxCredit() int64 {
-	return atomic.LoadInt64(v.txCredit)
-}
+func (v *Valve) GetTxCredit() int64 { return atomic.LoadInt64(v.txCredit) }
 
 // n can be negative
-func (v *Valve) AddRxCredit(n int64) int64 {
-	return atomic.AddInt64(v.rxCredit, n)
-}
+func (v *Valve) AddRxCredit(n int64) int64 { return atomic.AddInt64(v.rxCredit, n) }
 
 // n can be negative
-func (v *Valve) AddTxCredit(n int64) int64 {
-	return atomic.AddInt64(v.txCredit, n)
-}
+func (v *Valve) AddTxCredit(n int64) int64 { return atomic.AddInt64(v.txCredit, n) }
