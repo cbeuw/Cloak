@@ -47,6 +47,8 @@ func (c *controller) HandleRequest(req []byte) ([]byte, error) {
 	if err == ErrInvalidMac {
 		log.Printf("!!!CONTROL MESSAGE AND HMAC MISMATCH!!!\n raw request:\n%x\ndecrypted msg:\n%x", req, plain)
 		return nil, err
+	} else {
+		return c.respond([]byte(err.Error())), nil
 	}
 
 	switch plain[0] {
@@ -102,6 +104,7 @@ func (c *controller) HandleRequest(req []byte) ([]byte, error) {
 }
 
 var ErrInvalidMac = errors.New("Mac mismatch")
+var errMsgTooShort = errors.New("Message length is less than 54")
 
 // protocol: [TLS record layer 5 bytes][IV 16 bytes][data][hmac 32 bytes]
 func (c *controller) respond(resp []byte) []byte {
@@ -127,6 +130,9 @@ func (c *controller) respond(resp []byte) []byte {
 }
 
 func (c *controller) checkAndDecrypt(data []byte) ([]byte, error) {
+	if len(data) < 54 {
+		return nil, errMsgTooShort
+	}
 	macIndex := len(data) - 32
 	mac := hmac.New(sha256.New, c.adminUID[16:32])
 	mac.Write(data[5:macIndex])
