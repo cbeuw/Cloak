@@ -26,9 +26,7 @@ type User struct {
 
 	arrUID [32]byte
 
-	// TODO: use pointer here instead because we don't want to accidentally read
-	// UserInfo's Credits?
-	UserInfo
+	*UserInfo
 
 	valve *mux.Valve
 
@@ -36,7 +34,7 @@ type User struct {
 	sessions  map[uint32]*mux.Session
 }
 
-func MakeUser(up *Userpanel, uinfo UserInfo) *User {
+func MakeUser(up *Userpanel, uinfo *UserInfo) *User {
 	// this instance of valve is shared across ALL sessions of a user
 	valve := mux.MakeValve(uinfo.UpRate, uinfo.DownRate, &uinfo.UpCredit, &uinfo.DownCredit)
 	u := &User{

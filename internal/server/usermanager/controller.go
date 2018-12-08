@@ -47,7 +47,8 @@ func (c *controller) HandleRequest(req []byte) ([]byte, error) {
 	if err == ErrInvalidMac {
 		log.Printf("!!!CONTROL MESSAGE AND HMAC MISMATCH!!!\n raw request:\n%x\ndecrypted msg:\n%x", req, plain)
 		return nil, err
-	} else {
+	} else if err != nil {
+		log.Println(err)
 		return c.respond([]byte(err.Error())), nil
 	}
 

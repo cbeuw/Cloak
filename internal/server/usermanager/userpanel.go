@@ -124,7 +124,7 @@ func (up *Userpanel) GetAndActivateUser(UID []byte) (*User, error) {
 		up.activeUsersM.Unlock()
 		return nil, err
 	}
-	u := MakeUser(up, uinfo)
+	u := MakeUser(up, &uinfo)
 	up.activeUsers[arrUID] = u
 	up.activeUsersM.Unlock()
 	return u, nil
