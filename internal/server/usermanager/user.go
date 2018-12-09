@@ -89,7 +89,7 @@ func (u *User) DelSession(sessionID uint32) {
 	u.sessionsM.Unlock()
 }
 
-func (u *User) GetOrCreateSession(sessionID uint32, obfs func(*mux.Frame) []byte, deobfs func([]byte) *mux.Frame, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool) {
+func (u *User) GetOrCreateSession(sessionID uint32, obfs mux.Obfser, deobfs mux.Deobfser, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool) {
 	// TODO: session cap
 	u.sessionsM.Lock()
 	if sesh = u.sessions[sessionID]; sesh != nil {

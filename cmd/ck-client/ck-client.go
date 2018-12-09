@@ -81,6 +81,27 @@ func makeRemoteConn(sta *client.State) (net.Conn, error) {
 
 }
 
+func adminPrompt(sta *client.State) error {
+	a, err := adminHandshake(sta)
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, 16000)
+	for {
+		req := a.getCommand()
+		a.adminConn.Write(req)
+		n, err := a.adminConn.Read(buf)
+		if err != nil {
+			return err
+		}
+		resp, err := a.checkAndDecrypt(buf[:n])
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(resp))
+	}
+}
+
 func main() {
 	// Should be 127.0.0.1 to listen to ss-local on this machine
 	var localHost string
@@ -91,8 +112,7 @@ func main() {
 	// The proxy port,should be 443
 	var remotePort string
 	var pluginOpts string
-
-	var isAdmin *bool
+	var isAdmin bool
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
@@ -111,7 +131,7 @@ func main() {
 		flag.StringVar(&remotePort, "p", "443", "remotePort: proxy port, should be 443")
 		flag.StringVar(&pluginOpts, "c", "ckclient.json", "pluginOpts: path to ckclient.json or options seperated with semicolons")
 		askVersion := flag.Bool("v", false, "Print the version number")
-		isAdmin = flag.Bool("a", false, "Admin mode")
+		isAdmin = *flag.Bool("a", false, "Admin mode")
 		printUsage := flag.Bool("h", false, "Print this message")
 		flag.Parse()
 
@@ -140,25 +160,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if *isAdmin {
-		a := adminHandshake(sta)
-		buf := make([]byte, 16000)
-		for {
-			req := a.getCommand()
-			a.adminConn.Write(req)
-			n, err := a.adminConn.Read(buf)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			resp, err := a.checkAndDecrypt(buf[:n])
-			if err != nil {
-				log.Println(err)
-			}
-			fmt.Println(string(resp))
+	if isAdmin {
+		err = adminPrompt(sta)
+		if err != nil {
+			log.Println(err)
 		}
 		return
 	}
+
 	if sta.SS_LOCAL_PORT == "" {
 		log.Fatal("Must specify localPort")
 	}
@@ -171,8 +180,8 @@ func main() {
 
 	var UNLIMITED int64 = 1e12
 	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED, &UNLIMITED)
-	obfs := util.MakeObfs(sta.UID)
-	deobfs := util.MakeDeobfs(sta.UID)
+	obfs := mux.MakeObfs(sta.UID)
+	deobfs := mux.MakeDeobfs(sta.UID)
 	sesh := mux.MakeSession(0, valve, obfs, deobfs, util.ReadTLS)
 
 	var wg sync.WaitGroup
@@ -205,17 +214,22 @@ func main() {
 			data := make([]byte, 10240)
 			i, err := io.ReadAtLeast(ssConn, data, 1)
 			if err != nil {
+				log.Println(err)
 				ssConn.Close()
 				return
 			}
 			stream, err := sesh.OpenStream()
 			if err != nil {
+				log.Println(err)
 				ssConn.Close()
 				return
 			}
 			_, err = stream.Write(data[:i])
 			if err != nil {
 				log.Println(err)
+				ssConn.Close()
+				stream.Close()
+				return
 			}
 			go pipe(ssConn, stream)
 			pipe(stream, ssConn)

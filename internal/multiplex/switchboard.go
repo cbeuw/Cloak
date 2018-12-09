@@ -152,7 +152,11 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 			sb.session.Close()
 			return
 		}
-		frame := sb.session.deobfs(buf[:n])
+		frame, err := sb.session.deobfs(buf[:n])
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 
 		// FIXME: there has been a bug in which a packet has
 		// a seemingly corrupted StreamID (e.g. when the largest streamID is something like 3000

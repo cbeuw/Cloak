@@ -1,11 +1,14 @@
-package util
+package multiplex
 
 import (
 	"encoding/binary"
+	"errors"
 
 	xxhash "github.com/OneOfOne/xxhash"
-	mux "github.com/cbeuw/Cloak/internal/multiplex"
 )
+
+type Obfser func(*Frame) ([]byte, error)
+type Deobfser func([]byte) (*Frame, error)
 
 // For each frame, the three parts of the header is xored with three keys.
 // The keys are generated from the SID and the payload of the frame.
@@ -23,8 +26,11 @@ func genXorKeys(secret []byte, data []byte) (i uint32, ii uint32, iii uint32) {
 	return ret[0], ret[1], ret[2]
 }
 
-func MakeObfs(key []byte) func(*mux.Frame) []byte {
-	obfs := func(f *mux.Frame) []byte {
+func MakeObfs(key []byte) Obfser {
+	obfs := func(f *Frame) ([]byte, error) {
+		if len(f.Payload) < 18 {
+			return nil, errors.New("Payload cannot be shorter than 18 bytes")
+		}
 		obfsedHeader := make([]byte, 12)
 		// header: [StreamID 4 bytes][Seq 4 bytes][Closing 4 bytes]
 		i, ii, iii := genXorKeys(key, f.Payload[0:18])
@@ -42,13 +48,16 @@ func MakeObfs(key []byte) func(*mux.Frame) []byte {
 		copy(obfsed[5:17], obfsedHeader)
 		copy(obfsed[17:], f.Payload)
 		// obfsed: [record layer 5 bytes][cipherheader 12 bytes][payload]
-		return obfsed
+		return obfsed, nil
 	}
 	return obfs
 }
 
-func MakeDeobfs(key []byte) func([]byte) *mux.Frame {
-	deobfs := func(in []byte) *mux.Frame {
+func MakeDeobfs(key []byte) Deobfser {
+	deobfs := func(in []byte) (*Frame, error) {
+		if len(in) < 30 {
+			return nil, errors.New("Input cannot be shorter than 30 bytes")
+		}
 		peeled := in[5:]
 		i, ii, iii := genXorKeys(key, peeled[12:30])
 		streamID := binary.BigEndian.Uint32(peeled[0:4]) ^ i
@@ -56,13 +65,13 @@ func MakeDeobfs(key []byte) func([]byte) *mux.Frame {
 		closing := binary.BigEndian.Uint32(peeled[8:12]) ^ iii
 		payload := make([]byte, len(peeled)-12)
 		copy(payload, peeled[12:])
-		ret := &mux.Frame{
+		ret := &Frame{
 			StreamID: streamID,
 			Seq:      seq,
 			Closing:  closing,
 			Payload:  payload,
 		}
-		return ret
+		return ret, nil
 	}
 	return deobfs
 }

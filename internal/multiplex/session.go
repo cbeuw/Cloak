@@ -20,9 +20,9 @@ type Session struct {
 	id uint32 // This field isn't acutally used
 
 	// Used in Stream.Write. Add multiplexing headers, encrypt and add TLS header
-	obfs func(*Frame) []byte
+	obfs Obfser
 	// Remove TLS header, decrypt and unmarshall multiplexing headers
-	deobfs func([]byte) *Frame
+	deobfs Deobfser
 	// This is supposed to read one TLS message, the same as GoQuiet's ReadTillDrain
 	obfsedRead func(net.Conn, []byte) (int, error)
 
@@ -43,7 +43,7 @@ type Session struct {
 }
 
 // 1 conn is needed to make a session
-func MakeSession(id uint32, valve *Valve, obfs func(*Frame) []byte, deobfs func([]byte) *Frame, obfsedRead func(net.Conn, []byte) (int, error)) *Session {
+func MakeSession(id uint32, valve *Valve, obfs Obfser, deobfs Deobfser, obfsedRead func(net.Conn, []byte) (int, error)) *Session {
 	sesh := &Session{
 		id:           id,
 		obfs:         obfs,

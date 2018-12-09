@@ -15,7 +15,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/cbeuw/Cloak/internal/client"
@@ -39,7 +38,7 @@ type administrator struct {
 	adminUID  []byte
 }
 
-func adminHandshake(sta *client.State) *administrator {
+func adminHandshake(sta *client.State) (*administrator, error) {
 	fmt.Println("Enter the ip:port of your server")
 	var addr string
 	fmt.Scanln(&addr)
@@ -48,16 +47,14 @@ func adminHandshake(sta *client.State) *administrator {
 	fmt.Scanln(&b64AdminUID)
 	adminUID, err := base64.StdEncoding.DecodeString(b64AdminUID)
 	if err != nil {
-		log.Println(err)
-		return nil
+		return nil, err
 	}
 
 	sta.UID = adminUID
 
 	remoteConn, err := net.Dial("tcp", addr)
 	if err != nil {
-		log.Println(err)
-		return nil
+		return nil, err
 	}
 
 	clientHello := TLS.ComposeInitHandshake(sta)
@@ -68,15 +65,14 @@ func adminHandshake(sta *client.State) *administrator {
 	for c := 0; c < 3; c++ {
 		_, err = util.ReadTLS(remoteConn, discardBuf)
 		if err != nil {
-			log.Printf("Reading discarded message %v: %v\n", c, err)
-			return nil
+			return nil, err
 		}
 	}
 
 	reply := TLS.ComposeReply()
 	_, err = remoteConn.Write(reply)
 	a := &administrator{remoteConn, adminUID}
-	return a
+	return a, nil
 }
 
 func (a *administrator) getCommand() []byte {
