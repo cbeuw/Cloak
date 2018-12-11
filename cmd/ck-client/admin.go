@@ -75,7 +75,7 @@ func adminHandshake(sta *client.State) (*administrator, error) {
 	return a, nil
 }
 
-func (a *administrator) getCommand() []byte {
+func (a *administrator) getRequest() (req []byte, err error) {
 	fmt.Println("Select your command")
 	fmt.Println(`1       listActiveUsers         none            []uids
 2       listAllUsers            none            []userinfo
@@ -85,15 +85,18 @@ func (a *administrator) getCommand() []byte {
 	fmt.Scanln(&cmd)
 	switch cmd {
 	case "1":
-		return a.request([]byte{0x01})
+		req = a.request([]byte{0x01})
+		return
 	case "2":
-		return a.request([]byte{0x02})
+		req = a.request([]byte{0x02})
+		return
 	case "3":
 		fmt.Println("Enter UID")
 		var b64UID string
 		fmt.Scanln(&b64UID)
 		UID, _ := base64.StdEncoding.DecodeString(b64UID)
-		return a.request(append([]byte{0x03}, UID...))
+		req = a.request(append([]byte{0x03}, UID...))
+		return
 	case "4":
 		var uinfo UserInfo
 		var b64UID string
@@ -114,9 +117,10 @@ func (a *administrator) getCommand() []byte {
 		fmt.Printf("ExpiryTime:")
 		fmt.Scanf("%d", &uinfo.ExpiryTime)
 		marshed, _ := json.Marshal(uinfo)
-		return a.request(append([]byte{0x04}, marshed...))
+		req = a.request(append([]byte{0x04}, marshed...))
+		return
 	default:
-		return nil
+		return nil, errors.New("Unreconised cmd")
 	}
 }
 

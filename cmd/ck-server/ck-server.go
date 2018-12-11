@@ -16,6 +16,7 @@ import (
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	"github.com/cbeuw/Cloak/internal/server"
+	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"github.com/cbeuw/Cloak/internal/util"
 )
 
@@ -78,13 +79,12 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	if bytes.Equal(UID, sta.AdminUID) {
+	finishHandshake := func() error {
 		reply := server.ComposeReply(ch)
 		_, err = conn.Write(reply)
 		if err != nil {
-			log.Printf("Sending reply to remote: %v\n", err)
 			go conn.Close()
-			return
+			return err
 		}
 
 		// Two discarded messages: ChangeCipherSpec and Finished
@@ -92,12 +92,19 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		for c := 0; c < 2; c++ {
 			_, err = util.ReadTLS(conn, discardBuf)
 			if err != nil {
-				log.Printf("Reading discarded message %v: %v\n", c, err)
 				go conn.Close()
-				return
+				return err
 			}
 		}
+		return nil
+	}
 
+	if bytes.Equal(UID, sta.AdminUID) && sessionID == 0 {
+		err = finishHandshake()
+		if err != nil {
+			log.Println(err)
+			return
+		}
 		c := sta.Userpanel.MakeController(sta.AdminUID)
 		for {
 			n, err := conn.Read(data)
@@ -107,6 +114,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			}
 			resp, err := c.HandleRequest(data[:n])
 			if err != nil {
+				log.Println(err)
 				return
 			}
 			_, err = conn.Write(resp)
@@ -117,33 +125,26 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		}
 
 	}
-	user, err := sta.Userpanel.GetAndActivateUser(UID)
+
+	var user *usermanager.User
+	if bytes.Equal(UID, sta.AdminUID) {
+		user, err = sta.Userpanel.GetAndActivateAdminUser(UID)
+	} else {
+		user, err = sta.Userpanel.GetAndActivateUser(UID)
+	}
 	if err != nil {
 		log.Printf("+1 unauthorised user from %v, uid: %x\n", conn.RemoteAddr(), UID)
 		goWeb(data)
 		return
 	}
 
-	reply := server.ComposeReply(ch)
-	_, err = conn.Write(reply)
+	err = finishHandshake()
 	if err != nil {
-		log.Printf("Sending reply to remote: %v\n", err)
-		go conn.Close()
+		log.Println(err)
 		return
 	}
 
-	// Two discarded messages: ChangeCipherSpec and Finished
-	discardBuf := make([]byte, 1024)
-	for c := 0; c < 2; c++ {
-		_, err = util.ReadTLS(conn, discardBuf)
-		if err != nil {
-			log.Printf("Reading discarded message %v: %v\n", c, err)
-			go conn.Close()
-			return
-		}
-	}
-
-	if sesh, existing := user.GetOrCreateSession(sessionID, mux.MakeObfs(UID), mux.MakeDeobfs(UID), util.ReadTLS); existing {
+	if sesh, existing := user.GetSession(sessionID, mux.MakeObfs(UID), mux.MakeDeobfs(UID), util.ReadTLS); existing {
 		sesh.AddConnection(conn)
 		return
 	} else {

@@ -86,9 +86,14 @@ func adminPrompt(sta *client.State) error {
 	if err != nil {
 		return err
 	}
+	log.Println(err)
 	buf := make([]byte, 16000)
 	for {
-		req := a.getCommand()
+		req, err := a.getRequest()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 		a.adminConn.Write(req)
 		n, err := a.adminConn.Read(buf)
 		if err != nil {
@@ -112,7 +117,7 @@ func main() {
 	// The proxy port,should be 443
 	var remotePort string
 	var pluginOpts string
-	var isAdmin bool
+	var isAdmin *bool
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
@@ -131,7 +136,7 @@ func main() {
 		flag.StringVar(&remotePort, "p", "443", "remotePort: proxy port, should be 443")
 		flag.StringVar(&pluginOpts, "c", "ckclient.json", "pluginOpts: path to ckclient.json or options seperated with semicolons")
 		askVersion := flag.Bool("v", false, "Print the version number")
-		isAdmin = *flag.Bool("a", false, "Admin mode")
+		isAdmin = flag.Bool("a", false, "Admin mode")
 		printUsage := flag.Bool("h", false, "Print this message")
 		flag.Parse()
 
@@ -151,7 +156,12 @@ func main() {
 	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 	// sessionID is limited to its UID.
 	rand.Seed(time.Now().UnixNano())
-	sessionID := rand.Uint32()
+	var sessionID uint32
+	if *isAdmin {
+		sessionID = 0
+	} else {
+		sessionID = rand.Uint32()
+	}
 
 	// opaque is used to generate the padding of session ticket
 	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now, sessionID)
@@ -160,7 +170,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if isAdmin {
+	if *isAdmin {
 		err = adminPrompt(sta)
 		if err != nil {
 			log.Println(err)

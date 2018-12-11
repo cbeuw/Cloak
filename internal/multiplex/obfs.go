@@ -12,7 +12,6 @@ type Deobfser func([]byte) (*Frame, error)
 
 // For each frame, the three parts of the header is xored with three keys.
 // The keys are generated from the SID and the payload of the frame.
-// FIXME: this code will panic if len(data)<18.
 func genXorKeys(secret []byte, data []byte) (i uint32, ii uint32, iii uint32) {
 	h := xxhash.New32()
 	ret := make([]uint32, 3)

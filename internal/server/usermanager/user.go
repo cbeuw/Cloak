@@ -65,13 +65,6 @@ func (u *User) updateInfo(uinfo UserInfo) {
 	u.setExpiryTime(uinfo.ExpiryTime)
 }
 
-func (u *User) GetSession(sessionID uint32) *mux.Session {
-	u.sessionsM.RLock()
-	sesh := u.sessions[sessionID]
-	u.sessionsM.RUnlock()
-	return sesh
-}
-
 func (u *User) PutSession(sessionID uint32, sesh *mux.Session) {
 	u.sessionsM.Lock()
 	u.sessions[sessionID] = sesh
@@ -89,7 +82,7 @@ func (u *User) DelSession(sessionID uint32) {
 	u.sessionsM.Unlock()
 }
 
-func (u *User) GetOrCreateSession(sessionID uint32, obfs mux.Obfser, deobfs mux.Deobfser, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool) {
+func (u *User) GetSession(sessionID uint32, obfs mux.Obfser, deobfs mux.Deobfser, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool) {
 	// TODO: session cap
 	u.sessionsM.Lock()
 	if sesh = u.sessions[sessionID]; sesh != nil {

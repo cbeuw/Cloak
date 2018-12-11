@@ -92,6 +92,31 @@ func (up *Userpanel) backupDB(bakPath string) error {
 var ErrUserNotFound = errors.New("User does not exist in db")
 var ErrUserNotActive = errors.New("User is not active")
 
+func (up *Userpanel) GetAndActivateAdminUser(AdminUID []byte) (*User, error) {
+	up.activeUsersM.Lock()
+	var arrUID [32]byte
+	copy(arrUID[:], AdminUID)
+	if user, ok := up.activeUsers[arrUID]; ok {
+		up.activeUsersM.Unlock()
+		return user, nil
+	}
+
+	uinfo := UserInfo{
+		UID:         AdminUID,
+		SessionsCap: 1e9,
+		UpRate:      1e12,
+		DownRate:    1e12,
+		UpCredit:    1e15,
+		DownCredit:  1e15,
+		ExpiryTime:  1e15,
+	}
+
+	user := MakeUser(up, &uinfo)
+	up.activeUsers[arrUID] = user
+	up.activeUsersM.Unlock()
+	return user, nil
+}
+
 // TODO: expiry check
 
 // GetUser is used to retrieve a user if s/he is active, or to retrieve the user's infor
@@ -253,7 +278,6 @@ func (up *Userpanel) addNewUser(uinfo UserInfo) error {
 		if err != nil {
 			return err
 		}
-		// FIXME: obnoxious code
 		if err = b.Put([]byte("SessionsCap"), u32ToB(uinfo.SessionsCap)); err != nil {
 			return err
 		}

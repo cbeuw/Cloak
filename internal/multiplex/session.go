@@ -17,7 +17,7 @@ var ErrBrokenSession = errors.New("broken session")
 var errRepeatSessionClosing = errors.New("trying to close a closed session")
 
 type Session struct {
-	id uint32 // This field isn't acutally used
+	id uint32
 
 	// Used in Stream.Write. Add multiplexing headers, encrypt and add TLS header
 	obfs Obfser
