@@ -16,7 +16,6 @@ type rawConfig struct {
 	WebServerAddr string
 	PrivateKey    string
 	AdminUID      string
-	SingleUser    bool
 }
 type stateManager interface {
 	ParseConfig(string) error
