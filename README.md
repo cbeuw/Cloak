@@ -11,18 +11,26 @@ This project is based on [GoQuiet](https://github.com/cbeuw/GoQuiet). The most s
 
 Besides, Cloak allows multiple users to use one server **on a single port**. QoS restrictions such as bandwidth limitation and data cap can also be managed.
 
-## Setup Instructions
-(unless specified, all UID are presented in base64 encoded form)
-1. Clone the repo
-2. Build and run cmd/keygen. You may want to keep the public and private keys somewhere
-3. Substitute the fields in config/ckserver.json and config/ckclient.json with the output of keygen
-4. Run keygen again and copy only the UID to AdminUID in ckserver.json. This is your AdminUID.
-5. On your server, run `ss-server -c <path-to-ss-config> --plugin <path-to-ck-server-binary> --plugin-opts "<path-to-ckserver.json>"`
-6. On your client, run `ck-client -a -c <path-to-ckclient.json>` to enter admin mode
-7. Input as prompted, that is your ip:port of the server and your AdminUID. Enter 4 to create a new user.
-8. Enter the UID in your ckclient.json as the prompted UID, enter SessionsCap (maximum amount of concurrent sessions a user can have), UpRate and DownRate (in bytes/s), UpCredit and DownCredit (in bytes) and ExpiryTime (as a unix epoch)
-9. Ctrl-C to quit admin mode, start Shardowsocks with `ss-local -c <path-to-ss-config> --plugin <path-to-ck-client-binary> --plugin-opts "<path-to-ckclient.json>"`
+## Setup Instructions for the administrator of the server
+0. [Install and configure shadowsocks-libev on your server](https://github.com/shadowsocks/shadowsocks-libev#installation)
+1. Clone this repo onto your server
+2. Build and run cmd/keygen -k. The base64 string before the comma is the public key, the one after the comma is the private key
+3. Run cmd/keygen -u. This will be used as the AdminUID
+4. Put the private key and the AdminUID you obtained previously into config/ckserver.json
+5. Run `ss-server -c <path-to-ss-config> --plugin <path-to-ck-server-binary> --plugin-opts "<path-to-ckserver.json>"`
 
-If you want to add a new user, just run keygen again and put the UID into ckclient.json of the new user (don't touch the public and the private key), and do steps 6-8 again to add the new user into the server.
+### If you want to add more users
+1. Run cmd/keygen -u to generate a new UID
+2. On your client, run `ck-client -a -c <path-to-ckclient.json>` to enter admin mode
+3. Input as prompted, that is your ip:port of the server and your AdminUID. Enter 4 to create a new user.
+4. Enter the UID in your ckclient.json as the prompted UID, enter SessionsCap (maximum amount of concurrent sessions a user can have), UpRate and DownRate (in bytes/s), UpCredit and DownCredit (in bytes) and ExpiryTime (as a unix epoch)
+5. Give your PUBLIC key and the newly generated UID to the new user
 
-The user database is persistent as it's in-disk. You don't need to add the users again each time you start ck-server.
+Note: the user database is persistent as it's in-disk. You don't need to add the users again each time you start ck-server.
+
+## Instructions for clients.
+0. Install and configure a version of shadowsocks that supports plugins (such as shadowsocks-libev and shadowsocks-windows)
+1. Clone this repo and build cmd/ck-client
+2. Obtain the PUBLIC key and your UID (or the AdminUID, if you are the server admin) from the administrator of your server
+3. Put the public key and the UID you obtained into config/ckclient.json
+4. Connect to the server by running `ss-local -c <path-to-ss-config> --plugin <path-to-ck-client-binary> --plugin-opts "<path-to-ckclient.json>"`
