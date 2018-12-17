@@ -60,9 +60,9 @@ func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func
 // semi-colon separated value.
 func ssvToJson(ssv string) (ret []byte) {
 	unescape := func(s string) string {
-		r := strings.Replace(s, "\\\\", "\\", -1)
-		r = strings.Replace(r, "\\=", "=", -1)
-		r = strings.Replace(r, "\\;", ";", -1)
+		r := strings.Replace(s, `\\`, `\`, -1)
+		r = strings.Replace(r, `\=`, `=`, -1)
+		r = strings.Replace(r, `\;`, `;`, -1)
 		return r
 	}
 	lines := strings.Split(unescape(ssv), ";")
@@ -74,7 +74,7 @@ func ssvToJson(ssv string) (ret []byte) {
 		sp := strings.SplitN(ln, "=", 2)
 		key := sp[0]
 		value := sp[1]
-		ret = append(ret, []byte("\""+key+"\":\""+value+"\",")...)
+		ret = append(ret, []byte(`"`+key+`":"`+value+`",`)...)
 
 	}
 	ret = ret[:len(ret)-1] // remove the last comma

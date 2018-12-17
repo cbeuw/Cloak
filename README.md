@@ -14,14 +14,14 @@ Besides, Cloak allows multiple users to use one server **on a single port**. QoS
 ## Setup Instructions for the administrator of the server
 0. [Install and configure shadowsocks-libev on your server](https://github.com/shadowsocks/shadowsocks-libev#installation)
 1. Clone this repo onto your server
-2. Build and run cmd/keygen -k. The base64 string before the comma is the public key, the one after the comma is the private key
-3. Run cmd/keygen -u. This will be used as the AdminUID
+2. Build and run cmd/ck-server -k. The base64 string before the comma is the public key, the one after the comma is the private key
+3. Run cmd/ck-server -u. This will be used as the AdminUID
 4. Put the private key and the AdminUID you obtained previously into config/ckserver.json
 5. Edit the configuration file of shadowsocks-libev (default location is /etc/shadowsocks-libev/config.json). Let `server_port` be `443`, `plugin` be the full path to the ck-server binary and `plugin_opts` be the full path to ckserver.json. If the fields `plugin` and `plugin_opts` were not present originally, add these fields to the config file.
 6. Run ss-server as root (because we are binding to TCP port 443)
 
 ### If you want to add more users
-1. Run cmd/keygen -u to generate a new UID
+1. Run cmd/ck-server -u to generate a new UID
 2. On your client, run `ck-client -a -c <path-to-ckclient.json>` to enter admin mode
 3. Input as prompted, that is your ip:port of the server and your AdminUID. Enter 4 to create a new user.
 4. Enter the UID in your ckclient.json as the prompted UID, enter SessionsCap (maximum amount of concurrent sessions a user can have), UpRate and DownRate (in bytes/s), UpCredit and DownCredit (in bytes) and ExpiryTime (as a unix epoch)

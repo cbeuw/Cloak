@@ -204,15 +204,27 @@ func main() {
 		flag.StringVar(&pluginOpts, "c", "server.json", "pluginOpts: path to server.json or options seperated by semicolons")
 		askVersion := flag.Bool("v", false, "Print the version number")
 		printUsage := flag.Bool("h", false, "Print this message")
+
+		genUID := flag.Bool("u", false, "Generate a UID")
+		genKeyPair := flag.Bool("k", false, "Generate a pair of public and private key, output in the format of pubkey,pvkey")
+
 		flag.Parse()
 
 		if *askVersion {
 			fmt.Printf("ck-server %s\n", version)
 			return
 		}
-
 		if *printUsage {
 			flag.Usage()
+			return
+		}
+		if *genUID {
+			fmt.Println(generateUID())
+			return
+		}
+		if *genKeyPair {
+			pub, pv := generateKeyPair()
+			fmt.Printf("%v,%v", pub, pv)
 			return
 		}
 

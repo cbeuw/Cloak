@@ -57,11 +57,10 @@ func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func
 
 // semi-colon separated value. This is for Android plugin options
 func ssvToJson(ssv string) (ret []byte) {
-	// FIXME: base64 encoded data has =. How to escape?
 	unescape := func(s string) string {
-		r := strings.Replace(s, "\\\\", "\\", -1)
-		r = strings.Replace(r, "\\=", "=", -1)
-		r = strings.Replace(r, "\\;", ";", -1)
+		r := strings.Replace(s, `\\`, `\`, -1)
+		r = strings.Replace(r, `\=`, `=`, -1)
+		r = strings.Replace(r, `\;`, `;`, -1)
 		return r
 	}
 	lines := strings.Split(unescape(ssv), ";")
@@ -76,9 +75,9 @@ func ssvToJson(ssv string) (ret []byte) {
 		// JSON doesn't like quotation marks around int
 		// Yes this is extremely ugly but it's still better than writing a tokeniser
 		if key == "TicketTimeHint" || key == "NumConn" {
-			ret = append(ret, []byte("\""+key+"\":"+value+",")...)
+			ret = append(ret, []byte(`"`+key+`":`+value+`,`)...)
 		} else {
-			ret = append(ret, []byte("\""+key+"\":\""+value+"\",")...)
+			ret = append(ret, []byte(`"`+key+`":"`+value+`",`)...)
 		}
 	}
 	ret = ret[:len(ret)-1] // remove the last comma
