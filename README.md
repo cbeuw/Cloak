@@ -17,7 +17,10 @@ Besides, Cloak allows multiple users to use one server **on a single port**. QoS
 2. Build and run cmd/keygen -k. The base64 string before the comma is the public key, the one after the comma is the private key
 3. Run cmd/keygen -u. This will be used as the AdminUID
 4. Put the private key and the AdminUID you obtained previously into config/ckserver.json
-5. {
+5. /etc/shadowsocks-libev/config.json
+
+```
+{
     "server":["[::0]","0.0.0.0"],
     "server_port":443,
     "password":"PASSWORD",
@@ -32,6 +35,10 @@ Besides, Cloak allows multiple users to use one server **on a single port**. QoS
     "plugin":"<path-to-ck-server-binary>",
     "plugin_opts":"<path-to-ckserver.json>"
 }
+```
+
+6. screen
+7. ss-server
 ### If you want to add more users
 1. Run cmd/keygen -u to generate a new UID
 2. On your client, run `ck-client -a -c <path-to-ckclient.json>` to enter admin mode
