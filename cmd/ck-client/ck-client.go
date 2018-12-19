@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cbeuw/Cloak/internal/client"
-	"github.com/cbeuw/Cloak/internal/client/TLS"
-	mux "github.com/cbeuw/Cloak/internal/multiplex"
-	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/Cloak/tree/master/internal/client"
+	"github.com/cbeuw/Cloak/tree/master/internal/client/TLS"
+	mux "github.com/cbeuw/Cloaktree/master/internal/multiplex"
+	"github.com/cbeuw/Cloak/tree/master/internal/util"
 )
 
 var version string
