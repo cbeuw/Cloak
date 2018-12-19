@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/Cloak/tree/master/internal/util"
 	ecdh "github.com/cbeuw/go-ecdh"
 	"io"
 )
