@@ -2,8 +2,8 @@ package TLS
 
 import (
 	"encoding/binary"
-	"github.com/cbeuw/Cloak/internal/client"
-	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/Cloak/tree/master/internal/client"
+	"github.com/cbeuw/Cloak/tree/master/internal/util"
 	"time"
 )
 
