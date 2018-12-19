@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	mux "github.com/cbeuw/Cloak/internal/multiplex"
-	"github.com/cbeuw/Cloak/internal/server"
-	"github.com/cbeuw/Cloak/internal/server/usermanager"
-	"github.com/cbeuw/Cloak/internal/util"
+	mux "github.com/cbeuw/Cloak/tree/master/internal/multiplex"
+	"github.com/cbeuw/Cloak/tree/master/internal/server"
+	"github.com/cbeuw/Cloak/tree/master/internal/server/usermanager"
+	"github.com/cbeuw/Cloak/tree/master/internal/util"
 )
 
 var version string
