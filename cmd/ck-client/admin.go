@@ -17,9 +17,9 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cbeuw/Cloak/internal/client"
-	"github.com/cbeuw/Cloak/internal/client/TLS"
-	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/Cloak/tree/master/internal/client"
+	"github.com/cbeuw/Cloak/tree/master/internal/client/TLS"
+	"github.com/cbeuw/Cloak/tree/master/internal/util"
 )
 
 type UserInfo struct {
