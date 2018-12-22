@@ -117,7 +117,7 @@ func main() {
 	// The proxy port,should be 443
 	var remotePort string
 	var pluginOpts string
-	var isAdmin *bool
+	isAdmin := new(bool)
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
