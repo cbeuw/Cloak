@@ -72,32 +72,20 @@ func (s *Stream) recvNewFrame() {
 			continue
 		}
 
+		// when there's no ooo packages in heap and we receive the next package in order
 		if len(s.sh) == 0 && f.Seq == s.nextRecvSeq {
-			if f.Closing == 1 {
-				s.sortedBufCh <- []byte{}
-				return
-			}
-
-			s.sortedBufCh <- f.Payload
-
-			s.nextRecvSeq += 1
-			if s.nextRecvSeq == 0 {
-				// when nextN is wrapped, wrapMode becomes false and rev+1
-				s.rev += 1
-				s.wrapMode = false
-			}
+			s.pushFrame(f)
 			continue
 		}
 
-		// For the ease of demonstration, assume seq is uint8, i.e. it wraps around after 255
 		fs := &frameNode{
 			f.Seq,
 			0,
 			f,
 		}
 
-		// TODO: if a malicious client resend a previously sent seq number, what will happen?
 		if fs.seq < s.nextRecvSeq {
+			// For the ease of demonstration, assume seq is uint8, i.e. it wraps around after 255
 			// e.g. we are on rev=0 (wrap has not happened yet)
 			// and we get the order of recv as 253 254 0 1
 			// after 254, nextN should be 255, but 0 is received and 0 < 255
@@ -118,21 +106,24 @@ func (s *Stream) recvNewFrame() {
 		// Keep popping from the heap until empty or to the point that the wanted seq was not received
 		for len(s.sh) > 0 && s.sh[0].seq == s.nextRecvSeq {
 			frame := heap.Pop(&s.sh).(*frameNode).frame
-
-			if frame.Closing == 1 {
-				s.sortedBufCh <- []byte{}
-				return
-			}
-			payload := frame.Payload
-			s.sortedBufCh <- payload
-
-			s.nextRecvSeq += 1
-			if s.nextRecvSeq == 0 {
-				// when nextN is wrapped, wrapMode becomes false and rev+1
-				s.rev += 1
-				s.wrapMode = false
-			}
+			s.pushFrame(frame)
 		}
 	}
 
+}
+
+func (s *Stream) pushFrame(f *Frame) {
+	if f.Closing == 1 {
+		s.sortedBufCh <- []byte{}
+		return
+	}
+
+	s.sortedBufCh <- f.Payload
+
+	s.nextRecvSeq += 1
+	if s.nextRecvSeq == 0 {
+		// when nextN is wrapped, wrapMode becomes false and rev+1
+		s.rev += 1
+		s.wrapMode = false
+	}
 }

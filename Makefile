@@ -7,10 +7,12 @@ version=$(shell ver=$$(git log -n 1 --pretty=oneline --format=%D | awk -F, '{pri
 	echo $$ver)
 
 client: 
-	go build -ldflags "-X main.version=${version}" -o ./build/ck-client ./cmd/ck-client 
+	go build -ldflags "-X main.version=${version}" ./cmd/ck-client 
+	mv ck-client* ./build
 
 server: 
-	go build -ldflags "-X main.version=${version}" -o ./build/ck-server ./cmd/ck-server
+	go build -ldflags "-X main.version=${version}" ./cmd/ck-server
+	mv ck-server* ./build
 
 install:
 	mv build/ck-* /usr/local/bin

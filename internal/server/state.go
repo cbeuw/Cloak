@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"strings"
 	"sync"
@@ -82,17 +83,6 @@ func ssvToJson(ssv string) (ret []byte) {
 	return ret
 }
 
-// base64 encoded 32 byte adminUID
-func parseAdminUID(b64 string) ([]byte, error) {
-	uid, err := base64.StdEncoding.DecodeString(b64)
-	if err != nil {
-		return nil, err
-	}
-	return uid, nil
-}
-
-// TODO: specify which parse fails
-
 // ParseConfig parses the config (either a path to json or in-line ssv config) into a State variable
 func (sta *State) ParseConfig(conf string) (err error) {
 	var content []byte
@@ -108,22 +98,22 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	var preParse rawConfig
 	err = json.Unmarshal(content, &preParse)
 	if err != nil {
-		return err
+		return errors.New("Failed to unmarshal: " + err.Error())
 	}
 
 	sta.WebServerAddr = preParse.WebServerAddr
 
 	pvBytes, err := base64.StdEncoding.DecodeString(preParse.PrivateKey)
 	if err != nil {
-		return err
+		return errors.New("Failed to decode private key: " + err.Error())
 	}
 	var pv [32]byte
 	copy(pv[:], pvBytes)
 	sta.staticPv = &pv
 
-	adminUID, err := parseAdminUID(preParse.AdminUID)
+	adminUID, err := base64.StdEncoding.DecodeString(preParse.AdminUID)
 	if err != nil {
-		return err
+		return errors.New("Failed to decode AdminUID: " + err.Error())
 	}
 	sta.AdminUID = adminUID
 	return nil

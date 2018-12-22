@@ -110,12 +110,10 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 }
 
 // only close locally. Used when the stream close is notified by the remote
-func (stream *Stream) passiveClose() error {
+func (stream *Stream) passiveClose() {
 	stream.heliumMask.Do(func() { close(stream.die) })
 	stream.session.delStream(stream.id)
 	log.Printf("%v passive closing\n", stream.id)
-	// TODO: really need to return an error?
-	return nil
 }
 
 // active close. Close locally and tell the remote that this stream is being closed
@@ -148,8 +146,6 @@ func (stream *Stream) Close() error {
 // This is called in session.Close() to avoid mutex deadlock
 // We don't notify the remote because session.Close() is always
 // called when the session is passively closed
-func (stream *Stream) closeNoDelMap() error {
+func (stream *Stream) closeNoDelMap() {
 	stream.heliumMask.Do(func() { close(stream.die) })
-	// TODO: really need to return an error?
-	return nil
 }

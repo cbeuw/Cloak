@@ -209,7 +209,6 @@ func main() {
 	}
 	wg.Wait()
 
-	// TODO: ipv6
 	listener, err := net.Listen("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
 	if err != nil {
 		log.Fatal(err)

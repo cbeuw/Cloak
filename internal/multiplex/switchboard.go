@@ -75,7 +75,6 @@ func (sb *switchboard) send(data []byte) (int, error) {
 	n, err := ce.remoteConn.Write(data)
 	if err != nil {
 		return n, err
-		// TODO
 	}
 	if sb.AddTxCredit(-int64(n)) < 0 {
 		log.Println(ErrNoTxCredit)
