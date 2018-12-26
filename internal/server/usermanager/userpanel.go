@@ -416,3 +416,50 @@ func (up *Userpanel) setExpiryTime(UID []byte, time int64) error {
 	u.setExpiryTime(time)
 	return nil
 }
+
+func (up *Userpanel) addUpCredit(UID []byte, delta int64) error {
+	err := up.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(UID)
+		if b == nil {
+			return ErrUserNotFound
+		}
+		old := b.Get([]byte("UpCredit"))
+		new := int64(Uint64(old)) + delta
+		if err := b.Put([]byte("UpCredit"), i64ToB(new)); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	u := up.getActiveUser(UID)
+	if u == nil {
+		return nil
+	}
+	u.addUpCredit(delta)
+	return nil
+}
+func (up *Userpanel) addDownCredit(UID []byte, delta int64) error {
+	err := up.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(UID)
+		if b == nil {
+			return ErrUserNotFound
+		}
+		old := b.Get([]byte("DownCredit"))
+		new := int64(Uint64(old)) + delta
+		if err := b.Put([]byte("DownCredit"), i64ToB(new)); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	u := up.getActiveUser(UID)
+	if u == nil {
+		return nil
+	}
+	u.addDownCredit(delta)
+	return nil
+}

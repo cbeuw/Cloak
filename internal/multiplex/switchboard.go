@@ -76,6 +76,7 @@ func (sb *switchboard) send(data []byte) (int, error) {
 	if err != nil {
 		return n, err
 	}
+	sb.txWait(n)
 	if sb.AddTxCredit(-int64(n)) < 0 {
 		log.Println(ErrNoTxCredit)
 		defer sb.session.Close()

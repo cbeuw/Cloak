@@ -29,7 +29,7 @@ import (
 10	setUpCredit		uid credit	ok
 11	setDownCredit		uid credit	ok
 12	setExpiryTime		uid time	ok
-13	addUpcredit		uid delta	ok
+13	addUpCredit		uid delta	ok
 14	addDownCredit		uid delta	ok
 */
 
@@ -42,7 +42,16 @@ func (up *Userpanel) MakeController(adminUID []byte) *controller {
 	return &controller{up, adminUID}
 }
 
-func (c *controller) HandleRequest(req []byte) ([]byte, error) {
+var errInvalidArgument = errors.New("Invalid argument format")
+
+func (c *controller) HandleRequest(req []byte) (resp []byte, err error) {
+	check := func(err error) []byte {
+		if err != nil {
+			return c.respond([]byte(err.Error()))
+		} else {
+			return c.respond([]byte("ok"))
+		}
+	}
 	plain, err := c.checkAndDecrypt(req)
 	if err == ErrInvalidMac {
 		log.Printf("!!!CONTROL MESSAGE AND HMAC MISMATCH!!!\n raw request:\n%x\ndecrypted msg:\n%x", req, plain)
@@ -52,55 +61,105 @@ func (c *controller) HandleRequest(req []byte) ([]byte, error) {
 		return c.respond([]byte(err.Error())), nil
 	}
 
-	switch plain[0] {
+	typ := plain[0]
+	var arg []byte
+	if len(plain) > 1 {
+		arg = plain[1:]
+	}
+	switch typ {
 	case 1:
 		UIDs := c.listActiveUsers()
-		resp, _ := json.Marshal(UIDs)
-		return c.respond(resp), nil
+		resp, _ = json.Marshal(UIDs)
+		resp = c.respond(resp)
 	case 2:
 		uinfos := c.listAllUsers()
-		resp, _ := json.Marshal(uinfos)
-		return c.respond(resp), nil
+		resp, _ = json.Marshal(uinfos)
+		resp = c.respond(resp)
 	case 3:
-		uinfo, err := c.getUserInfo(plain[1:33])
+		uinfo, err := c.getUserInfo(arg)
 		if err != nil {
-			return c.respond([]byte(err.Error())), nil
+			resp = c.respond([]byte(err.Error()))
+			break
 		}
-		resp, _ := json.Marshal(uinfo)
-		return c.respond(resp), nil
+		resp, _ = json.Marshal(uinfo)
+		resp = c.respond(resp)
 	case 4:
 		var uinfo UserInfo
-		err = json.Unmarshal(plain[1:], &uinfo)
+		err = json.Unmarshal(arg, &uinfo)
 		if err != nil {
-			return c.respond([]byte(err.Error())), nil
+			resp = c.respond([]byte(err.Error()))
+			break
 		}
 
 		err = c.addNewUser(uinfo)
-		if err != nil {
-			return c.respond([]byte(err.Error())), nil
-		} else {
-			return c.respond([]byte("ok")), nil
-		}
+		resp = check(err)
 	case 5:
-		err = c.delUser(plain[1:])
-		if err != nil {
-			return c.respond([]byte(err.Error())), nil
-		} else {
-			return c.respond([]byte("ok")), nil
-		}
-
+		err = c.delUser(arg)
+		resp = check(err)
 	case 6:
-		err = c.syncMemFromDB(plain[1:33])
-		if err != nil {
-			return c.respond([]byte(err.Error())), nil
-		} else {
-			return c.respond([]byte("ok")), nil
+		err = c.syncMemFromDB(arg)
+		resp = check(err)
+	case 7:
+		if len(arg) < 36 {
+			resp = c.respond([]byte(errInvalidArgument.Error()))
+			break
 		}
-		// TODO: implement the rest
+		err = c.setSessionsCap(arg[0:32], Uint32(arg[32:36]))
+		resp = check(err)
+	case 8:
+		if len(arg) < 40 {
+			resp = c.respond([]byte(errInvalidArgument.Error()))
+			break
+		}
+		err = c.setUpRate(arg[0:32], int64(Uint64(arg[32:40])))
+		resp = check(err)
+	case 9:
+		if len(arg) < 40 {
+			resp = c.respond([]byte(errInvalidArgument.Error()))
+			break
+		}
+		err = c.setDownRate(arg[0:32], int64(Uint64(arg[32:40])))
+		resp = check(err)
+	case 10:
+		if len(arg) < 40 {
+			resp = c.respond([]byte(errInvalidArgument.Error()))
+			break
+		}
+		err = c.setUpCredit(arg[0:32], int64(Uint64(arg[32:40])))
+		resp = check(err)
+	case 11:
+		if len(arg) < 40 {
+			resp = c.respond([]byte(errInvalidArgument.Error()))
+			break
+		}
+		err = c.setDownCredit(arg[0:32], int64(Uint64(arg[32:40])))
+		resp = check(err)
+	case 12:
+		if len(arg) < 40 {
+			resp = c.respond([]byte(errInvalidArgument.Error()))
+			break
+		}
+		err = c.setExpiryTime(arg[0:32], int64(Uint64(arg[32:40])))
+		resp = check(err)
+	case 13:
+		if len(arg) < 40 {
+			resp = c.respond([]byte(errInvalidArgument.Error()))
+			break
+		}
+		err = c.addUpCredit(arg[0:32], int64(Uint64(arg[32:40])))
+		resp = check(err)
+	case 14:
+		if len(arg) < 40 {
+			resp = c.respond([]byte(errInvalidArgument.Error()))
+			break
+		}
+		err = c.addDownCredit(arg[0:32], int64(Uint64(arg[32:40])))
+		resp = check(err)
 	default:
 		return c.respond([]byte("Unsupported action")), nil
 
 	}
+	return
 
 }
 

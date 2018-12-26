@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 
 	"github.com/cbeuw/Cloak/internal/client"
@@ -36,6 +37,47 @@ type UserInfo struct {
 type administrator struct {
 	adminConn net.Conn
 	adminUID  []byte
+}
+
+func adminPrompt(sta *client.State) error {
+	a, err := adminHandshake(sta)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	fmt.Println(`1       listActiveUsers         none            []uids
+2       listAllUsers            none            []userinfo
+3       getUserInfo             uid             userinfo
+4       addNewUser              userinfo        ok
+5       delUser                 uid             ok
+6       syncMemFromDB           uid             ok
+                                                  
+7       setSessionsCap          uid cap         ok
+8       setUpRate               uid rate        ok
+9       setDownRate             uid rate        ok
+10      setUpCredit             uid credit      ok
+11      setDownCredit           uid credit      ok
+12      setExpiryTime           uid time        ok
+13      addUpCredit             uid delta       ok
+14      addDownCredit           uid delta       ok`)
+	buf := make([]byte, 16000)
+	for {
+		req, err := a.getRequest()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		a.adminConn.Write(req)
+		n, err := a.adminConn.Read(buf)
+		if err != nil {
+			return err
+		}
+		resp, err := a.checkAndDecrypt(buf[:n])
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(resp))
+	}
 }
 
 func adminHandshake(sta *client.State) (*administrator, error) {
@@ -76,27 +118,42 @@ func adminHandshake(sta *client.State) (*administrator, error) {
 }
 
 func (a *administrator) getRequest() (req []byte, err error) {
+	promptUID := func() []byte {
+		fmt.Println("Enter UID")
+		var b64UID string
+		fmt.Scanln(&b64UID)
+		ret, _ := base64.StdEncoding.DecodeString(b64UID)
+		return ret
+	}
+
+	promptInt64 := func(name string) []byte {
+		fmt.Println("Enter New " + name)
+		var val int64
+		fmt.Scanln(&val)
+		ret := make([]byte, 8)
+		binary.BigEndian.PutUint64(ret, uint64(val))
+		return ret
+	}
+	promptUint32 := func(name string) []byte {
+		fmt.Println("Enter New " + name)
+		var val uint32
+		fmt.Scanln(&val)
+		ret := make([]byte, 4)
+		binary.BigEndian.PutUint32(ret, val)
+		return ret
+	}
+
 	fmt.Println("Select your command")
-	fmt.Println(`1       listActiveUsers         none            []uids
-2       listAllUsers            none            []userinfo
-3       getUserInfo             uid             userinfo
-4       addNewUser              userinfo        ok`)
 	var cmd string
 	fmt.Scanln(&cmd)
 	switch cmd {
 	case "1":
 		req = a.request([]byte{0x01})
-		return
 	case "2":
 		req = a.request([]byte{0x02})
-		return
 	case "3":
-		fmt.Println("Enter UID")
-		var b64UID string
-		fmt.Scanln(&b64UID)
-		UID, _ := base64.StdEncoding.DecodeString(b64UID)
+		UID := promptUID()
 		req = a.request(append([]byte{0x03}, UID...))
-		return
 	case "4":
 		var uinfo UserInfo
 		var b64UID string
@@ -118,10 +175,62 @@ func (a *administrator) getRequest() (req []byte, err error) {
 		fmt.Scanf("%d", &uinfo.ExpiryTime)
 		marshed, _ := json.Marshal(uinfo)
 		req = a.request(append([]byte{0x04}, marshed...))
-		return
+	case "5":
+		UID := promptUID()
+		fmt.Println("Are you sure to delete this user? y/n")
+		var ans string
+		fmt.Scanln(&ans)
+		if ans != "y" && ans != "Y" {
+			return
+		}
+		req = a.request(append([]byte{0x05}, UID...))
+	case "6":
+		UID := promptUID()
+		req = a.request(append([]byte{0x06}, UID...))
+	case "7":
+		arg := make([]byte, 36)
+		copy(arg, promptUID())
+		copy(arg[32:], promptUint32("SessionsCap"))
+		req = a.request(append([]byte{0x07}, arg...))
+	case "8":
+		arg := make([]byte, 40)
+		copy(arg, promptUID())
+		copy(arg[32:], promptInt64("UpRate"))
+		req = a.request(append([]byte{0x08}, arg...))
+	case "9":
+		arg := make([]byte, 40)
+		copy(arg, promptUID())
+		copy(arg[32:], promptInt64("DownRate"))
+		req = a.request(append([]byte{0x09}, arg...))
+	case "10":
+		arg := make([]byte, 40)
+		copy(arg, promptUID())
+		copy(arg[32:], promptInt64("UpCredit"))
+		req = a.request(append([]byte{0x0a}, arg...))
+	case "11":
+		arg := make([]byte, 40)
+		copy(arg, promptUID())
+		copy(arg[32:], promptInt64("DownCredit"))
+		req = a.request(append([]byte{0x0b}, arg...))
+	case "12":
+		arg := make([]byte, 40)
+		copy(arg, promptUID())
+		copy(arg[32:], promptInt64("ExpiryTime"))
+		req = a.request(append([]byte{0x0c}, arg...))
+	case "13":
+		arg := make([]byte, 40)
+		copy(arg, promptUID())
+		copy(arg[32:], promptInt64("UpCredit to add"))
+		req = a.request(append([]byte{0x0d}, arg...))
+	case "14":
+		arg := make([]byte, 40)
+		copy(arg, promptUID())
+		copy(arg[32:], promptInt64("DownCredit to add"))
+		req = a.request(append([]byte{0x0e}, arg...))
 	default:
 		return nil, errors.New("Unreconised cmd")
 	}
+	return req, nil
 }
 
 // protocol: 0[TLS record layer 5 bytes]5[IV 16 bytes]21[data][hmac 32 bytes]

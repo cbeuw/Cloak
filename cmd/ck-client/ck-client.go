@@ -81,32 +81,6 @@ func makeRemoteConn(sta *client.State) (net.Conn, error) {
 
 }
 
-func adminPrompt(sta *client.State) error {
-	a, err := adminHandshake(sta)
-	if err != nil {
-		return err
-	}
-	log.Println(err)
-	buf := make([]byte, 16000)
-	for {
-		req, err := a.getRequest()
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		a.adminConn.Write(req)
-		n, err := a.adminConn.Read(buf)
-		if err != nil {
-			return err
-		}
-		resp, err := a.checkAndDecrypt(buf[:n])
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(resp))
-	}
-}
-
 func main() {
 	// Should be 127.0.0.1 to listen to ss-local on this machine
 	var localHost string
