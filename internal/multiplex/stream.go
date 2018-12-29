@@ -120,6 +120,12 @@ func (stream *Stream) passiveClose() {
 func (stream *Stream) Close() error {
 
 	stream.writingM.Lock()
+	select {
+	case <-stream.die:
+		stream.writingM.Unlock()
+		return errors.New("Already Closed")
+	default:
+	}
 	stream.heliumMask.Do(func() { close(stream.die) })
 
 	// Notify remote that this stream is closed
