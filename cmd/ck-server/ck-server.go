@@ -144,7 +144,14 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	if sesh, existing := user.GetSession(sessionID, mux.MakeObfs(UID), mux.MakeDeobfs(UID), util.ReadTLS); existing {
+	sesh, existing, err := user.GetSession(sessionID, mux.MakeObfs(UID), mux.MakeDeobfs(UID), util.ReadTLS)
+	if err != nil {
+		user.DelSession(sessionID)
+		log.Println(err)
+		return
+	}
+
+	if existing {
 		sesh.AddConnection(conn)
 		return
 	} else {

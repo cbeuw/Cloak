@@ -1,10 +1,12 @@
 package usermanager
 
 import (
+	"errors"
 	"log"
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 )
@@ -82,17 +84,23 @@ func (u *User) DelSession(sessionID uint32) {
 	u.sessionsM.Unlock()
 }
 
-func (u *User) GetSession(sessionID uint32, obfs mux.Obfser, deobfs mux.Deobfser, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool) {
-	// TODO: session cap
+func (u *User) GetSession(sessionID uint32, obfs mux.Obfser, deobfs mux.Deobfser, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool, err error) {
+	if time.Now().Unix() > u.ExpiryTime {
+		return nil, false, errors.New("Expiry time passed")
+	}
 	u.sessionsM.Lock()
 	if sesh = u.sessions[sessionID]; sesh != nil {
 		u.sessionsM.Unlock()
-		return sesh, true
+		return sesh, true, nil
 	} else {
+		if len(u.sessions) >= int(u.SessionsCap) {
+			u.sessionsM.Unlock()
+			return nil, false, errors.New("SessionsCap reached")
+		}
 		log.Printf("Creating session %v\n", sessionID)
 		sesh = mux.MakeSession(sessionID, u.valve, obfs, deobfs, obfsedRead)
 		u.sessions[sessionID] = sesh
 		u.sessionsM.Unlock()
-		return sesh, false
+		return sesh, false, nil
 	}
 }

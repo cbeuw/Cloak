@@ -117,8 +117,6 @@ func (up *Userpanel) GetAndActivateAdminUser(AdminUID []byte) (*User, error) {
 	return user, nil
 }
 
-// TODO: expiry check
-
 // GetUser is used to retrieve a user if s/he is active, or to retrieve the user's infor
 // from the db and mark it as an active user
 func (up *Userpanel) GetAndActivateUser(UID []byte) (*User, error) {
