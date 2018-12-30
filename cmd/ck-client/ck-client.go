@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cbeuw/Cloak/internal/client"
@@ -22,7 +23,6 @@ import (
 var version string
 
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
-	// TODO: auto reconnect
 	// The maximum size of TLS message will be 16396+12. 12 because of the stream header
 	// 16408 is the max TLS message size on Firefox
 	buf := make([]byte, 16396)
@@ -139,12 +139,12 @@ func main() {
 		}
 		return
 	}
+
 	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 	// sessionID is limited to its UID.
 	rand.Seed(time.Now().UnixNano())
 	sessionID := rand.Uint32()
 
-	// opaque is used to generate the padding of session ticket
 	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now, sessionID)
 	err := sta.ParseConfig(pluginOpts)
 	if err != nil {
@@ -160,7 +160,13 @@ func main() {
 	if sta.TicketTimeHint == 0 {
 		log.Fatal("TicketTimeHint cannot be empty or 0")
 	}
+	listener, err := net.Listen("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
+	log.Println("Listening for ss on " + sta.SS_LOCAL_HOST + ":" + sta.SS_LOCAL_PORT)
+	if err != nil {
+		log.Fatal(err)
+	}
 
+start:
 	var UNLIMITED int64 = 1e12
 	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED, &UNLIMITED)
 	obfs := mux.MakeObfs(sta.UID)
@@ -171,10 +177,12 @@ func main() {
 	for i := 0; i < sta.NumConn; i++ {
 		wg.Add(1)
 		go func() {
+		makeconn:
 			conn, err := makeRemoteConn(sta)
 			if err != nil {
 				log.Printf("Failed to establish new connections to remote: %v\n", err)
-				return
+				time.Sleep(time.Second * 3)
+				goto makeconn
 			}
 			sesh.AddConnection(conn)
 			wg.Done()
@@ -182,12 +190,11 @@ func main() {
 	}
 	wg.Wait()
 
-	listener, err := net.Listen("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
-	log.Println("Listening for ss on " + sta.SS_LOCAL_HOST + ":" + sta.SS_LOCAL_PORT)
-	if err != nil {
-		log.Fatal(err)
-	}
+	var broken uint32
 	for {
+		if atomic.LoadUint32(&broken) == 1 {
+			goto retry
+		}
 		ssConn, err := listener.Accept()
 		if err != nil {
 			log.Println(err)
@@ -203,6 +210,9 @@ func main() {
 			}
 			stream, err := sesh.OpenStream()
 			if err != nil {
+				if err == mux.ErrBrokenSession {
+					atomic.StoreUint32(&broken, 1)
+				}
 				log.Println(err)
 				ssConn.Close()
 				return
@@ -218,5 +228,9 @@ func main() {
 			pipe(stream, ssConn)
 		}()
 	}
+retry:
+	time.Sleep(time.Second * 3)
+	log.Println("Reconnecting")
+	goto start
 
 }
