@@ -38,8 +38,8 @@ type Session struct {
 	// For accepting new streams
 	acceptCh chan *Stream
 
-	die      chan struct{}
-	overdose sync.Once // fentanyl? beware of respiratory depression
+	die     chan struct{}
+	suicide sync.Once
 }
 
 // 1 conn is needed to make a session
@@ -146,7 +146,7 @@ func (sesh *Session) addStream(id uint32) *Stream {
 
 func (sesh *Session) Close() error {
 	// Because closing a closed channel causes panic
-	sesh.overdose.Do(func() { close(sesh.die) })
+	sesh.suicide.Do(func() { close(sesh.die) })
 	sesh.streamsM.Lock()
 	for id, stream := range sesh.streams {
 		// If we call stream.Close() here, streamsM will result in a deadlock

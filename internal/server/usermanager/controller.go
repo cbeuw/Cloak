@@ -13,6 +13,8 @@ import (
 
 // FIXME: sanity checks. The server may panic due to user input
 
+// TODO: manual backup
+
 /*
 0	reserved
 1	listActiveUsers		none		[]uids
