@@ -128,6 +128,7 @@ func (sb *switchboard) removeConn(closing *connEnclave) {
 	sb.cesM.Unlock()
 }
 
+// actively triggered by session.Close()
 func (sb *switchboard) shutdown() {
 	for _, ce := range sb.ces {
 		ce.remoteConn.Close()

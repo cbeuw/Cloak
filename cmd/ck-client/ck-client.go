@@ -124,32 +124,31 @@ func main() {
 			return
 		}
 
-		log.Printf("Starting standalone mode. Listening for ss on %v:%v\n", localHost, localPort)
+		log.Println("Starting standalone mode")
 	}
 
+	if *isAdmin {
+		sta := client.InitState("", "", "", "", time.Now, 0)
+		err := sta.ParseConfig(pluginOpts)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = adminPrompt(sta)
+		if err != nil {
+			log.Println(err)
+		}
+		return
+	}
 	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 	// sessionID is limited to its UID.
 	rand.Seed(time.Now().UnixNano())
-	var sessionID uint32
-	if *isAdmin {
-		sessionID = 0
-	} else {
-		sessionID = rand.Uint32()
-	}
+	sessionID := rand.Uint32()
 
 	// opaque is used to generate the padding of session ticket
 	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now, sessionID)
 	err := sta.ParseConfig(pluginOpts)
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	if *isAdmin {
-		err = adminPrompt(sta)
-		if err != nil {
-			log.Println(err)
-		}
-		return
 	}
 
 	if sta.SS_LOCAL_PORT == "" {
@@ -184,6 +183,7 @@ func main() {
 	wg.Wait()
 
 	listener, err := net.Listen("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
+	log.Println("Listening for ss on " + sta.SS_LOCAL_HOST + ":" + sta.SS_LOCAL_PORT)
 	if err != nil {
 		log.Fatal(err)
 	}
