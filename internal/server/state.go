@@ -17,6 +17,8 @@ type rawConfig struct {
 	WebServerAddr string
 	PrivateKey    string
 	AdminUID      string
+	DatabasePath  string
+	BackupDirPath string
 }
 type stateManager interface {
 	ParseConfig(string) error
@@ -41,18 +43,13 @@ type State struct {
 	WebServerAddr string
 }
 
-func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time, dbPath string) (*State, error) {
-	up, err := usermanager.MakeUserpanel(dbPath)
-	if err != nil {
-		return nil, err
-	}
+func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) (*State, error) {
 	ret := &State{
 		SS_LOCAL_HOST:  localHost,
 		SS_LOCAL_PORT:  localPort,
 		SS_REMOTE_HOST: remoteHost,
 		SS_REMOTE_PORT: remotePort,
 		Now:            nowFunc,
-		Userpanel:      up,
 	}
 	ret.usedRandom = make(map[[32]byte]int)
 	return ret, nil
@@ -100,6 +97,12 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	if err != nil {
 		return errors.New("Failed to unmarshal: " + err.Error())
 	}
+
+	up, err := usermanager.MakeUserpanel(preParse.DatabasePath, preParse.BackupDirPath)
+	if err != nil {
+		return err
+	}
+	sta.Userpanel = up
 
 	sta.WebServerAddr = preParse.WebServerAddr
 

@@ -1,10 +1,11 @@
 package usermanager
 
 import (
+	"encoding/base64"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"os"
+	"path"
 	"strconv"
 	"sync"
 	"time"
@@ -19,19 +20,26 @@ var PutUint32 = binary.BigEndian.PutUint32
 var PutUint64 = binary.BigEndian.PutUint64
 
 type Userpanel struct {
-	db *bolt.DB
+	db      *bolt.DB
+	bakRoot string
 
 	activeUsersM sync.RWMutex
 	activeUsers  map[[32]byte]*User
 }
 
-func MakeUserpanel(dbPath string) (*Userpanel, error) {
+func MakeUserpanel(dbPath, bakRoot string) (*Userpanel, error) {
 	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
 		return nil, err
 	}
+	if bakRoot == "" {
+		os.Mkdir("db-backup", 0777)
+		bakRoot = "db-backup"
+	}
+	bakRoot = path.Clean(bakRoot)
 	up := &Userpanel{
 		db:          db,
+		bakRoot:     bakRoot,
 		activeUsers: make(map[[32]byte]*User),
 	}
 	go func() {
@@ -66,8 +74,8 @@ func (up *Userpanel) updateCredits() {
 
 }
 
-// TODO: prefixed backup path
-func (up *Userpanel) backupDB(bakPath string) error {
+func (up *Userpanel) backupDB(bakFileName string) error {
+	bakPath := up.bakRoot + "/" + bakFileName
 	_, err := os.Stat(bakPath)
 	if err == nil {
 		return errors.New("Attempting to overwrite a file during backup!")
@@ -300,7 +308,7 @@ func (up *Userpanel) addNewUser(uinfo UserInfo) error {
 }
 
 func (up *Userpanel) delUser(UID []byte) error {
-	err := up.backupDB(strconv.FormatInt(time.Now().Unix(), 10) + "_pre_del_" + hex.EncodeToString(UID) + ".bak")
+	err := up.backupDB(strconv.FormatInt(time.Now().Unix(), 10) + "_pre_del_" + base64.StdEncoding.EncodeToString(UID) + ".bak")
 	if err != nil {
 		return err
 	}

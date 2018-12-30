@@ -242,7 +242,7 @@ func main() {
 		localPort = strings.Split(*localAddr, ":")[1]
 		log.Printf("Starting standalone mode, listening on %v:%v to ss at %v:%v\n", remoteHost, remotePort, localHost, localPort)
 	}
-	sta, _ := server.InitState(localHost, localPort, remoteHost, remotePort, time.Now, "userinfo.db")
+	sta, _ := server.InitState(localHost, localPort, remoteHost, remotePort, time.Now)
 
 	err := sta.ParseConfig(pluginOpts)
 	if err != nil {
