@@ -67,12 +67,6 @@ func (u *User) updateInfo(uinfo UserInfo) {
 	u.setExpiryTime(uinfo.ExpiryTime)
 }
 
-func (u *User) PutSession(sessionID uint32, sesh *mux.Session) {
-	u.sessionsM.Lock()
-	u.sessions[sessionID] = sesh
-	u.sessionsM.Unlock()
-}
-
 func (u *User) DelSession(sessionID uint32) {
 	u.sessionsM.Lock()
 	delete(u.sessions, sessionID)

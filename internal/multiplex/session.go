@@ -94,16 +94,8 @@ func (sesh *Session) delStream(id uint32) {
 	sesh.streamsM.Unlock()
 }
 
-func (sesh *Session) isStream(id uint32) bool {
-	sesh.streamsM.RLock()
-	_, ok := sesh.streams[id]
-	sesh.streamsM.RUnlock()
-	return ok
-}
-
-// If the stream has been closed and the triggering frame is a closing frame,
-// we return nil
-func (sesh *Session) getOrAddStream(id uint32, closingFrame bool) *Stream {
+// either fetch an existing stream or instantiate a new stream and put it in the dict, and return it
+func (sesh *Session) getStream(id uint32, closingFrame bool) *Stream {
 	// it would have been neater to use defer Unlock(), however it gives
 	// non-negligable overhead and this function is performance critical
 	sesh.streamsM.Lock()
@@ -113,6 +105,8 @@ func (sesh *Session) getOrAddStream(id uint32, closingFrame bool) *Stream {
 		return stream
 	} else {
 		if closingFrame {
+			// If the stream has been closed and the current frame is a closing frame,
+			// we return nil
 			sesh.streamsM.Unlock()
 			return nil
 		} else {
@@ -126,24 +120,6 @@ func (sesh *Session) getOrAddStream(id uint32, closingFrame bool) *Stream {
 	}
 }
 
-func (sesh *Session) getStream(id uint32) *Stream {
-	sesh.streamsM.RLock()
-	ret := sesh.streams[id]
-	sesh.streamsM.RUnlock()
-	return ret
-}
-
-// addStream is used when the remote opened a new stream and we got notified
-func (sesh *Session) addStream(id uint32) *Stream {
-	stream := makeStream(id, sesh)
-	sesh.streamsM.Lock()
-	sesh.streams[id] = stream
-	sesh.streamsM.Unlock()
-	sesh.acceptCh <- stream
-	log.Printf("Adding stream %v\n", id)
-	return stream
-}
-
 func (sesh *Session) Close() error {
 	// Because closing a closed channel causes panic
 	sesh.suicide.Do(func() { close(sesh.die) })
@@ -153,13 +129,12 @@ func (sesh *Session) Close() error {
 		// because stream.Close calls sesh.delStream, which locks the mutex.
 		// so we need to implement a method of stream that closes the stream without calling
 		// sesh.delStream
-		// This can also be seen in smux
 		go stream.closeNoDelMap()
 		delete(sesh.streams, id)
 	}
 	sesh.streamsM.Unlock()
 
-	sesh.sb.shutdown()
+	sesh.sb.closeAll()
 	return nil
 
 }

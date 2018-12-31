@@ -129,14 +129,14 @@ func (sb *switchboard) removeConn(closing *connEnclave) {
 }
 
 // actively triggered by session.Close()
-func (sb *switchboard) shutdown() {
+func (sb *switchboard) closeAll() {
 	for _, ce := range sb.ces {
 		ce.remoteConn.Close()
 	}
 }
 
 // deplex function costantly reads from a TCP connection, call deobfs and distribute it
-// to the corresponding frame
+// to the corresponding stream
 func (sb *switchboard) deplex(ce *connEnclave) {
 	buf := make([]byte, 20480)
 	for {
@@ -170,7 +170,7 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 		// of the library. Maybe there's a race somewhere? I may eventually use another
 		// method to encrypt the headers. xxHash isn't cryptographic afterall.
 
-		stream := sb.session.getOrAddStream(frame.StreamID, frame.Closing == 1)
+		stream := sb.session.getStream(frame.StreamID, frame.Closing == 1)
 		// if the frame is telling us to close a closed stream
 		// (this happens when ss-server and ss-local closes the stream
 		// simutaneously), we don't do anything

@@ -114,6 +114,7 @@ func (s *Stream) recvNewFrame() {
 
 func (s *Stream) pushFrame(f *Frame) {
 	if f.Closing == 1 {
+		// empty data indicates closing signal
 		s.sortedBufCh <- []byte{}
 		return
 	}
