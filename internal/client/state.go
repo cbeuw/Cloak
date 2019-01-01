@@ -123,15 +123,3 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	sta.staticPub = pub
 	return nil
 }
-
-func (sta *State) getKeyPair(tthInterval int64) *keyPair {
-	sta.keyPairsM.Lock()
-	defer sta.keyPairsM.Unlock()
-	return sta.keyPairs[tthInterval]
-}
-
-func (sta *State) putKeyPair(tthInterval int64, kp *keyPair) {
-	sta.keyPairsM.Lock()
-	sta.keyPairs[tthInterval] = kp
-	sta.keyPairsM.Unlock()
-}

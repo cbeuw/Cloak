@@ -38,15 +38,17 @@ func MakeSessionTicket(sta *State) []byte {
 	// for encrypting the UID
 	tthInterval := sta.Now().Unix() / int64(sta.TicketTimeHint)
 	ec := ecdh.NewCurve25519ECDH()
-	ephKP := sta.getKeyPair(tthInterval)
+	sta.keyPairsM.Lock()
+	ephKP := sta.keyPairs[tthInterval]
 	if ephKP == nil {
 		ephPv, ephPub, _ := ec.GenerateKey(rand.Reader)
 		ephKP = &keyPair{
 			ephPv,
 			ephPub,
 		}
-		sta.putKeyPair(tthInterval, ephKP)
+		sta.keyPairs[tthInterval] = ephKP
 	}
+	sta.keyPairsM.Unlock()
 	ticket := make([]byte, 192)
 	copy(ticket[0:32], ec.Marshal(ephKP.PublicKey))
 	key, _ := ec.GenerateSharedSecret(ephKP.PrivateKey, sta.staticPub)

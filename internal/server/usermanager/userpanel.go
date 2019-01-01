@@ -346,7 +346,8 @@ func (up *Userpanel) syncMemFromDB(UID []byte) error {
 	return nil
 }
 
-// the following functions will return err==nil if user is not active
+// the following functions will update the db entries first, then if the
+// user is active, it will update it in memory.
 
 func (up *Userpanel) setSessionsCap(UID []byte, cap uint32) error {
 	err := up.updateDBEntryUint32(UID, "SessionsCap", cap)
@@ -446,6 +447,7 @@ func (up *Userpanel) addUpCredit(UID []byte, delta int64) error {
 	u.addUpCredit(delta)
 	return nil
 }
+
 func (up *Userpanel) addDownCredit(UID []byte, delta int64) error {
 	err := up.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(UID)
