@@ -18,12 +18,6 @@ type switchboard struct {
 	optimum atomic.Value // *connEnclave
 	cesM    sync.RWMutex
 	ces     []*connEnclave
-
-	/*
-		//debug
-		hM   sync.Mutex
-		used map[uint32]bool
-	*/
 }
 
 func (sb *switchboard) getOptimum() *connEnclave {
@@ -32,10 +26,6 @@ func (sb *switchboard) getOptimum() *connEnclave {
 	} else {
 		return i.(*connEnclave)
 	}
-}
-
-func (sb *switchboard) setOptimum(ce *connEnclave) {
-	sb.optimum.Store(ce)
 }
 
 // Some data comes from a Stream to be sent through one of the many
@@ -54,8 +44,6 @@ func makeSwitchboard(sesh *Session, valve *Valve) *switchboard {
 		session: sesh,
 		Valve:   valve,
 		ces:     []*connEnclave{},
-		//debug
-		// used: make(map[uint32]bool),
 	}
 	return sb
 }
@@ -99,18 +87,19 @@ func (sb *switchboard) updateOptimum() {
 		}
 	}
 	sb.cesM.RUnlock()
-	sb.setOptimum(currentOpti)
+	sb.optimum.Store(currentOpti)
 }
 
 func (sb *switchboard) addConn(conn net.Conn) {
+	var sendQueue uint32
 	newCe := &connEnclave{
 		remoteConn: conn,
-		sendQueue:  0,
+		sendQueue:  sendQueue,
 	}
 	sb.cesM.Lock()
 	sb.ces = append(sb.ces, newCe)
 	sb.cesM.Unlock()
-	sb.setOptimum(newCe)
+	sb.optimum.Store(newCe)
 	go sb.deplex(newCe)
 }
 
@@ -177,14 +166,5 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 		if stream != nil {
 			stream.writeNewFrame(frame)
 		}
-		//debug
-		/*
-			sb.hM.Lock()
-			if sb.used[frame.StreamID] {
-				log.Printf("%v lost!\n", frame.StreamID)
-			}
-			sb.used[frame.StreamID] = true
-			sb.hM.Unlock()
-		*/
 	}
 }

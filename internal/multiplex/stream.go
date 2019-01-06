@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 )
 
-var errBrokenStream = errors.New("broken stream")
+var ErrBrokenStream = errors.New("broken stream")
 
 type Stream struct {
 	id uint32
@@ -18,9 +18,9 @@ type Stream struct {
 
 	// Explanations of the following 4 fields can be found in frameSorter.go
 	nextRecvSeq uint32
-	rev         int
-	sh          sorterHeap
-	wrapMode    bool
+	//rev         int
+	sh sorterHeap
+	//wrapMode    bool
 
 	// New frames are received through newFrameCh by frameSorter
 	newFrameCh chan *Frame
@@ -54,18 +54,18 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 	if len(buf) == 0 {
 		select {
 		case <-stream.die:
-			return 0, errBrokenStream
+			return 0, ErrBrokenStream
 		default:
 			return 0, nil
 		}
 	}
 	select {
 	case <-stream.die:
-		return 0, errBrokenStream
+		return 0, ErrBrokenStream
 	case data := <-stream.sortedBufCh:
 		if len(data) == 0 {
 			stream.passiveClose()
-			return 0, errBrokenStream
+			return 0, ErrBrokenStream
 		}
 		if len(buf) < len(data) {
 			log.Println(len(data))
@@ -87,7 +87,7 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 	select {
 	case <-stream.die:
 		stream.writingM.RUnlock()
-		return 0, errBrokenStream
+		return 0, ErrBrokenStream
 	default:
 	}
 
