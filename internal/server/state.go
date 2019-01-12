@@ -100,7 +100,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 
 	up, err := usermanager.MakeUserpanel(preParse.DatabasePath, preParse.BackupDirPath)
 	if err != nil {
-		return err
+		return errors.New("Attempting to open database: " + err.Error())
 	}
 	sta.Userpanel = up
 
