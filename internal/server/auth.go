@@ -52,7 +52,7 @@ func TouchStone(ch *ClientHello, sta *State) (isSS bool, UID []byte, sessionID u
 	}
 	UID, sessionID, err := decryptSessionTicket(sta.staticPv, ticket)
 	if err != nil {
-		log.Printf("ts: %v\n", err)
+		log.Printf("Decryptin SessionTicket: %v\n", err)
 		return false, nil, 0
 	}
 	isSS = validateRandom(ch.random, UID, sta.Now().Unix())

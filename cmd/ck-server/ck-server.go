@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"io"
@@ -99,6 +100,9 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return nil
 	}
 
+	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
+	// added to the userinfo database. The distinction between going into the admin mode
+	// and normal proxy mode is that sessionID needs == 0 for admin mode
 	if bytes.Equal(UID, sta.AdminUID) && sessionID == 0 {
 		err = finishHandshake()
 		if err != nil {
@@ -155,14 +159,13 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		sesh.AddConnection(conn)
 		return
 	} else {
-		log.Printf("UID: %x\n", UID)
+		log.Printf("New session from UID:%v, sessionID:%v\n", base64.StdEncoding.EncodeToString(UID), sessionID)
 		sesh.AddConnection(conn)
 		for {
 			newStream, err := sesh.AcceptStream()
 			if err != nil {
-				log.Printf("Failed to get new stream: %v\n", err)
 				if err == mux.ErrBrokenSession {
-					log.Printf("Session closed: %x:%v\n", UID, sessionID)
+					log.Printf("Session closed for UID:%v, sessionID:%v\n", base64.StdEncoding.EncodeToString(UID), sessionID)
 					user.DelSession(sessionID)
 					return
 				} else {

@@ -2,7 +2,7 @@ package multiplex
 
 import (
 	"errors"
-	"log"
+	//"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -74,7 +74,7 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 	sesh.streamsM.Lock()
 	sesh.streams[id] = stream
 	sesh.streamsM.Unlock()
-	log.Printf("Opening stream %v\n", id)
+	//log.Printf("Opening stream %v\n", id)
 	return stream, nil
 }
 
@@ -113,7 +113,7 @@ func (sesh *Session) getStream(id uint32, closingFrame bool) *Stream {
 			stream = makeStream(id, sesh)
 			sesh.streams[id] = stream
 			sesh.acceptCh <- stream
-			log.Printf("Adding stream %v\n", id)
+			//log.Printf("Adding stream %v\n", id)
 			sesh.streamsM.Unlock()
 			return stream
 		}

@@ -132,7 +132,7 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 		n, err := sb.session.obfsedRead(ce.remoteConn, buf)
 		sb.rxWait(n)
 		if err != nil {
-			log.Println(err)
+			//log.Println(err)
 			go ce.remoteConn.Close()
 			sb.removeConn(ce)
 			return

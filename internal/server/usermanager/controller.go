@@ -56,10 +56,10 @@ func (c *controller) HandleRequest(req []byte) (resp []byte, err error) {
 	}
 	plain, err := c.checkAndDecrypt(req)
 	if err == ErrInvalidMac {
-		log.Printf("!!!CONTROL MESSAGE AND HMAC MISMATCH!!!\n raw request:\n%x\ndecrypted msg:\n%x", req, plain)
+		log.Printf("!!!CONTROL MESSAGE AND HMAC MISMATCH!!!\naUID:%x\nraw request:\n%x\ndecrypted msg:\n%x", c.adminUID, req, plain)
 		return nil, err
 	} else if err != nil {
-		log.Println(err)
+		log.Printf("aUID:%x\n,err:%v\n", c.adminUID, err)
 		return c.respond([]byte(err.Error())), nil
 	}
 

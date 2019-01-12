@@ -2,7 +2,7 @@ package multiplex
 
 import (
 	"errors"
-	"log"
+	//"log"
 	"math"
 	prand "math/rand"
 	"sync"
@@ -68,7 +68,6 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 			return 0, ErrBrokenStream
 		}
 		if len(buf) < len(data) {
-			log.Println(len(data))
 			return 0, errors.New("buf too small")
 		}
 		copy(buf, data)
@@ -113,7 +112,7 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 func (stream *Stream) passiveClose() {
 	stream.heliumMask.Do(func() { close(stream.die) })
 	stream.session.delStream(stream.id)
-	log.Printf("%v passive closing\n", stream.id)
+	//log.Printf("%v passive closing\n", stream.id)
 }
 
 // active close. Close locally and tell the remote that this stream is being closed
@@ -143,7 +142,7 @@ func (stream *Stream) Close() error {
 	stream.session.sb.send(tlsRecord)
 
 	stream.session.delStream(stream.id)
-	log.Printf("%v actively closed\n", stream.id)
+	//log.Printf("%v actively closed\n", stream.id)
 	stream.writingM.Unlock()
 	return nil
 }

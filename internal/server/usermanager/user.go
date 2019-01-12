@@ -2,7 +2,6 @@ package usermanager
 
 import (
 	"errors"
-	"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -91,7 +90,6 @@ func (u *User) GetSession(sessionID uint32, obfs mux.Obfser, deobfs mux.Deobfser
 			u.sessionsM.Unlock()
 			return nil, false, errors.New("SessionsCap reached")
 		}
-		log.Printf("Creating session %v\n", sessionID)
 		sesh = mux.MakeSession(sessionID, u.valve, obfs, deobfs, obfsedRead)
 		u.sessions[sessionID] = sesh
 		u.sessionsM.Unlock()

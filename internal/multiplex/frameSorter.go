@@ -2,7 +2,7 @@ package multiplex
 
 import (
 	"container/heap"
-	"log"
+	//"log"
 )
 
 // The data is multiplexed through several TCP connections, therefore the
@@ -66,8 +66,8 @@ func (s *Stream) recvNewFrame() {
 			return
 		case f = <-s.newFrameCh:
 		}
-		if f == nil {
-			log.Println("nil frame")
+		if f == nil { // This shouldn't happen
+			//log.Println("nil frame")
 			continue
 		}
 
