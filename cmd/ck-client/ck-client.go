@@ -28,13 +28,13 @@ func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 	buf := make([]byte, 16396)
 	for {
 		i, err := io.ReadAtLeast(src, buf, 1)
-		if err != nil || i == 0 {
+		if err != nil {
 			go dst.Close()
 			go src.Close()
 			return
 		}
 		i, err = dst.Write(buf[:i])
-		if err != nil || i == 0 {
+		if err != nil {
 			go dst.Close()
 			go src.Close()
 			return
