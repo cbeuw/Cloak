@@ -24,6 +24,9 @@ type ClientHello struct {
 	extensions            map[[2]byte][]byte
 }
 
+var u16 = binary.BigEndian.Uint16
+var u32 = binary.BigEndian.Uint32
+
 func parseExtensions(input []byte) (ret map[[2]byte][]byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -37,7 +40,7 @@ func parseExtensions(input []byte) (ret map[[2]byte][]byte, err error) {
 		var typ [2]byte
 		copy(typ[:], input[pointer:pointer+2])
 		pointer += 2
-		length := util.BtoInt(input[pointer : pointer+2])
+		length := int(u16(input[pointer : pointer+2]))
 		pointer += 2
 		data := input[pointer : pointer+length]
 		pointer += length
@@ -81,7 +84,7 @@ func ParseClientHello(data []byte) (ret *ClientHello, err error) {
 	}
 	pointer += 1
 	// Length
-	length := util.BtoInt(data[pointer : pointer+3])
+	length := int(u32(append([]byte{0x00}, data[pointer:pointer+3]...)))
 	pointer += 3
 	if length != len(data[pointer:]) {
 		return ret, errors.New("Hello length doesn't match")
@@ -98,7 +101,7 @@ func ParseClientHello(data []byte) (ret *ClientHello, err error) {
 	sessionId := data[pointer : pointer+sessionIdLen]
 	pointer += sessionIdLen
 	// Cipher Suites
-	cipherSuitesLen := util.BtoInt(data[pointer : pointer+2])
+	cipherSuitesLen := int(u16(data[pointer : pointer+2]))
 	pointer += 2
 	cipherSuites := data[pointer : pointer+cipherSuitesLen]
 	pointer += cipherSuitesLen
@@ -108,7 +111,7 @@ func ParseClientHello(data []byte) (ret *ClientHello, err error) {
 	compressionMethods := data[pointer : pointer+compressionMethodsLen]
 	pointer += compressionMethodsLen
 	// Extensions
-	extensionsLen := util.BtoInt(data[pointer : pointer+2])
+	extensionsLen := int(u16(data[pointer : pointer+2]))
 	pointer += 2
 	extensions, err := parseExtensions(data[pointer:])
 	ret = &ClientHello{
