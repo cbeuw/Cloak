@@ -18,9 +18,9 @@ type Stream struct {
 
 	// Explanations of the following 4 fields can be found in frameSorter.go
 	nextRecvSeq uint32
-	//rev         int
-	sh sorterHeap
-	//wrapMode    bool
+	rev         int
+	sh          sorterHeap
+	wrapMode    bool
 
 	// New frames are received through newFrameCh by frameSorter
 	newFrameCh chan *Frame
