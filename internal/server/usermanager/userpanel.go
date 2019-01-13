@@ -125,7 +125,7 @@ func (up *Userpanel) GetAndActivateAdminUser(AdminUID []byte) (*User, error) {
 	return user, nil
 }
 
-// GetUser is used to retrieve a user if s/he is active, or to retrieve the user's infor
+// GetUser is used to retrieve a user if s/he is active, or to retrieve the user's info
 // from the db and mark it as an active user
 func (up *Userpanel) GetAndActivateUser(UID []byte) (*User, error) {
 	up.activeUsersM.Lock()

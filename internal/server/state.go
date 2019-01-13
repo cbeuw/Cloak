@@ -20,11 +20,6 @@ type rawConfig struct {
 	DatabasePath  string
 	BackupDirPath string
 }
-type stateManager interface {
-	ParseConfig(string) error
-	SetAESKey(string)
-	PutUsedRandom([32]byte)
-}
 
 // State type stores the global state of the program
 type State struct {

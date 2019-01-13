@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	// Copied from smux
 	acceptBacklog = 1024
 )
 
@@ -42,7 +41,6 @@ type Session struct {
 	suicide sync.Once
 }
 
-// 1 conn is needed to make a session
 func MakeSession(id uint32, valve *Valve, obfs Obfser, deobfs Deobfser, obfsedRead func(net.Conn, []byte) (int, error)) *Session {
 	sesh := &Session{
 		id:           id,
