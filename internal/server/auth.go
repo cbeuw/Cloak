@@ -47,7 +47,7 @@ func TouchStone(ch *ClientHello, sta *State) (isSS bool, UID []byte, sessionID u
 	sta.putUsedRandom(random)
 
 	ticket := ch.extensions[[2]byte{0x00, 0x23}]
-	if len(ticket) < 64 {
+	if len(ticket) < 68 {
 		return false, nil, 0
 	}
 	UID, sessionID, err := decryptSessionTicket(sta.staticPv, ticket)
