@@ -74,6 +74,11 @@ func (s *Stream) recvNewFrame() {
 		// when there's no ooo packages in heap and we receive the next package in order
 		if len(s.sh) == 0 && f.Seq == s.nextRecvSeq {
 			s.pushFrame(f)
+			if f.Closing == 1 {
+				// empty data indicates closing signal
+				s.sortedBufCh <- []byte{}
+				return
+			}
 			continue
 		}
 
@@ -104,6 +109,11 @@ func (s *Stream) recvNewFrame() {
 		// Keep popping from the heap until empty or to the point that the wanted seq was not received
 		for len(s.sh) > 0 && s.sh[0].frame.Seq == s.nextRecvSeq {
 			frame := heap.Pop(&s.sh).(*frameNode).frame
+			if frame.Closing == 1 {
+				// empty data indicates closing signal
+				s.sortedBufCh <- []byte{}
+				return
+			}
 			s.pushFrame(frame)
 		}
 	}
@@ -111,11 +121,6 @@ func (s *Stream) recvNewFrame() {
 }
 
 func (s *Stream) pushFrame(f *Frame) {
-	if f.Closing == 1 {
-		// empty data indicates closing signal
-		s.sortedBufCh <- []byte{}
-		return
-	}
 	s.sortedBufCh <- f.Payload
 	s.nextRecvSeq += 1
 	if s.nextRecvSeq == 0 { // getting wrapped
