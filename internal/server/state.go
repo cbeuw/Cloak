@@ -117,20 +117,6 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	return nil
 }
 
-func (sta *State) getUsedRandom(random [32]byte) int {
-	sta.usedRandomM.Lock()
-	defer sta.usedRandomM.Unlock()
-	return sta.usedRandom[random]
-
-}
-
-// PutUsedRandom adds a random field into map usedRandom
-func (sta *State) putUsedRandom(random [32]byte) {
-	sta.usedRandomM.Lock()
-	sta.usedRandom[random] = int(sta.Now().Unix())
-	sta.usedRandomM.Unlock()
-}
-
 // UsedRandomCleaner clears the cache of used random fields every 12 hours
 func (sta *State) UsedRandomCleaner() {
 	for {
