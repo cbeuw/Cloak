@@ -97,11 +97,11 @@ func (s *Stream) recvNewFrame() {
 				// wrapMode is true when the latest seq is wrapped but nextN is not
 				s.wrapMode = true
 			}
-			fs.trueSeq = uint64(1<<16*(s.rev+1)) + uint64(f.Seq) + 1
+			fs.trueSeq = uint64(1<<32*(s.rev+1)) + uint64(f.Seq) + 1
 			// +1 because wrapped 0 should have trueSeq of 256 instead of 255
 			// when this bit was run on 1, the trueSeq of 1 would become 256
 		} else {
-			fs.trueSeq = uint64(1<<16*s.rev) + uint64(f.Seq)
+			fs.trueSeq = uint64(1<<32*s.rev) + uint64(f.Seq)
 			// when this bit was run on 255, the trueSeq of 255 would be 255
 		}
 
