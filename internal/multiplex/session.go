@@ -37,6 +37,7 @@ type Session struct {
 	// For accepting new streams
 	acceptCh chan *Stream
 
+	broken  uint32
 	die     chan struct{}
 	suicide sync.Once
 }
@@ -121,6 +122,7 @@ func (sesh *Session) getStream(id uint32, closingFrame bool) *Stream {
 func (sesh *Session) Close() error {
 	// Because closing a closed channel causes panic
 	sesh.suicide.Do(func() { close(sesh.die) })
+	atomic.StoreUint32(&sesh.broken, 1)
 	sesh.streamsM.Lock()
 	for id, stream := range sesh.streams {
 		// If we call stream.Close() here, streamsM will result in a deadlock
@@ -135,4 +137,8 @@ func (sesh *Session) Close() error {
 	sesh.sb.closeAll()
 	return nil
 
+}
+
+func (sesh *Session) IsBroken() bool {
+	return atomic.LoadUint32(&sesh.broken) == 1
 }

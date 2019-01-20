@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/cbeuw/Cloak/internal/client"
@@ -167,6 +166,7 @@ func main() {
 	}
 
 start:
+	log.Println("Attemtping to start a new session")
 	var UNLIMITED int64 = 1e12
 	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED, &UNLIMITED)
 	obfs := mux.MakeObfs(sta.UID)
@@ -190,10 +190,9 @@ start:
 	}
 	wg.Wait()
 
-	var broken uint32
 	for {
-		if atomic.LoadUint32(&broken) == 1 {
-			goto retry
+		if sesh.IsBroken() {
+			goto start
 		}
 		ssConn, err := listener.Accept()
 		if err != nil {
@@ -210,9 +209,6 @@ start:
 			}
 			stream, err := sesh.OpenStream()
 			if err != nil {
-				if err == mux.ErrBrokenSession {
-					atomic.StoreUint32(&broken, 1)
-				}
 				log.Println(err)
 				ssConn.Close()
 				return
@@ -228,9 +224,5 @@ start:
 			pipe(stream, ssConn)
 		}()
 	}
-retry:
-	time.Sleep(time.Second * 3)
-	log.Println("Reconnecting")
-	goto start
 
 }
