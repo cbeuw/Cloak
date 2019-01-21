@@ -8,10 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
-	"runtime"
 	"strings"
 	"time"
 
@@ -237,11 +234,7 @@ func main() {
 		}
 
 		if *pprofAddr != "" {
-			runtime.SetBlockProfileRate(5)
-			go func() {
-				log.Println(http.ListenAndServe(*pprofAddr, nil))
-			}()
-			log.Println("pprof listening on " + *pprofAddr)
+			startPprof(*pprofAddr)
 		}
 
 		if *localAddr == "" {
