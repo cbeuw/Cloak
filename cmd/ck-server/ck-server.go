@@ -185,10 +185,6 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 }
 
 func main() {
-	runtime.SetBlockProfileRate(5)
-	go func() {
-		log.Println(http.ListenAndServe("0.0.0.0:8001", nil))
-	}()
 	// Should be 127.0.0.1 to listen to ss-server on this machine
 	var localHost string
 	// server_port in ss config, same as remotePort in plugin mode
@@ -218,6 +214,8 @@ func main() {
 		genUID := flag.Bool("u", false, "Generate a UID")
 		genKeyPair := flag.Bool("k", false, "Generate a pair of public and private key, output in the format of pubkey,pvkey")
 
+		pprofAddr := flag.String("d", "", "debug use: ip:port to be listened by pprof profiler")
+
 		flag.Parse()
 
 		if *askVersion {
@@ -236,6 +234,14 @@ func main() {
 			pub, pv := generateKeyPair()
 			fmt.Printf("%v,%v", pub, pv)
 			return
+		}
+
+		if *pprofAddr != "" {
+			runtime.SetBlockProfileRate(5)
+			go func() {
+				log.Println(http.ListenAndServe(*pprofAddr, nil))
+			}()
+			log.Println("pprof listening on " + *pprofAddr)
 		}
 
 		if *localAddr == "" {
