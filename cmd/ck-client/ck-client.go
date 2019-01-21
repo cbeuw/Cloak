@@ -171,7 +171,7 @@ start:
 	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED, &UNLIMITED)
 	obfs := mux.MakeObfs(sta.UID)
 	deobfs := mux.MakeDeobfs(sta.UID)
-	sesh := mux.MakeSession(0, valve, obfs, deobfs, util.ReadTLS)
+	sesh := mux.MakeSession(sessionID, valve, obfs, deobfs, util.ReadTLS)
 
 	var wg sync.WaitGroup
 	for i := 0; i < sta.NumConn; i++ {
