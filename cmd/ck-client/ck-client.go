@@ -190,6 +190,8 @@ start:
 	}
 	wg.Wait()
 
+	log.Printf("Session %v established", sessionID)
+
 	for {
 		if sesh.IsBroken() {
 			goto start
