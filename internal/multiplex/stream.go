@@ -99,6 +99,7 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 
 	tlsRecord, err := stream.session.obfs(f)
 	if err != nil {
+		stream.writingM.RUnlock()
 		return 0, err
 	}
 	n, err = stream.session.sb.send(tlsRecord)
