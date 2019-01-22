@@ -67,7 +67,7 @@ func (sb *switchboard) send(data []byte) (int, error) {
 	sb.txWait(n)
 	if sb.AddTxCredit(-int64(n)) < 0 {
 		log.Println(ErrNoTxCredit)
-		defer sb.session.Close()
+		go sb.session.Close()
 		return n, ErrNoTxCredit
 	}
 	atomic.AddUint32(&ce.sendQueue, ^uint32(n-1))
@@ -119,9 +119,11 @@ func (sb *switchboard) removeConn(closing *connEnclave) {
 
 // actively triggered by session.Close()
 func (sb *switchboard) closeAll() {
+	sb.cesM.RLock()
 	for _, ce := range sb.ces {
 		ce.remoteConn.Close()
 	}
+	sb.cesM.RUnlock()
 }
 
 // deplex function costantly reads from a TCP connection, call deobfs and distribute it
