@@ -116,7 +116,6 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			resp, err := c.HandleRequest(data[:n])
 			if err != nil {
 				log.Println(err)
-				return
 			}
 			_, err = conn.Write(resp)
 			if err != nil {
