@@ -42,18 +42,19 @@ type State struct {
 	NumConn        int
 }
 
-func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time, sessionID uint32) *State {
+func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
 	ret := &State{
 		SS_LOCAL_HOST:  localHost,
 		SS_LOCAL_PORT:  localPort,
 		SS_REMOTE_HOST: remoteHost,
 		SS_REMOTE_PORT: remotePort,
 		Now:            nowFunc,
-		sessionID:      sessionID,
 	}
 	ret.keyPairs = make(map[int64]*keyPair)
 	return ret
 }
+
+func (sta *State) SetSessionID(id uint32) { sta.sessionID = id }
 
 // semi-colon separated value. This is for Android plugin options
 func ssvToJson(ssv string) (ret []byte) {

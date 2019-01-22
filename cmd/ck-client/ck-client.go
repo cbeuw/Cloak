@@ -127,7 +127,7 @@ func main() {
 	}
 
 	if *isAdmin {
-		sta := client.InitState("", "", "", "", time.Now, 0)
+		sta := client.InitState("", "", "", "", time.Now)
 		err := sta.ParseConfig(pluginOpts)
 		if err != nil {
 			log.Fatal(err)
@@ -139,12 +139,7 @@ func main() {
 		return
 	}
 
-	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
-	// sessionID is limited to its UID.
-	rand.Seed(time.Now().UnixNano())
-	sessionID := rand.Uint32()
-
-	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now, sessionID)
+	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now)
 	err := sta.ParseConfig(pluginOpts)
 	if err != nil {
 		log.Fatal(err)
@@ -167,6 +162,11 @@ func main() {
 
 start:
 	log.Println("Attemtping to start a new session")
+	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
+	// sessionID is limited to its UID.
+	rand.Seed(time.Now().UnixNano())
+	sessionID := rand.Uint32()
+	sta.SetSessionID(sessionID)
 	var UNLIMITED int64 = 1e12
 	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED, &UNLIMITED)
 	obfs := mux.MakeObfs(sta.UID)
