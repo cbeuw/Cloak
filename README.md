@@ -1,26 +1,21 @@
 # Cloak
 A Shadowsocks plugin that obfuscates the traffic as normal HTTPS traffic and disguises the proxy server as a normal webserver.
 
-**This is an active WIP. The program has shown to be stable but everything is subject to change.**
+Cloak multiplexes all traffic through a fixed amount of underlying TCP connections which eliminates the TCP handshake overhead when using vanilla Shadowsocks. Cloak also provides user management, allowing multiple users to connect to the proxy server using **one single port**. It also provides QoS controls for individual users such as upload and download credit limit, as well as bandwidth control.
 
-This project is based on my previous project [GoQuiet](https://github.com/cbeuw/GoQuiet). The aim is to make indiscriminate blocking of HTTPS servers (or even IP ranges) with high traffic the only effective way of stopping people from using Shadowsocks.
+To external observers (such as the GFW), Cloak is completely transparent and behaves like an ordinary HTTPS server. This is done through several [cryptographic mechanisms](https://github.com/cbeuw/Cloak/wiki/Cryptographic-Mechanisms). This eliminates the risk of being detected by traffic analysis and/or active probing
 
-Numerous improvements have been made from GoQuiet. The most significant one is that, in GoQuiet, a new TCP connection is establieshed and a TLS handshake is done between the client and the proxy server each time a connection is made to Shadowsocks' client, whereas in Cloak all the traffic is multiplexed through a fixed amount of persistent TCP connections between the client and the proxy server. The major benefits are:
-
-- Significantly quicker establishment of new connections as TLS handshake is only done on the startup of the client
-
-- More realistic traffic pattern
-
-Besides, Cloak allows multiple users to use one server **on a single port**. QoS restrictions such as bandwidth limitation and data cap can also be managed.
+This project is based on my previous project [GoQuiet](https://github.com/cbeuw/GoQuiet). The most significant improvement form GoQuiet is that there will not be new TLS handshake being done each time a client application establishes a new connection to the Shadowsocks client. This gives a siginifcant boost to webpage loading time (reduction in time ranges from 10% to 50+%, depending on the amount of content on the webpage, see [benchmarks](https://github.com/cbeuw/Cloak/wiki/Web-page-loading-benchmarks)).
 
 ## Build
-Simply `make client` and `make server`. Output binary will be in the build folder
+Simply `make client` and `make server`. Output binary will be in the build folder.
+Do `make server_pprof` if you want to access the live profiling data.
 
 ## Setup
 ### For the administrator of the server
 0. [Install and configure shadowsocks-libev on your server](https://github.com/shadowsocks/shadowsocks-libev#installation)
-1. Clone this repo onto your server
-2. Build and run ck-server -k. The base64 string before the comma is the **public** key to be given to users, the one after the comma is the **private** key to be kept secret
+1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo
+2. Run ck-server -k. The base64 string before the comma is the **public** key to be given to users, the one after the comma is the **private** key to be kept secret
 3. Run `ck-server -u`. This will be used as the AdminUID
 4. Put the private key and the AdminUID you obtained previously into config/ckserver.json
 5. Edit the configuration file of shadowsocks-libev (default location is /etc/shadowsocks-libev/config.json). Let `server_port` be `443`, `plugin` be the full path to the ck-server binary and `plugin_opts` be the full path to ckserver.json. If the fields `plugin` and `plugin_opts` were not present originally, add these fields to the config file.
@@ -37,7 +32,7 @@ Note: the user database is persistent as it's in-disk. You don't need to add the
 
 ### Instructions for clients
 0. Install and configure a version of shadowsocks client that supports plugins (such as shadowsocks-libev and shadowsocks-windows)
-1. Clone this repo and build ck-client
+1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo
 2. Obtain the public key and your UID (or the AdminUID, if you are the server admin) from the administrator of your server
 3. Put the public key and the UID you obtained into config/ckclient.json
 4. Configure your shadowsocks client with your server information. The field `plugin` should be the path to ck-server binary and `plugin_opts` should be the path to ckclient.json
