@@ -7,15 +7,14 @@ import (
 	"encoding/binary"
 	"log"
 
+	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
-	ecdh "github.com/cbeuw/go-ecdh"
 )
 
 // input ticket, return UID
 func decryptSessionTicket(staticPv crypto.PrivateKey, ticket []byte) ([]byte, uint32) {
-	ec := ecdh.NewCurve25519ECDH()
-	ephPub, _ := ec.Unmarshal(ticket[0:32])
-	key, _ := ec.GenerateSharedSecret(staticPv, ephPub)
+	ephPub, _ := ecdh.Unmarshal(ticket[0:32])
+	key := ecdh.GenerateSharedSecret(staticPv, ephPub)
 	UIDsID := util.AESDecrypt(ticket[0:16], key, ticket[32:68])
 	sessionID := binary.BigEndian.Uint32(UIDsID[32:36])
 	return UIDsID[0:32], sessionID

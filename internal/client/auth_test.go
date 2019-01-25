@@ -9,16 +9,16 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	ecdh "github.com/cbeuw/go-ecdh"
 	prand "math/rand"
 	"testing"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/ecdh"
 )
 
 func TestMakeSessionTicket(t *testing.T) {
 	UID, _ := hex.DecodeString("26a8e88bcd7c64a69ca051740851d22a6818de2fddafc00882331f1c5a8b866c")
-	ec := ecdh.NewCurve25519ECDH()
-	staticPv, staticPub, _ := ec.GenerateKey(rand.Reader)
+	staticPv, staticPub, _ := ecdh.GenerateKey(rand.Reader)
 	mockSta := &State{
 		Now:            time.Now,
 		sessionID:      42,
@@ -31,8 +31,8 @@ func TestMakeSessionTicket(t *testing.T) {
 	ticket := MakeSessionTicket(mockSta)
 
 	// verification
-	ephPub, _ := ec.Unmarshal(ticket[0:32])
-	key, _ := ec.GenerateSharedSecret(staticPv, ephPub)
+	ephPub, _ := ecdh.Unmarshal(ticket[0:32])
+	key := ecdh.GenerateSharedSecret(staticPv, ephPub)
 
 	// aes decrypt
 	UIDsID := make([]byte, len(ticket[32:68]))

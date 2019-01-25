@@ -5,9 +5,10 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"github.com/cbeuw/Cloak/internal/util"
-	ecdh "github.com/cbeuw/go-ecdh"
 	"io"
+
+	"github.com/cbeuw/Cloak/internal/ecdh"
+	"github.com/cbeuw/Cloak/internal/util"
 )
 
 type keyPair struct {
@@ -37,11 +38,10 @@ func MakeSessionTicket(sta *State) []byte {
 	// The first 16 bytes of the marshalled ephemeral public key is used as the IV
 	// for encrypting the UID
 	tthInterval := sta.Now().Unix() / int64(sta.TicketTimeHint)
-	ec := ecdh.NewCurve25519ECDH()
 	sta.keyPairsM.Lock()
 	ephKP := sta.keyPairs[tthInterval]
 	if ephKP == nil {
-		ephPv, ephPub, _ := ec.GenerateKey(rand.Reader)
+		ephPv, ephPub, _ := ecdh.GenerateKey(rand.Reader)
 		ephKP = &keyPair{
 			ephPv,
 			ephPub,
@@ -50,8 +50,8 @@ func MakeSessionTicket(sta *State) []byte {
 	}
 	sta.keyPairsM.Unlock()
 	ticket := make([]byte, 192)
-	copy(ticket[0:32], ec.Marshal(ephKP.PublicKey))
-	key, _ := ec.GenerateSharedSecret(ephKP.PrivateKey, sta.staticPub)
+	copy(ticket[0:32], ecdh.Marshal(ephKP.PublicKey))
+	key := ecdh.GenerateSharedSecret(ephKP.PrivateKey, sta.staticPub)
 	plainUIDsID := make([]byte, 36)
 	copy(plainUIDsID, sta.UID)
 	binary.BigEndian.PutUint32(plainUIDsID[32:36], sta.sessionID)

@@ -4,17 +4,16 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	ecdh "github.com/cbeuw/go-ecdh"
 	"testing"
-)
 
-var ec = ecdh.NewCurve25519ECDH()
+	"github.com/cbeuw/Cloak/internal/ecdh"
+)
 
 func TestDecryptSessionTicket(t *testing.T) {
 	UID, _ := hex.DecodeString("26a8e88bcd7c64a69ca051740851d22a6818de2fddafc00882331f1c5a8b866c")
 	sessionID := uint32(42)
 	pvb, _ := hex.DecodeString("083794692e77b28fa2152dfee53142185fd58ea8172d3545fdeeaea97b3c597c")
-	staticPv, _ := ec.Unmarshal(pvb)
+	staticPv, _ := ecdh.Unmarshal(pvb)
 	sessionTicket, _ := hex.DecodeString("f586223b50cada583d61dc9bf3d01cc3a45aab4b062ed6a31ead0badb87f7761aab4f9f737a1d8ff2a2aa4d50ceb808844588ee3c8fdf36c33a35ef5003e287337659c8164a7949e9e63623090763fc24d0386c8904e47bdd740e09dd9b395c72de669629c2a865ed581452d23306adf26de0c8a46ee05e3dac876f2bcd9a2de946d319498f579383d06b3e66b3aca05f533fdc5f017eeba45b42080aabd4f71151fa0dfc1b0e23be4ed3abdb47adc0d5740ca7b7689ad34426309fb6984a086")
 
 	decryUID, decrySessionID := decryptSessionTicket(staticPv, sessionTicket)

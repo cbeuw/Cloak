@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	ecdh "github.com/cbeuw/go-ecdh"
+	"github.com/cbeuw/Cloak/internal/ecdh"
 )
 
 type rawConfig struct {
@@ -116,8 +116,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	if err != nil {
 		return errors.New("Failed to parse Public key: " + err.Error())
 	}
-	ec := ecdh.NewCurve25519ECDH()
-	pub, ok := ec.Unmarshal(pubBytes)
+	pub, ok := ecdh.Unmarshal(pubBytes)
 	if !ok {
 		return errors.New("Failed to unmarshal Public key")
 	}
