@@ -13,6 +13,8 @@ Do `make server_pprof` if you want to access the live profiling data.
 
 ## Setup
 ### For the administrator of the server
+**Run this script: https://gist.github.com/cbeuw/37a9d434c237840d7e6d5e497539c1ca** or do it manually:
+
 0. [Install and configure shadowsocks-libev on your server](https://github.com/shadowsocks/shadowsocks-libev#installation)
 1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo
 2. Run ck-server -k. The base64 string before the comma is the **public** key to be given to users, the one after the comma is the **private** key to be kept secret
