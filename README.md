@@ -33,6 +33,8 @@ Do `make server_pprof` if you want to access the live profiling data.
 Note: the user database is persistent as it's in-disk. You don't need to add the users again each time you start ck-server.
 
 ### Instructions for clients
+**Android client is available here: https://github.com/cbeuw/Cloak-android**
+
 0. Install and configure a version of shadowsocks client that supports plugins (such as shadowsocks-libev and shadowsocks-windows)
 1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo
 2. Obtain the public key and your UID (or the AdminUID, if you are the server admin) from the administrator of your server
