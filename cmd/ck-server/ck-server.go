@@ -45,7 +45,6 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		webConn, err := net.Dial("tcp", sta.WebServerAddr)
 		if err != nil {
 			log.Printf("Making connection to redirection server: %v\n", err)
-			go webConn.Close()
 			return
 		}
 		webConn.Write(data)
