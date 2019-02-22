@@ -11,6 +11,32 @@ This project is based on my previous project [GoQuiet](https://github.com/cbeuw/
 Simply `make client` and `make server`. Output binary will be in the build folder.
 Do `make server_pprof` if you want to access the live profiling data.
 
+## Configuration
+
+### Server
+`WebServerAddr` is the redirection address and port when the incoming traffic is not from shadowsocks. It should correspond to the IP record of the `ServerName` set in `ckclient.json`.
+
+`PrivateKey` is the static curve25519 Diffie-Hellman private key.
+
+`AdminUID` is the UID of the admin user in base64.
+
+`DatabasePath` is the path to userinfo.db. If userinfo.db doesn't exist in this directory, Cloak will create one automatically. **If Cloak is started as a Shadowsocks plugin and Shadowsocks is started with its working directory as / (e.g. starting ss-server with systemctl), you need to set this field as an absolute path to a desired folder. If you leave it as default then Cloak will attempt to create userinfo.db under /, which it doesn't have the permission to do so and will raise an error. See Issue #13.
+
+`BackupDirPath` is the path to save the backups of userinfo.db whenever you delete a user. If left blank, Cloak will attempt to create a folder called db-backup under its working directory. This may not be desired. See notes above.
+
+### Client
+`UID` is your UID in base64.
+
+`PublicKey` is the static curve25519 public key, given by the server admin.
+
+`ServerName` is the domain you want to make the GFW think you are visiting.
+
+`TicketTimeHint` is the time needed for a session ticket to expire and a new one to be generated. Leave it as the default.
+
+`NumConn` is the amount of underlying TCP connections you want to use.
+
+`MaskBrowser` is the browser you want to **make the GFW _think_ you are using, it has NOTHING to do with the web browser or any web application you are using on your machine**. Currently, `chrome` and `firefox` are supported.
+
 ## Setup
 ### For the administrator of the server
 **Run this script: https://gist.github.com/cbeuw/37a9d434c237840d7e6d5e497539c1ca** or do it manually:
