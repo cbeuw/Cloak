@@ -199,7 +199,7 @@ func main() {
 		remotePort = os.Getenv("SS_REMOTE_PORT")
 		pluginOpts = os.Getenv("SS_PLUGIN_OPTIONS")
 	} else {
-		localAddr := flag.String("r", "", "localAddr: 127.0.0.1:server_port as set in SS config")
+		localAddr := flag.String("r", "", "localAddr: the ip:port ss-server is listening on, set in Shadowsocks' configuration. If ss-server is running locally, it should be 127.0.0.1:some port")
 		flag.StringVar(&remoteHost, "s", "0.0.0.0", "remoteHost: outbound listing ip, set to 0.0.0.0 to listen to everything")
 		flag.StringVar(&remotePort, "p", "443", "remotePort: outbound listing port, should be 443")
 		flag.StringVar(&pluginOpts, "c", "server.json", "pluginOpts: path to server.json or options seperated by semicolons")
