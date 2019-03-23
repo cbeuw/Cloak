@@ -48,7 +48,12 @@ func makeRemoteConn(sta *client.State) (net.Conn, error) {
 	d := net.Dialer{Control: protector}
 
 	clientHello := TLS.ComposeInitHandshake(sta)
-	remoteConn, err := d.Dial("tcp", sta.SS_REMOTE_HOST+":"+sta.SS_REMOTE_PORT)
+	connectingIP := sta.SS_REMOTE_HOST
+	if net.ParseIP(connectingIP).To4() == nil {
+		// IPv6 needs square brackets
+		connectingIP = "[" + connectingIP + "]"
+	}
+	remoteConn, err := d.Dial("tcp", connectingIP+":"+sta.SS_REMOTE_PORT)
 	if err != nil {
 		log.Printf("Connecting to remote: %v\n", err)
 		return nil, err
@@ -154,8 +159,13 @@ func main() {
 	if sta.TicketTimeHint == 0 {
 		log.Fatal("TicketTimeHint cannot be empty or 0")
 	}
-	listener, err := net.Listen("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
-	log.Println("Listening for ss on " + sta.SS_LOCAL_HOST + ":" + sta.SS_LOCAL_PORT)
+	listeningIP := sta.SS_LOCAL_HOST
+	if net.ParseIP(listeningIP).To4() == nil {
+		// IPv6 needs square brackets
+		listeningIP = "[" + listeningIP + "]"
+	}
+	listener, err := net.Listen("tcp", listeningIP+":"+sta.SS_LOCAL_PORT)
+	log.Println("Listening for ss on " + listeningIP + ":" + sta.SS_LOCAL_PORT)
 	if err != nil {
 		log.Fatal(err)
 	}
