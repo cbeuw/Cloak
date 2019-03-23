@@ -6,6 +6,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -28,7 +29,7 @@ type Session struct {
 	// atomic
 	nextStreamID uint32
 
-	streamsM sync.RWMutex
+	streamsM sync.Mutex
 	streams  map[uint32]*Stream
 
 	// Switchboard manages all connections to remote
@@ -90,6 +91,9 @@ func (sesh *Session) AcceptStream() (*Stream, error) {
 func (sesh *Session) delStream(id uint32) {
 	sesh.streamsM.Lock()
 	delete(sesh.streams, id)
+	if len(sesh.streams) == 0 {
+		go sesh.timeoutAfter(30 * time.Second)
+	}
 	sesh.streamsM.Unlock()
 }
 
@@ -141,4 +145,15 @@ func (sesh *Session) Close() error {
 
 func (sesh *Session) IsBroken() bool {
 	return atomic.LoadUint32(&sesh.broken) == 1
+}
+
+func (sesh *Session) timeoutAfter(to time.Duration) {
+	time.Sleep(to)
+	sesh.streamsM.Lock()
+	if len(sesh.streams) == 0 && !sesh.IsBroken() {
+		sesh.streamsM.Unlock()
+		sesh.Close()
+	} else {
+		sesh.streamsM.Unlock()
+	}
 }
