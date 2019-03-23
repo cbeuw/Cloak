@@ -177,8 +177,9 @@ start:
 	rand.Seed(time.Now().UnixNano())
 	sessionID := rand.Uint32()
 	sta.SetSessionID(sessionID)
-	var UNLIMITED int64 = 1e12
-	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED, &UNLIMITED)
+	var UNLIMITED_DOWN int64 = 1e15
+	var UNLIMITED_UP int64 = 1e15
+	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED_DOWN, &UNLIMITED_UP)
 	obfs := mux.MakeObfs(sta.UID)
 	deobfs := mux.MakeDeobfs(sta.UID)
 	sesh := mux.MakeSession(sessionID, valve, obfs, deobfs, util.ReadTLS)
