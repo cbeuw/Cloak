@@ -53,7 +53,7 @@ Do `make server_pprof` if you want to access the live profiling data.
 1. Run ck-server -u to generate a new UID
 2. On your client, run `ck-client -a -c <path-to-ckclient.json>` to enter admin mode
 3. Input as prompted, that is your ip:port of the server and your AdminUID. Enter 4 to create a new user.
-4. Enter the UID in your ckclient.json as the prompted UID, enter SessionsCap (maximum amount of concurrent sessions a user can have), UpRate and DownRate (in bytes/s), UpCredit and DownCredit (in bytes) and ExpiryTime (as a unix epoch)
+4. Enter the the newly generated UID, enter SessionsCap (maximum amount of concurrent sessions a user can have), UpRate and DownRate (in bytes/s), UpCredit and DownCredit (in bytes) and ExpiryTime (as a unix epoch)
 5. Give your **public** key and the newly generated UID to the new user
 
 Note: the user database is persistent as it's in-disk. You don't need to add the users again each time you start ck-server.
