@@ -42,7 +42,7 @@ Do `make server_pprof` if you want to access the live profiling data.
 **Run this script: https://gist.github.com/cbeuw/37a9d434c237840d7e6d5e497539c1ca** or do it manually:
 
 0. [Install and configure shadowsocks-libev on your server](https://github.com/shadowsocks/shadowsocks-libev#installation)
-1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo
+1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo. If you wish to build it, make sure you fetch the dependencies using `go get github.com/boltdb/bolt`, `go get github.com/juju/ratelimit` and `go get golang.org/x/crypto/curve25519`
 2. Run ck-server -k. The base64 string before the comma is the **public** key to be given to users, the one after the comma is the **private** key to be kept secret
 3. Run `ck-server -u`. This will be used as the AdminUID
 4. Put the private key and the AdminUID you obtained previously into config/ckserver.json
@@ -62,7 +62,7 @@ Note: the user database is persistent as it's in-disk. You don't need to add the
 **Android client is available here: https://github.com/cbeuw/Cloak-android**
 
 0. Install and configure a version of shadowsocks client that supports plugins (such as shadowsocks-libev and shadowsocks-windows)
-1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo
+1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo. If you wish to build it, make sure you fetch the dependencies using `go get github.com/boltdb/bolt`, `go get github.com/juju/ratelimit` and `go get golang.org/x/crypto/curve25519`
 2. Obtain the public key and your UID (or the AdminUID, if you are the server admin) from the administrator of your server
 3. Put the public key and the UID you obtained into config/ckclient.json
 4. Configure your shadowsocks client with your server information. The field `plugin` should be the path to ck-server binary and `plugin_opts` should be the path to ckclient.json
