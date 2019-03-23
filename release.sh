@@ -26,6 +26,7 @@ arch="amd64 386 arm arm64 mips mips64 mipsle mips64le"
 pushd cmd/ck-client
 gox -ldflags "-X main.version=${v}" -os="$os" -arch="$arch" -osarch="$osarch" -output="$output"
 GOOS="linux" GOARCH="mips" GOMIPS="softfloat" go build -ldflags "-X main.version=${v}" -o ck-client-linux-mips_softfloat-${v}
+GOOS="linux" GOARCH="mipsle" GOMIPS="softfloat" go build -ldflags "-X main.version=${v}" -o ck-client-linux-mipsle_softfloat-${v}
 mv ck-client-* ../../release
 
 os="linux"
