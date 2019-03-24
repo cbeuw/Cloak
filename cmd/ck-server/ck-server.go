@@ -167,7 +167,12 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 					continue
 				}
 			}
-			ssConn, err := net.Dial("tcp", sta.SS_LOCAL_HOST+":"+sta.SS_LOCAL_PORT)
+			ssIP := sta.SS_LOCAL_HOST
+			if net.ParseIP(ssIP).To4() == nil {
+				// IPv6 needs square brackets
+				ssIP = "[" + ssIP + "]"
+			}
+			ssConn, err := net.Dial("tcp", ssIP+":"+sta.SS_LOCAL_PORT)
 			if err != nil {
 				log.Printf("Failed to connect to ssserver: %v\n", err)
 				continue
