@@ -1,11 +1,11 @@
 # Cloak
-A Shadowsocks plugin that obfuscates the traffic as normal HTTPS traffic and disguises the proxy server as a normal webserver.
+A Shadowsocks plugin that obfuscates the traffic as normal HTTPS traffic to non-blocked websites through domain fronting and disguises the proxy server as a normal webserver.
 
 Cloak multiplexes all traffic through a fixed amount of underlying TCP connections which eliminates the TCP handshake overhead when using vanilla Shadowsocks. Cloak also provides user management, allowing multiple users to connect to the proxy server using **one single port**. It also provides QoS controls for individual users such as upload and download credit limit, as well as bandwidth control.
 
-To external observers (such as the GFW), Cloak is completely transparent and behaves like an ordinary HTTPS server. This is done through several [cryptographic mechanisms](https://github.com/cbeuw/Cloak/wiki/Cryptographic-Mechanisms). This eliminates the risk of being detected by traffic analysis and/or active probing
+To external observers (such as the GFW), Cloak is completely transparent and behaves like an ordinary HTTPS server. This is done through several [cryptographic mechanisms](https://github.com/cbeuw/Cloak/wiki/Cryptographic-Mechanisms). This eliminates the risk of being detected by traffic analysis and/or active probing.
 
-This project is based on my previous project [GoQuiet](https://github.com/cbeuw/GoQuiet). The most significant improvement form GoQuiet is that there will not be new TLS handshake being done each time a client application establishes a new connection to the Shadowsocks client. This gives a siginifcant boost to webpage loading time (reduction in time ranges from 10% to 50+%, depending on the amount of content on the webpage, see [benchmarks](https://github.com/cbeuw/Cloak/wiki/Web-page-loading-benchmarks)).
+This project is based on a previous project [GoQuiet](https://github.com/cbeuw/GoQuiet). Through multiplexing, Cloak provides a siginifcant reduction in webpage loading time compared to GoQuiet (from 10% to 50+%, depending on the amount of content on the webpage, see [benchmarks](https://github.com/cbeuw/Cloak/wiki/Web-page-loading-benchmarks)).
 
 ## Build
 Simply `make client` and `make server`. Output binary will be in the build folder.
