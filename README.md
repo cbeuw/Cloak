@@ -39,7 +39,7 @@ Do `make server_pprof` if you want to access the live profiling data.
 
 ## Setup
 ### For the administrator of the server
-**Run this script: https://gist.github.com/cbeuw/37a9d434c237840d7e6d5e497539c1ca** or do it manually:
+**Run this script: https://github.com/HirbodBehnam/Shadowsocks-Cloak-Installer/blob/master/Shadowsocks-Cloak-Installer.sh (thanks to [@HirbodBehnam](https://github.com/HirbodBehnam))** or do it manually:
 
 0. [Install and configure shadowsocks-libev on your server](https://github.com/shadowsocks/shadowsocks-libev#installation)
 1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo. If you wish to build it, make sure you fetch the dependencies using `go get github.com/boltdb/bolt`, `go get github.com/juju/ratelimit` and `go get golang.org/x/crypto/curve25519`
@@ -66,3 +66,12 @@ Note: the user database is persistent as it's in-disk. You don't need to add the
 2. Obtain the public key and your UID (or the AdminUID, if you are the server admin) from the administrator of your server
 3. Put the public key and the UID you obtained into config/ckclient.json
 4. Configure your shadowsocks client with your server information. The field `plugin` should be the path to ck-server binary and `plugin_opts` should be the path to ckclient.json
+
+## Support me
+If you find this project useful, donations are greatly appreciated!
+
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=SAUYKGSREP8GL&source=url)
+
+BTC: `bc1q59yvpnh0356qq9vf0j2y7hx36t9ysap30spx9h`
+
+ETH: `0x8effF29a8F9bD38A367580527AC303972c92b60c`
