@@ -4,7 +4,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"log"
 )
 
 type Crypto interface {
@@ -48,12 +47,10 @@ func (a *AES) encrypt(plaintext []byte) ([]byte, error) {
 	ret := make([]byte, 12+len(plaintext)+16)
 	copy(ret[:12], nonce)
 	copy(ret[12:], ciphertext)
-	log.Printf("%x\n", ret)
 	return ret, nil
 }
 
 func (a *AES) decrypt(buf []byte) ([]byte, error) {
-	log.Printf("%x\n", buf)
 	aesgcm, err := cipher.NewGCM(a.cipher)
 	if err != nil {
 		return nil, err
