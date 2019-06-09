@@ -20,6 +20,7 @@ import (
 
 var version string
 
+//TODO: take iv into account
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 	// The maximum size of TLS message will be 16396+12. 12 because of the stream header
 	// 16408 is the max TLS message size on Firefox
@@ -69,7 +70,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	isCloak, UID, sessionID, proxyMethod := server.TouchStone(ch, sta)
+	isCloak, UID, sessionID, proxyMethod, encryptionMethod := server.TouchStone(ch, sta)
 	if !isCloak {
 		log.Printf("+1 non Cloak TLS traffic from %v\n", conn.RemoteAddr())
 		goWeb(data)
@@ -148,7 +149,23 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	sesh, existing, err := user.GetSession(sessionID, mux.MakeObfs(UID), mux.MakeDeobfs(UID), util.ReadTLS)
+	var crypto mux.Crypto
+	switch encryptionMethod {
+	case 0x00:
+		crypto = &mux.Plain{}
+	case 0x01:
+		crypto, err = mux.MakeAESCipher(UID)
+		if err != nil {
+			log.Println(err)
+			goWeb(data)
+			return
+		}
+	default:
+		goWeb(data)
+		return
+	}
+
+	sesh, existing, err := user.GetSession(sessionID, mux.MakeObfs(UID, crypto), mux.MakeDeobfs(UID, crypto), util.ReadTLS)
 	if err != nil {
 		user.DelSession(sessionID)
 		log.Println(err)

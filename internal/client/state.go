@@ -14,13 +14,14 @@ import (
 )
 
 type rawConfig struct {
-	ServerName     string
-	ProxyMethod    string
-	UID            string
-	PublicKey      string
-	TicketTimeHint int
-	BrowserSig     string
-	NumConn        int
+	ServerName       string
+	ProxyMethod      string
+	EncryptionMethod string
+	UID              string
+	PublicKey        string
+	TicketTimeHint   int
+	BrowserSig       string
+	NumConn          int
 }
 
 // State stores global variables
@@ -37,11 +38,12 @@ type State struct {
 	keyPairsM sync.RWMutex
 	keyPairs  map[int64]*keyPair
 
-	ProxyMethod    string
-	TicketTimeHint int
-	ServerName     string
-	BrowserSig     string
-	NumConn        int
+	ProxyMethod      string
+	EncryptionMethod byte
+	TicketTimeHint   int
+	ServerName       string
+	BrowserSig       string
+	NumConn          int
 }
 
 func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
@@ -104,11 +106,22 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	if err != nil {
 		return err
 	}
+
+	switch preParse.EncryptionMethod {
+	case "plain":
+		sta.EncryptionMethod = 0x00
+	case "aes":
+		sta.EncryptionMethod = 0x01
+	default:
+		return errors.New("Unknown encryption method")
+	}
+
 	sta.ProxyMethod = preParse.ProxyMethod
 	sta.ServerName = preParse.ServerName
 	sta.TicketTimeHint = preParse.TicketTimeHint
 	sta.BrowserSig = preParse.BrowserSig
 	sta.NumConn = preParse.NumConn
+
 	uid, err := base64.StdEncoding.DecodeString(preParse.UID)
 	if err != nil {
 		return errors.New("Failed to parse UID: " + err.Error())

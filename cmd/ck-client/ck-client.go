@@ -21,6 +21,7 @@ import (
 
 var version string
 
+//TODO: take iv into account
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 	// The maximum size of TLS message will be 16396+12. 12 because of the stream header
 	// 16408 is the max TLS message size on Firefox
@@ -180,8 +181,21 @@ start:
 	var UNLIMITED_DOWN int64 = 1e15
 	var UNLIMITED_UP int64 = 1e15
 	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED_DOWN, &UNLIMITED_UP)
-	obfs := mux.MakeObfs(sta.UID)
-	deobfs := mux.MakeDeobfs(sta.UID)
+
+	var crypto mux.Crypto
+	switch sta.EncryptionMethod {
+	case 0x00:
+		crypto = &mux.Plain{}
+	case 0x01:
+		crypto, err = mux.MakeAESCipher(sta.UID)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
+
+	obfs := mux.MakeObfs(sta.UID, crypto)
+	deobfs := mux.MakeDeobfs(sta.UID, crypto)
 	sesh := mux.MakeSession(sessionID, valve, obfs, deobfs, util.ReadTLS)
 
 	var wg sync.WaitGroup
