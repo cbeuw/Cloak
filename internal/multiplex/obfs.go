@@ -31,7 +31,10 @@ func MakeObfs(key []byte, algo Crypto) Obfser {
 		binary.BigEndian.PutUint32(obfsedHeader[4:8], f.Seq^ii)
 		obfsedHeader[8] = f.Closing ^ iii
 
-		encryptedPayload := algo.encrypt(f.Payload)
+		encryptedPayload, err := algo.encrypt(f.Payload)
+		if err != nil {
+			return nil, err
+		}
 
 		// Composing final obfsed message
 		// We don't use util.AddRecordLayer here to avoid unnecessary malloc
@@ -61,7 +64,10 @@ func MakeDeobfs(key []byte, algo Crypto) Deobfser {
 
 		rawPayload := make([]byte, len(peeled)-headerLen)
 		copy(rawPayload, peeled[headerLen:])
-		decryptedPayload := algo.decrypt(rawPayload)
+		decryptedPayload, err := algo.decrypt(rawPayload)
+		if err != nil {
+			return nil, err
+		}
 
 		ret := &Frame{
 			StreamID: streamID,

@@ -1,14 +1,14 @@
 package server
 
 import (
-	"bytes"
+	//"bytes"
 	"encoding/hex"
 	"fmt"
 	"testing"
-
-	"github.com/cbeuw/Cloak/internal/ecdh"
+	//"github.com/cbeuw/Cloak/internal/ecdh"
 )
 
+/*
 func TestDecryptSessionTicket(t *testing.T) {
 	UID, _ := hex.DecodeString("26a8e88bcd7c64a69ca051740851d22a6818de2fddafc00882331f1c5a8b866c")
 	sessionID := uint32(42)
@@ -33,6 +33,7 @@ func TestDecryptSessionTicket(t *testing.T) {
 	}
 
 }
+*/
 
 func TestValidateRandom(t *testing.T) {
 	UID, _ := hex.DecodeString("26a8e88bcd7c64a69ca051740851d22a6818de2fddafc00882331f1c5a8b866c")

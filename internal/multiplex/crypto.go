@@ -4,21 +4,22 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"log"
 )
 
 type Crypto interface {
-	encrypt([]byte) []byte
-	decrypt([]byte) []byte
+	encrypt([]byte) ([]byte, error)
+	decrypt([]byte) ([]byte, error)
 }
 
 type Plain struct{}
 
-func (p *Plain) encrypt(plaintext []byte) []byte {
-	return plaintext
+func (p *Plain) encrypt(plaintext []byte) ([]byte, error) {
+	return plaintext, nil
 }
 
-func (p *Plain) decrypt(buf []byte) []byte {
-	return buf
+func (p *Plain) decrypt(buf []byte) ([]byte, error) {
+	return buf, nil
 }
 
 type AES struct {
@@ -36,18 +37,30 @@ func MakeAESCipher(key []byte) (*AES, error) {
 	return &ret, nil
 }
 
-func (a *AES) encrypt(plaintext []byte) []byte {
-	iv := make([]byte, 16)
-	rand.Read(iv)
-	ciphertext := make([]byte, 16+len(plaintext))
-	stream := cipher.NewCTR(a.cipher, iv)
-	stream.XORKeyStream(ciphertext[16:], plaintext)
-	copy(ciphertext[:16], iv)
-	return ciphertext
+func (a *AES) encrypt(plaintext []byte) ([]byte, error) {
+	nonce := make([]byte, 12)
+	rand.Read(nonce)
+	aesgcm, err := cipher.NewGCM(a.cipher)
+	if err != nil {
+		return nil, err
+	}
+	ciphertext := aesgcm.Seal(nil, nonce, plaintext, nil)
+	ret := make([]byte, 12+len(plaintext)+16)
+	copy(ret[:12], nonce)
+	copy(ret[12:], ciphertext)
+	log.Printf("%x\n", ret)
+	return ret, nil
 }
 
-func (a *AES) decrypt(buf []byte) []byte {
-	stream := cipher.NewCTR(a.cipher, buf[0:16])
-	stream.XORKeyStream(buf[16:], buf[16:])
-	return buf[16:]
+func (a *AES) decrypt(buf []byte) ([]byte, error) {
+	log.Printf("%x\n", buf)
+	aesgcm, err := cipher.NewGCM(a.cipher)
+	if err != nil {
+		return nil, err
+	}
+	plain, err := aesgcm.Open(nil, buf[:12], buf[12:], nil)
+	if err != nil {
+		return nil, err
+	}
+	return plain, nil
 }

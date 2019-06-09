@@ -15,7 +15,10 @@ import (
 func decryptSessionTicket(staticPv crypto.PrivateKey, ticket []byte) ([]byte, uint32, string, byte) {
 	ephPub, _ := ecdh.Unmarshal(ticket[0:32])
 	key := ecdh.GenerateSharedSecret(staticPv, ephPub)
-	plain := util.AESDecrypt(ticket[0:16], key, ticket[32:85])
+	plain, err := util.AESGCMDecrypt(ticket[0:12], key, ticket[32:101])
+	if err != nil {
+		return nil, 0, "", 0x00
+	}
 	sessionID := binary.BigEndian.Uint32(plain[32:36])
 	return plain[0:32], sessionID, string(bytes.Trim(plain[36:52], "\x00")), plain[52]
 }
@@ -51,6 +54,9 @@ func TouchStone(ch *ClientHello, sta *State) (isCK bool, UID []byte, sessionID u
 		return
 	}
 	UID, sessionID, proxyMethod, encryptionMethod = decryptSessionTicket(sta.staticPv, ticket)
+	if len(UID) < 32 {
+		return
+	}
 	isCK = validateRandom(ch.random, UID, sta.Now().Unix())
 	if !isCK {
 		return

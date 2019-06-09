@@ -2,20 +2,20 @@ package client
 
 import (
 	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
+	//"crypto/aes"
+	//"crypto/cipher"
+	//"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	prand "math/rand"
+	//prand "math/rand"
 	"testing"
 	"time"
-
-	"github.com/cbeuw/Cloak/internal/ecdh"
+	//"github.com/cbeuw/Cloak/internal/ecdh"
 )
 
+/*
 func TestMakeSessionTicket(t *testing.T) {
 	UID, _ := hex.DecodeString("26a8e88bcd7c64a69ca051740851d22a6818de2fddafc00882331f1c5a8b866c")
 	staticPv, staticPub, _ := ecdh.GenerateKey(rand.Reader)
@@ -72,6 +72,7 @@ func TestMakeSessionTicket(t *testing.T) {
 		)
 	}
 }
+*/
 
 func TestMakeRandomField(t *testing.T) {
 	UID, _ := hex.DecodeString("26a8e88bcd7c64a69ca051740851d22a6818de2fddafc00882331f1c5a8b866c")
