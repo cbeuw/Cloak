@@ -15,19 +15,20 @@ import (
 
 type rawConfig struct {
 	ServerName     string
+	ProxyMethod    string
 	UID            string
 	PublicKey      string
 	TicketTimeHint int
-	MaskBrowser    string
+	BrowserSig     string
 	NumConn        int
 }
 
 // State stores global variables
 type State struct {
-	SS_LOCAL_HOST  string
-	SS_LOCAL_PORT  string
-	SS_REMOTE_HOST string
-	SS_REMOTE_PORT string
+	LocalHost  string
+	LocalPort  string
+	RemoteHost string
+	RemotePort string
 
 	Now       func() time.Time
 	sessionID uint32
@@ -36,19 +37,20 @@ type State struct {
 	keyPairsM sync.RWMutex
 	keyPairs  map[int64]*keyPair
 
+	ProxyMethod    string
 	TicketTimeHint int
 	ServerName     string
-	MaskBrowser    string
+	BrowserSig     string
 	NumConn        int
 }
 
 func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
 	ret := &State{
-		SS_LOCAL_HOST:  localHost,
-		SS_LOCAL_PORT:  localPort,
-		SS_REMOTE_HOST: remoteHost,
-		SS_REMOTE_PORT: remotePort,
-		Now:            nowFunc,
+		LocalHost:  localHost,
+		LocalPort:  localPort,
+		RemoteHost: remoteHost,
+		RemotePort: remotePort,
+		Now:        nowFunc,
 	}
 	ret.keyPairs = make(map[int64]*keyPair)
 	return ret
@@ -102,9 +104,10 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	if err != nil {
 		return err
 	}
+	sta.ProxyMethod = preParse.ProxyMethod
 	sta.ServerName = preParse.ServerName
 	sta.TicketTimeHint = preParse.TicketTimeHint
-	sta.MaskBrowser = preParse.MaskBrowser
+	sta.BrowserSig = preParse.BrowserSig
 	sta.NumConn = preParse.NumConn
 	uid, err := base64.StdEncoding.DecodeString(preParse.UID)
 	if err != nil {

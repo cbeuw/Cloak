@@ -42,7 +42,7 @@ func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 
 func dispatchConnection(conn net.Conn, sta *server.State) {
 	goWeb := func(data []byte) {
-		webConn, err := net.Dial("tcp", sta.WebServerAddr)
+		webConn, err := net.Dial("tcp", sta.RedirAddr)
 		if err != nil {
 			log.Printf("Making connection to redirection server: %v\n", err)
 			return
@@ -64,14 +64,19 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	data := buf[:i]
 	ch, err := server.ParseClientHello(data)
 	if err != nil {
-		log.Printf("+1 non SS non (or malformed) TLS traffic from %v\n", conn.RemoteAddr())
+		log.Printf("+1 non Cloak non (or malformed) TLS traffic from %v\n", conn.RemoteAddr())
 		goWeb(data)
 		return
 	}
 
-	isSS, UID, sessionID := server.TouchStone(ch, sta)
-	if !isSS {
-		log.Printf("+1 non SS TLS traffic from %v\n", conn.RemoteAddr())
+	isCloak, UID, sessionID, proxyMethod := server.TouchStone(ch, sta)
+	if !isCloak {
+		log.Printf("+1 non Cloak TLS traffic from %v\n", conn.RemoteAddr())
+		goWeb(data)
+		return
+	}
+	if _, ok := sta.ProxyBook[proxyMethod]; !ok {
+		log.Printf("+1 Cloak TLS traffic with invalid proxy method `%v` from %v\n", proxyMethod, conn.RemoteAddr())
 		goWeb(data)
 		return
 	}
@@ -167,47 +172,35 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 					continue
 				}
 			}
-			ssIP := sta.SS_LOCAL_HOST
-			if net.ParseIP(ssIP).To4() == nil {
-				// IPv6 needs square brackets
-				ssIP = "[" + ssIP + "]"
-			}
-			ssConn, err := net.Dial("tcp", ssIP+":"+sta.SS_LOCAL_PORT)
+			localConn, err := net.Dial("tcp", sta.ProxyBook[proxyMethod])
 			if err != nil {
-				log.Printf("Failed to connect to ssserver: %v\n", err)
+				log.Printf("Failed to connect to %v: %v\n", proxyMethod, err)
 				continue
 			}
-			go pipe(ssConn, newStream)
-			go pipe(newStream, ssConn)
+			go pipe(localConn, newStream)
+			go pipe(newStream, localConn)
 		}
 	}
 
 }
 
 func main() {
-	// Should be 127.0.0.1 to listen to ss-server on this machine
-	var localHost string
-	// server_port in ss config, same as remotePort in plugin mode
-	var localPort string
 	// server in ss config, the outbound listening ip
-	var remoteHost string
+	var bindHost string
 	// Outbound listening ip, should be 443
-	var remotePort string
-	var pluginOpts string
+	var bindPort string
+	var config string
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	if os.Getenv("SS_LOCAL_HOST") != "" {
-		localHost = os.Getenv("SS_LOCAL_HOST")
-		localPort = os.Getenv("SS_LOCAL_PORT")
-		remoteHost = os.Getenv("SS_REMOTE_HOST")
-		remotePort = os.Getenv("SS_REMOTE_PORT")
-		pluginOpts = os.Getenv("SS_PLUGIN_OPTIONS")
+		bindHost = os.Getenv("SS_REMOTE_HOST")
+		bindPort = os.Getenv("SS_REMOTE_PORT")
+		config = os.Getenv("SS_PLUGIN_OPTIONS")
 	} else {
-		localAddr := flag.String("r", "", "localAddr: the ip:port ss-server is listening on, set in Shadowsocks' configuration. If ss-server is running locally, it should be 127.0.0.1:some port")
-		flag.StringVar(&remoteHost, "s", "0.0.0.0", "remoteHost: outbound listing ip, set to 0.0.0.0 to listen to everything")
-		flag.StringVar(&remotePort, "p", "443", "remotePort: outbound listing port, should be 443")
-		flag.StringVar(&pluginOpts, "c", "server.json", "pluginOpts: path to server.json or options seperated by semicolons")
+		flag.StringVar(&bindHost, "s", "0.0.0.0", "bindHost: ip to bind to, set to 0.0.0.0 to listen to everything")
+		flag.StringVar(&bindPort, "p", "443", "bindPort: port to bind to, should be 443")
+		flag.StringVar(&config, "c", "server.json", "config: path to the configuration file or its content")
 		askVersion := flag.Bool("v", false, "Print the version number")
 		printUsage := flag.Bool("h", false, "Print this message")
 
@@ -240,18 +233,23 @@ func main() {
 			startPprof(*pprofAddr)
 		}
 
-		if *localAddr == "" {
-			log.Fatal("Must specify localAddr")
-		}
-		localHost = strings.Split(*localAddr, ":")[0]
-		localPort = strings.Split(*localAddr, ":")[1]
-		log.Printf("Starting standalone mode, listening on %v:%v to ss at %v:%v\n", remoteHost, remotePort, localHost, localPort)
+		log.Printf("Starting standalone mode, listening on %v:%v", bindHost, bindPort)
 	}
-	sta, _ := server.InitState(localHost, localPort, remoteHost, remotePort, time.Now)
+	sta, _ := server.InitState(bindHost, bindPort, time.Now)
 
-	err := sta.ParseConfig(pluginOpts)
+	err := sta.ParseConfig(config)
 	if err != nil {
 		log.Fatalf("Configuration file error: %v", err)
+	}
+
+	// when cloak is started as a shadowsocks plugin
+	if os.Getenv("SS_LOCAL_HOST") != "" && os.Getenv("SS_LOCAL_PORT") != "" {
+		ssLocalHost := os.Getenv("SS_LOCAL_HOST")
+		ssLocalPort := os.Getenv("SS_LOCAL_PORT")
+		if net.ParseIP(ssLocalHost).To4() == nil {
+			ssLocalHost = "[" + ssLocalHost + "]"
+		}
+		sta.ProxyBook["shadowsocks"] = ssLocalHost + ":" + ssLocalPort
 	}
 
 	if sta.AdminUID == nil {
@@ -277,7 +275,7 @@ func main() {
 	}
 
 	// When listening on an IPv6 and IPv4, SS gives REMOTE_HOST as e.g. ::|0.0.0.0
-	listeningIP := strings.Split(sta.SS_REMOTE_HOST, "|")
+	listeningIP := strings.Split(sta.BindHost, "|")
 	for i, ip := range listeningIP {
 		if net.ParseIP(ip).To4() == nil {
 			// IPv6 needs square brackets
@@ -286,9 +284,9 @@ func main() {
 
 		// The last listener must block main() because the program exits on main return.
 		if i == len(listeningIP)-1 {
-			listen(ip, sta.SS_REMOTE_PORT)
+			listen(ip, sta.BindPort)
 		} else {
-			go listen(ip, sta.SS_REMOTE_PORT)
+			go listen(ip, sta.BindPort)
 		}
 	}
 

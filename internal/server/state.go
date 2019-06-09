@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"strings"
 	"sync"
 	"time"
 
@@ -14,7 +13,8 @@ import (
 )
 
 type rawConfig struct {
-	WebServerAddr string
+	ProxyBook     map[string]string
+	RedirAddr     string
 	PrivateKey    string
 	AdminUID      string
 	DatabasePath  string
@@ -23,10 +23,10 @@ type rawConfig struct {
 
 // State type stores the global state of the program
 type State struct {
-	SS_LOCAL_HOST  string
-	SS_LOCAL_PORT  string
-	SS_REMOTE_HOST string
-	SS_REMOTE_PORT string
+	ProxyBook map[string]string
+
+	BindHost string
+	BindPort string
 
 	Now         func() time.Time
 	AdminUID    []byte
@@ -35,62 +35,35 @@ type State struct {
 	usedRandomM sync.RWMutex
 	usedRandom  map[[32]byte]int
 
-	WebServerAddr string
+	RedirAddr string
 }
 
-func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) (*State, error) {
+func InitState(bindHost, bindPort string, nowFunc func() time.Time) (*State, error) {
 	ret := &State{
-		SS_LOCAL_HOST:  localHost,
-		SS_LOCAL_PORT:  localPort,
-		SS_REMOTE_HOST: remoteHost,
-		SS_REMOTE_PORT: remotePort,
-		Now:            nowFunc,
+		BindHost: bindHost,
+		BindPort: bindPort,
+		Now:      nowFunc,
 	}
 	ret.usedRandom = make(map[[32]byte]int)
 	return ret, nil
 }
 
-// semi-colon separated value.
-func ssvToJson(ssv string) (ret []byte) {
-	unescape := func(s string) string {
-		r := strings.Replace(s, `\\`, `\`, -1)
-		r = strings.Replace(r, `\=`, `=`, -1)
-		r = strings.Replace(r, `\;`, `;`, -1)
-		return r
-	}
-	lines := strings.Split(unescape(ssv), ";")
-	ret = []byte("{")
-	for _, ln := range lines {
-		if ln == "" {
-			break
-		}
-		sp := strings.SplitN(ln, "=", 2)
-		key := sp[0]
-		value := sp[1]
-		ret = append(ret, []byte(`"`+key+`":"`+value+`",`)...)
-
-	}
-	ret = ret[:len(ret)-1] // remove the last comma
-	ret = append(ret, '}')
-	return ret
-}
-
 // ParseConfig parses the config (either a path to json or in-line ssv config) into a State variable
 func (sta *State) ParseConfig(conf string) (err error) {
 	var content []byte
-	if strings.Contains(conf, ";") && strings.Contains(conf, "=") {
-		content = ssvToJson(conf)
-	} else {
-		content, err = ioutil.ReadFile(conf)
-		if err != nil {
-			return err
-		}
-	}
-
 	var preParse rawConfig
-	err = json.Unmarshal(content, &preParse)
-	if err != nil {
-		return errors.New("Failed to unmarshal: " + err.Error())
+
+	content, errPath := ioutil.ReadFile(conf)
+	if errPath != nil {
+		errJson := json.Unmarshal(content, &preParse)
+		if errJson != nil {
+			return errors.New("Failed to read/unmarshal configuration, path is invalid or " + errJson.Error())
+		}
+	} else {
+		errJson := json.Unmarshal(content, &preParse)
+		if errJson != nil {
+			return errors.New("Failed to read configuration file: " + errJson.Error())
+		}
 	}
 
 	up, err := usermanager.MakeUserpanel(preParse.DatabasePath, preParse.BackupDirPath)
@@ -99,7 +72,8 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	}
 	sta.Userpanel = up
 
-	sta.WebServerAddr = preParse.WebServerAddr
+	sta.RedirAddr = preParse.RedirAddr
+	sta.ProxyBook = preParse.ProxyBook
 
 	pvBytes, err := base64.StdEncoding.DecodeString(preParse.PrivateKey)
 	if err != nil {

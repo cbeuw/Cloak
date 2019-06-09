@@ -1,5 +1,10 @@
 {
-		"WebServerAddr":"204.79.197.200:443",
+		"ProxyBook":{
+			"shadowsocks":"127.0.0.1:8388",
+			"openvpn":"127.0.0.1:8389",
+			"tor":"127.0.0.1:9001"
+		},
+		"RedirAddr":"204.79.197.200:443",
 		"PrivateKey":"EN5aPEpNBO+vw+BtFQY2OnK9bQU7rvEj5qmnmgwEtUc=",
 		"AdminUID":"ugDmcEmxWf0pKxfkZ/8EoP35Ht+wQnqf3L0xYgyQFlQ=",
 		"DatabasePath":"userinfo.db",

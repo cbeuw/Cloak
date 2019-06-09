@@ -12,12 +12,12 @@ import (
 )
 
 // input ticket, return UID
-func decryptSessionTicket(staticPv crypto.PrivateKey, ticket []byte) ([]byte, uint32) {
+func decryptSessionTicket(staticPv crypto.PrivateKey, ticket []byte) ([]byte, uint32, string) {
 	ephPub, _ := ecdh.Unmarshal(ticket[0:32])
 	key := ecdh.GenerateSharedSecret(staticPv, ephPub)
-	UIDsID := util.AESDecrypt(ticket[0:16], key, ticket[32:68])
-	sessionID := binary.BigEndian.Uint32(UIDsID[32:36])
-	return UIDsID[0:32], sessionID
+	plain := util.AESDecrypt(ticket[0:16], key, ticket[32:84])
+	sessionID := binary.BigEndian.Uint32(plain[32:36])
+	return plain[0:32], sessionID, string(bytes.Trim(plain[36:52], "\x00"))
 }
 
 func validateRandom(random []byte, UID []byte, time int64) bool {
@@ -32,7 +32,7 @@ func validateRandom(random []byte, UID []byte, time int64) bool {
 	h.Write(preHash)
 	return bytes.Equal(h.Sum(nil)[0:16], random[16:32])
 }
-func TouchStone(ch *ClientHello, sta *State) (isSS bool, UID []byte, sessionID uint32) {
+func TouchStone(ch *ClientHello, sta *State) (isCK bool, UID []byte, sessionID uint32, proxyMethod string) {
 	var random [32]byte
 	copy(random[:], ch.random)
 
@@ -43,17 +43,17 @@ func TouchStone(ch *ClientHello, sta *State) (isSS bool, UID []byte, sessionID u
 
 	if used != 0 {
 		log.Println("Replay! Duplicate random")
-		return false, nil, 0
+		return false, nil, 0, ""
 	}
 
 	ticket := ch.extensions[[2]byte{0x00, 0x23}]
 	if len(ticket) < 68 {
-		return false, nil, 0
+		return false, nil, 0, ""
 	}
-	UID, sessionID = decryptSessionTicket(sta.staticPv, ticket)
-	isSS = validateRandom(ch.random, UID, sta.Now().Unix())
-	if !isSS {
-		return false, nil, 0
+	UID, sessionID, proxyMethod = decryptSessionTicket(sta.staticPv, ticket)
+	isCK = validateRandom(ch.random, UID, sta.Now().Unix())
+	if !isCK {
+		return false, nil, 0, ""
 	}
 
 	return

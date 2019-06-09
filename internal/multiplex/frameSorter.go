@@ -9,13 +9,11 @@ import (
 // order of arrival is not guaranteed. A stream's first packet may be sent through
 // connection0 and its second packet may be sent through connection1. Although both
 // packets are transmitted reliably (as TCP is reliable), packet1 may arrive to the
-// remote side before packet0.
-//
-// However, shadowsocks' protocol does not provide sequence control. We must therefore
-// make sure packets arrive in order.
+// remote side before packet0. Cloak have to therefore sequence the packets so that they
+// arrive in order as they were sent by the proxy software
 //
 // Cloak packets will have a 32-bit sequence number on them, so we know in which order
-// they should be sent to shadowsocks. The code in this file provides buffering and sorting.
+// they should be sent to the proxy software. The code in this file provides buffering and sorting.
 //
 // Similar to TCP, the next seq number after 2^32-1 is 0. This is called wrap around.
 //

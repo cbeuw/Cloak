@@ -49,13 +49,13 @@ func addExtRec(typ []byte, data []byte) []byte {
 // ComposeInitHandshake composes ClientHello with record layer
 func ComposeInitHandshake(sta *client.State) []byte {
 	var ch []byte
-	switch sta.MaskBrowser {
+	switch sta.BrowserSig {
 	case "chrome":
 		ch = (&chrome{}).composeClientHello(sta)
 	case "firefox":
 		ch = (&firefox{}).composeClientHello(sta)
 	default:
-		panic("Unsupported browser:" + sta.MaskBrowser)
+		panic("Unsupported browser:" + sta.BrowserSig)
 	}
 	return util.AddRecordLayer(ch, []byte{0x16}, []byte{0x03, 0x01})
 }

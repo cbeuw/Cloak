@@ -1,8 +1,9 @@
 {
+	"ProxyMethod":"shadowsocks",
 	"UID":"iGAO85zysIyR4c09CyZSLdNhtP/ckcYu7nIPI082AHA=",
 	"PublicKey":"IYoUzkle/T/kriE+Ufdm7AHQtIeGnBWbhhlTbmDpUUI=",
 	"ServerName":"www.bing.com",
 	"TicketTimeHint":3600,
 	"NumConn":4,
-	"MaskBrowser":"chrome"
+	"BrowserSig":"chrome"
 }

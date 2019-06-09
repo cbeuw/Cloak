@@ -48,12 +48,12 @@ func makeRemoteConn(sta *client.State) (net.Conn, error) {
 	d := net.Dialer{Control: protector}
 
 	clientHello := TLS.ComposeInitHandshake(sta)
-	connectingIP := sta.SS_REMOTE_HOST
+	connectingIP := sta.RemoteHost
 	if net.ParseIP(connectingIP).To4() == nil {
 		// IPv6 needs square brackets
 		connectingIP = "[" + connectingIP + "]"
 	}
-	remoteConn, err := d.Dial("tcp", connectingIP+":"+sta.SS_REMOTE_PORT)
+	remoteConn, err := d.Dial("tcp", connectingIP+":"+sta.RemotePort)
 	if err != nil {
 		log.Printf("Connecting to remote: %v\n", err)
 		return nil, err
@@ -86,15 +86,15 @@ func makeRemoteConn(sta *client.State) (net.Conn, error) {
 }
 
 func main() {
-	// Should be 127.0.0.1 to listen to ss-local on this machine
+	// Should be 127.0.0.1 to listen to a proxy client on this machine
 	var localHost string
-	// server_port in ss config, ss sends data on loopback using this port
+	// port used by proxy clients to communicate with cloak client
 	var localPort string
 	// The ip of the proxy server
 	var remoteHost string
 	// The proxy port,should be 443
 	var remotePort string
-	var pluginOpts string
+	var config string
 	isAdmin := new(bool)
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -106,13 +106,13 @@ func main() {
 		localPort = os.Getenv("SS_LOCAL_PORT")
 		remoteHost = os.Getenv("SS_REMOTE_HOST")
 		remotePort = os.Getenv("SS_REMOTE_PORT")
-		pluginOpts = os.Getenv("SS_PLUGIN_OPTIONS")
+		config = os.Getenv("SS_PLUGIN_OPTIONS")
 	} else {
 		localHost = "127.0.0.1"
-		flag.StringVar(&localPort, "l", "", "localPort: same as server_port in ss config, the plugin listens to SS using this")
+		flag.StringVar(&localPort, "l", "", "localPort: Cloak listens to proxy clients on this port")
 		flag.StringVar(&remoteHost, "s", "", "remoteHost: IP of your proxy server")
 		flag.StringVar(&remotePort, "p", "443", "remotePort: proxy port, should be 443")
-		flag.StringVar(&pluginOpts, "c", "ckclient.json", "pluginOpts: path to ckclient.json or options seperated with semicolons")
+		flag.StringVar(&config, "c", "ckclient.json", "config: path to the configuration file or options seperated with semicolons")
 		askVersion := flag.Bool("v", false, "Print the version number")
 		isAdmin = flag.Bool("a", false, "Admin mode")
 		printUsage := flag.Bool("h", false, "Print this message")
@@ -133,7 +133,7 @@ func main() {
 
 	if *isAdmin {
 		sta := client.InitState("", "", "", "", time.Now)
-		err := sta.ParseConfig(pluginOpts)
+		err := sta.ParseConfig(config)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -145,27 +145,27 @@ func main() {
 	}
 
 	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now)
-	err := sta.ParseConfig(pluginOpts)
+	err := sta.ParseConfig(config)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if sta.SS_LOCAL_PORT == "" {
+	if sta.LocalPort == "" {
 		log.Fatal("Must specify localPort")
 	}
-	if sta.SS_REMOTE_HOST == "" {
+	if sta.RemoteHost == "" {
 		log.Fatal("Must specify remoteHost")
 	}
 	if sta.TicketTimeHint == 0 {
 		log.Fatal("TicketTimeHint cannot be empty or 0")
 	}
-	listeningIP := sta.SS_LOCAL_HOST
+	listeningIP := sta.LocalHost
 	if net.ParseIP(listeningIP).To4() == nil {
 		// IPv6 needs square brackets
 		listeningIP = "[" + listeningIP + "]"
 	}
-	listener, err := net.Listen("tcp", listeningIP+":"+sta.SS_LOCAL_PORT)
-	log.Println("Listening for ss on " + listeningIP + ":" + sta.SS_LOCAL_PORT)
+	listener, err := net.Listen("tcp", listeningIP+":"+sta.LocalPort)
+	log.Println("Listening for proxy clients on " + listeningIP + ":" + sta.LocalPort)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -207,34 +207,34 @@ start:
 		if sesh.IsBroken() {
 			goto start
 		}
-		ssConn, err := listener.Accept()
+		localConn, err := listener.Accept()
 		if err != nil {
 			log.Println(err)
 			continue
 		}
 		go func() {
 			data := make([]byte, 10240)
-			i, err := io.ReadAtLeast(ssConn, data, 1)
+			i, err := io.ReadAtLeast(localConn, data, 1)
 			if err != nil {
 				log.Println(err)
-				ssConn.Close()
+				localConn.Close()
 				return
 			}
 			stream, err := sesh.OpenStream()
 			if err != nil {
 				log.Println(err)
-				ssConn.Close()
+				localConn.Close()
 				return
 			}
 			_, err = stream.Write(data[:i])
 			if err != nil {
 				log.Println(err)
-				ssConn.Close()
+				localConn.Close()
 				stream.Close()
 				return
 			}
-			go pipe(ssConn, stream)
-			pipe(stream, ssConn)
+			go pipe(localConn, stream)
+			pipe(stream, localConn)
 		}()
 	}
 
