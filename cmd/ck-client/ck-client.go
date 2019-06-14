@@ -192,6 +192,12 @@ start:
 			log.Println(err)
 			return
 		}
+	case 0x02:
+		crypto, err = mux.MakeCPCipher(sta.UID)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 	}
 
 	obfs := mux.MakeObfs(sta.UID, crypto)

@@ -160,7 +160,15 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			goWeb(data)
 			return
 		}
+	case 0x02:
+		crypto, err = mux.MakeCPCipher(UID)
+		if err != nil {
+			log.Println(err)
+			goWeb(data)
+			return
+		}
 	default:
+		log.Println("Unknown encryption method")
 		goWeb(data)
 		return
 	}

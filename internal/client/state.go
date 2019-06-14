@@ -112,6 +112,8 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		sta.EncryptionMethod = 0x00
 	case "aes":
 		sta.EncryptionMethod = 0x01
+	case "chacha20-poly1305":
+		sta.EncryptionMethod = 0x02
 	default:
 		return errors.New("Unknown encryption method")
 	}

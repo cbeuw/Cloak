@@ -47,6 +47,7 @@ func MakeObfs(key []byte, algo Crypto) Obfser {
 
 		// Composing final obfsed message
 		// We don't use util.AddRecordLayer here to avoid unnecessary malloc
+		// TODO: allocate this in the beginning and do everything in place
 		obfsed := make([]byte, 5+headerLen+len(encryptedPayload))
 		obfsed[0] = 0x17
 		obfsed[1] = 0x03

@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"golang.org/x/crypto/chacha20poly1305"
 )
 
 type Crypto interface {
@@ -55,6 +56,36 @@ func (a *AES) decrypt(ciphertext []byte, nonce []byte) ([]byte, error) {
 		return nil, err
 	}
 	plain, err := aesgcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+	return plain, nil
+}
+
+type C20P1305 struct {
+	cipher cipher.AEAD
+}
+
+func MakeCPCipher(key []byte) (*C20P1305, error) {
+	c, err := chacha20poly1305.New(key)
+	if err != nil {
+		return nil, err
+	}
+	ret := C20P1305{
+		c,
+	}
+	return &ret, nil
+}
+
+func (c *C20P1305) encrypt(plaintext []byte, nonce []byte) ([]byte, error) {
+	ciphertext := c.cipher.Seal(nil, nonce, plaintext, nil)
+	ret := make([]byte, len(plaintext)+16)
+	copy(ret, ciphertext)
+	return ret, nil
+}
+
+func (c *C20P1305) decrypt(ciphertext []byte, nonce []byte) ([]byte, error) {
+	plain, err := c.cipher.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return nil, err
 	}
