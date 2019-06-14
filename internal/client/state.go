@@ -110,7 +110,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	switch preParse.EncryptionMethod {
 	case "plain":
 		sta.EncryptionMethod = 0x00
-	case "aes":
+	case "aes-gcm":
 		sta.EncryptionMethod = 0x01
 	case "chacha20-poly1305":
 		sta.EncryptionMethod = 0x02

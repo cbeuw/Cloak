@@ -187,7 +187,7 @@ start:
 	case 0x00:
 		crypto = &mux.Plain{}
 	case 0x01:
-		crypto, err = mux.MakeAESCipher(sta.UID)
+		crypto, err = mux.MakeAESGCMCipher(sta.UID)
 		if err != nil {
 			log.Println(err)
 			return

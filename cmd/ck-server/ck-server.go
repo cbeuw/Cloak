@@ -154,7 +154,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	case 0x00:
 		crypto = &mux.Plain{}
 	case 0x01:
-		crypto, err = mux.MakeAESCipher(UID)
+		crypto, err = mux.MakeAESGCMCipher(UID)
 		if err != nil {
 			log.Println(err)
 			goWeb(data)

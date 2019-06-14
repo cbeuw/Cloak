@@ -21,41 +21,37 @@ func (p *Plain) encrypt(plaintext []byte, nonce []byte) ([]byte, error) {
 }
 
 func (p *Plain) decrypt(buf []byte, nonce []byte) ([]byte, error) {
-	return buf, nil
+	return buf[:len(buf)-16], nil
 }
 
-type AES struct {
-	cipher cipher.Block
+type AESGCM struct {
+	cipher cipher.AEAD
 }
 
-func MakeAESCipher(key []byte) (*AES, error) {
+func MakeAESGCMCipher(key []byte) (*AESGCM, error) {
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
-	ret := AES{
-		c,
+	g, err := cipher.NewGCM(c)
+	if err != nil {
+		return nil, err
+	}
+	ret := AESGCM{
+		g,
 	}
 	return &ret, nil
 }
 
-func (a *AES) encrypt(plaintext []byte, nonce []byte) ([]byte, error) {
-	aesgcm, err := cipher.NewGCM(a.cipher)
-	if err != nil {
-		return nil, err
-	}
-	ciphertext := aesgcm.Seal(nil, nonce, plaintext, nil)
+func (a *AESGCM) encrypt(plaintext []byte, nonce []byte) ([]byte, error) {
+	ciphertext := a.cipher.Seal(nil, nonce, plaintext, nil)
 	ret := make([]byte, len(plaintext)+16)
 	copy(ret, ciphertext)
 	return ret, nil
 }
 
-func (a *AES) decrypt(ciphertext []byte, nonce []byte) ([]byte, error) {
-	aesgcm, err := cipher.NewGCM(a.cipher)
-	if err != nil {
-		return nil, err
-	}
-	plain, err := aesgcm.Open(nil, nonce, ciphertext, nil)
+func (a *AESGCM) decrypt(ciphertext []byte, nonce []byte) ([]byte, error) {
+	plain, err := a.cipher.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return nil, err
 	}

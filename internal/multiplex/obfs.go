@@ -84,11 +84,14 @@ func MakeDeobfs(key []byte, algo Crypto) Deobfser {
 			return nil, err
 		}
 
+		outputPayload := make([]byte, len(decryptedPayload))
+		copy(outputPayload, decryptedPayload)
+
 		ret := &Frame{
 			StreamID: streamID,
 			Seq:      seq,
 			Closing:  closing,
-			Payload:  decryptedPayload,
+			Payload:  outputPayload,
 		}
 		return ret, nil
 	}
