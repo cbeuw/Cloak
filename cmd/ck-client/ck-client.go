@@ -21,11 +21,11 @@ import (
 
 var version string
 
-//TODO: take iv into account
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
-	// The maximum size of TLS message will be 16396+12. 12 because of the stream header
+	// The maximum size of TLS message will be 16380+12+16. 12 because of the stream header and 16
+	// because of the salt/mac
 	// 16408 is the max TLS message size on Firefox
-	buf := make([]byte, 16396)
+	buf := make([]byte, 16380)
 	for {
 		i, err := io.ReadAtLeast(src, buf, 1)
 		if err != nil {
