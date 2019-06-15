@@ -31,12 +31,13 @@ type State struct {
 	RemoteHost string
 	RemotePort string
 
-	Now       func() time.Time
-	sessionID uint32
-	UID       []byte
-	staticPub crypto.PublicKey
-	keyPairsM sync.RWMutex
-	keyPairs  map[int64]*keyPair
+	Now        func() time.Time
+	sessionID  uint32
+	SessionKey []byte
+	UID        []byte
+	staticPub  crypto.PublicKey
+	keyPairsM  sync.RWMutex
+	keyPairs   map[int64]*keyPair
 
 	ProxyMethod      string
 	EncryptionMethod byte

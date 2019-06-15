@@ -200,9 +200,10 @@ start:
 		}
 	}
 
-	obfs := mux.MakeObfs(sta.UID, crypto)
-	deobfs := mux.MakeDeobfs(sta.UID, crypto)
-	sesh := mux.MakeSession(sessionID, valve, obfs, deobfs, util.ReadTLS)
+	sessionKey := make([]byte, 32)
+	rand.Read(sessionKey)
+	sta.SessionKey = sessionKey
+	sesh := mux.MakeSession(sessionID, valve, mux.MakeObfs(sta.SessionKey, crypto), mux.MakeDeobfs(sta.SessionKey, crypto), util.ReadTLS)
 
 	var wg sync.WaitGroup
 	for i := 0; i < sta.NumConn; i++ {
