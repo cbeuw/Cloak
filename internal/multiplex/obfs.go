@@ -41,8 +41,10 @@ func MakeObfs(key []byte, algo Crypto) Obfser {
 			return nil, err
 		}
 
+		cKey := make([]byte, len(key))
+		copy(cKey, key)
 		salt := encryptedPayload[len(encryptedPayload)-16:]
-		xorKey := genXorKey(key, salt)
+		xorKey := genXorKey(cKey, salt)
 		xor(header, xorKey)
 
 		// Composing final obfsed message
@@ -72,7 +74,9 @@ func MakeDeobfs(key []byte, algo Crypto) Deobfser {
 		payload := peeled[12:]
 		salt := peeled[len(peeled)-16:]
 
-		xorKey := genXorKey(key, salt)
+		cKey := make([]byte, len(key))
+		copy(cKey, key)
+		xorKey := genXorKey(cKey, salt)
 		xor(header, xorKey)
 
 		streamID := u32(header[0:4])
