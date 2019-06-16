@@ -151,6 +151,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if os.Getenv("SS_LOCAL_HOST") != "" {
+		sta.ProxyMethod = "shadowsocks"
+	}
+
 	if sta.LocalPort == "" {
 		log.Fatal("Must specify localPort")
 	}
