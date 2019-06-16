@@ -15,12 +15,12 @@ import (
 func decryptSessionTicket(staticPv crypto.PrivateKey, ticket []byte) ([]byte, uint32, string, byte, []byte) {
 	ephPub, _ := ecdh.Unmarshal(ticket[0:32])
 	key := ecdh.GenerateSharedSecret(staticPv, ephPub)
-	plain, err := util.AESGCMDecrypt(ticket[0:12], key, ticket[32:133])
+	plain, err := util.AESGCMDecrypt(ticket[0:12], key, ticket[32:117])
 	if err != nil {
 		return nil, 0, "", 0x00, nil
 	}
-	sessionID := binary.BigEndian.Uint32(plain[32:36])
-	return plain[0:32], sessionID, string(bytes.Trim(plain[36:52], "\x00")), plain[52], plain[53:85]
+	sessionID := binary.BigEndian.Uint32(plain[16:20])
+	return plain[0:16], sessionID, string(bytes.Trim(plain[20:36], "\x00")), plain[36], plain[37:69]
 }
 
 func validateRandom(random []byte, UID []byte, time int64) bool {
@@ -54,7 +54,7 @@ func TouchStone(ch *ClientHello, sta *State) (isCK bool, UID []byte, sessionID u
 		return
 	}
 	UID, sessionID, proxyMethod, encryptionMethod, sessionKey = decryptSessionTicket(sta.staticPv, ticket)
-	if len(UID) < 32 {
+	if len(UID) < 16 {
 		return
 	}
 	isCK = validateRandom(ch.random, UID, sta.Now().Unix())

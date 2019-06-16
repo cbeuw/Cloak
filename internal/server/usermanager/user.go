@@ -25,7 +25,7 @@ type UserInfo struct {
 type User struct {
 	up *Userpanel
 
-	arrUID [32]byte
+	arrUID [16]byte
 
 	*UserInfo
 

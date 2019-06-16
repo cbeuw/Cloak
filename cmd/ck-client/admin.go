@@ -34,6 +34,8 @@ type UserInfo struct {
 	ExpiryTime  int64
 }
 
+var b64 = base64.StdEncoding
+
 type administrator struct {
 	adminConn net.Conn
 	adminUID  []byte
@@ -87,7 +89,7 @@ func adminHandshake(sta *client.State) (*administrator, error) {
 	fmt.Println("Enter the admin UID")
 	var b64AdminUID string
 	fmt.Scanln(&b64AdminUID)
-	adminUID, err := base64.StdEncoding.DecodeString(b64AdminUID)
+	adminUID, err := b64.DecodeString(b64AdminUID)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +124,7 @@ func (a *administrator) getRequest() (req []byte, err error) {
 		fmt.Println("Enter UID")
 		var b64UID string
 		fmt.Scanln(&b64UID)
-		ret, _ := base64.StdEncoding.DecodeString(b64UID)
+		ret, _ := b64.DecodeString(b64UID)
 		return ret
 	}
 
@@ -159,7 +161,7 @@ func (a *administrator) getRequest() (req []byte, err error) {
 		var b64UID string
 		fmt.Printf("UID:")
 		fmt.Scanln(&b64UID)
-		UID, _ := base64.StdEncoding.DecodeString(b64UID)
+		UID, _ := b64.DecodeString(b64UID)
 		uinfo.UID = UID
 		fmt.Printf("SessionsCap:")
 		fmt.Scanf("%d", &uinfo.SessionsCap)
@@ -188,44 +190,44 @@ func (a *administrator) getRequest() (req []byte, err error) {
 		UID := promptUID()
 		req = a.request(append([]byte{0x06}, UID...))
 	case "7":
-		arg := make([]byte, 36)
+		arg := make([]byte, 20)
 		copy(arg, promptUID())
-		copy(arg[32:], promptUint32("SessionsCap"))
+		copy(arg[16:], promptUint32("SessionsCap"))
 		req = a.request(append([]byte{0x07}, arg...))
 	case "8":
-		arg := make([]byte, 40)
+		arg := make([]byte, 24)
 		copy(arg, promptUID())
-		copy(arg[32:], promptInt64("UpRate"))
+		copy(arg[16:], promptInt64("UpRate"))
 		req = a.request(append([]byte{0x08}, arg...))
 	case "9":
-		arg := make([]byte, 40)
+		arg := make([]byte, 24)
 		copy(arg, promptUID())
-		copy(arg[32:], promptInt64("DownRate"))
+		copy(arg[16:], promptInt64("DownRate"))
 		req = a.request(append([]byte{0x09}, arg...))
 	case "10":
-		arg := make([]byte, 40)
+		arg := make([]byte, 24)
 		copy(arg, promptUID())
-		copy(arg[32:], promptInt64("UpCredit"))
+		copy(arg[16:], promptInt64("UpCredit"))
 		req = a.request(append([]byte{0x0a}, arg...))
 	case "11":
-		arg := make([]byte, 40)
+		arg := make([]byte, 24)
 		copy(arg, promptUID())
-		copy(arg[32:], promptInt64("DownCredit"))
+		copy(arg[16:], promptInt64("DownCredit"))
 		req = a.request(append([]byte{0x0b}, arg...))
 	case "12":
-		arg := make([]byte, 40)
+		arg := make([]byte, 24)
 		copy(arg, promptUID())
-		copy(arg[32:], promptInt64("ExpiryTime"))
+		copy(arg[16:], promptInt64("ExpiryTime"))
 		req = a.request(append([]byte{0x0c}, arg...))
 	case "13":
-		arg := make([]byte, 40)
+		arg := make([]byte, 24)
 		copy(arg, promptUID())
-		copy(arg[32:], promptInt64("UpCredit to add"))
+		copy(arg[16:], promptInt64("UpCredit to add"))
 		req = a.request(append([]byte{0x0d}, arg...))
 	case "14":
-		arg := make([]byte, 40)
+		arg := make([]byte, 24)
 		copy(arg, promptUID())
-		copy(arg[32:], promptInt64("DownCredit to add"))
+		copy(arg[16:], promptInt64("DownCredit to add"))
 		req = a.request(append([]byte{0x0e}, arg...))
 	default:
 		return nil, errors.New("Unreconised cmd")
@@ -245,11 +247,11 @@ func (a *administrator) request(data []byte) []byte {
 
 	rand.Read(buf[5:21]) //iv
 	copy(buf[21:], data)
-	block, _ := aes.NewCipher(a.adminUID[0:16])
+	block, _ := aes.NewCipher(a.adminUID)
 	stream := cipher.NewCTR(block, buf[5:21])
 	stream.XORKeyStream(buf[21:21+dataLen], buf[21:21+dataLen])
 
-	mac := hmac.New(sha256.New, a.adminUID[16:32])
+	mac := hmac.New(sha256.New, a.adminUID)
 	mac.Write(buf[5 : 21+dataLen])
 	copy(buf[21+dataLen:], mac.Sum(nil))
 
@@ -260,7 +262,7 @@ var ErrInvalidMac = errors.New("Mac mismatch")
 
 func (a *administrator) checkAndDecrypt(data []byte) ([]byte, error) {
 	macIndex := len(data) - 32
-	mac := hmac.New(sha256.New, a.adminUID[16:32])
+	mac := hmac.New(sha256.New, a.adminUID)
 	mac.Write(data[5:macIndex])
 	expected := mac.Sum(nil)
 	if !hmac.Equal(data[macIndex:], expected) {
@@ -269,7 +271,7 @@ func (a *administrator) checkAndDecrypt(data []byte) ([]byte, error) {
 
 	iv := data[5:21]
 	ret := data[21:macIndex]
-	block, _ := aes.NewCipher(a.adminUID[0:16])
+	block, _ := aes.NewCipher(a.adminUID)
 	stream := cipher.NewCTR(block, iv)
 	stream.XORKeyStream(ret, ret)
 	return ret, nil

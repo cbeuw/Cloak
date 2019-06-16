@@ -18,6 +18,7 @@ import (
 	"github.com/cbeuw/Cloak/internal/util"
 )
 
+var b64 = base64.StdEncoding
 var version string
 
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
@@ -184,13 +185,13 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		sesh.AddConnection(conn)
 		return
 	} else {
-		log.Printf("New session from UID:%v, sessionID:%v\n", base64.StdEncoding.EncodeToString(UID), sessionID)
+		log.Printf("New session from UID:%v, sessionID:%v\n", b64.EncodeToString(UID), sessionID)
 		sesh.AddConnection(conn)
 		for {
 			newStream, err := sesh.AcceptStream()
 			if err != nil {
 				if err == mux.ErrBrokenSession {
-					log.Printf("Session closed for UID:%v, sessionID:%v\n", base64.StdEncoding.EncodeToString(UID), sessionID)
+					log.Printf("Session closed for UID:%v, sessionID:%v\n", b64.EncodeToString(UID), sessionID)
 					user.DelSession(sessionID)
 					return
 				} else {

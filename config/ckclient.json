@@ -1,7 +1,7 @@
 {
 	"ProxyMethod":"shadowsocks",
 	"EncryptionMethod":"plain",
-	"UID":"iGAO85zysIyR4c09CyZSLdNhtP/ckcYu7nIPI082AHA=",
+	"UID":"5nneblJy6lniPJfr81LuYQ==",
 	"PublicKey":"IYoUzkle/T/kriE+Ufdm7AHQtIeGnBWbhhlTbmDpUUI=",
 	"ServerName":"www.bing.com",
 	"TicketTimeHint":3600,

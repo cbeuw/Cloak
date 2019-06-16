@@ -102,60 +102,60 @@ func (c *controller) HandleRequest(req []byte) (resp []byte, err error) {
 		err = c.syncMemFromDB(arg)
 		resp = check(err)
 	case 7:
-		if len(arg) < 36 {
+		if len(arg) < 20 {
 			resp = c.respond([]byte(errInvalidArgument.Error()))
 			break
 		}
-		err = c.setSessionsCap(arg[0:32], Uint32(arg[32:36]))
+		err = c.setSessionsCap(arg[0:16], Uint32(arg[16:20]))
 		resp = check(err)
 	case 8:
-		if len(arg) < 40 {
+		if len(arg) < 24 {
 			resp = c.respond([]byte(errInvalidArgument.Error()))
 			break
 		}
-		err = c.setUpRate(arg[0:32], int64(Uint64(arg[32:40])))
+		err = c.setUpRate(arg[0:16], int64(Uint64(arg[16:24])))
 		resp = check(err)
 	case 9:
-		if len(arg) < 40 {
+		if len(arg) < 24 {
 			resp = c.respond([]byte(errInvalidArgument.Error()))
 			break
 		}
-		err = c.setDownRate(arg[0:32], int64(Uint64(arg[32:40])))
+		err = c.setDownRate(arg[0:16], int64(Uint64(arg[16:24])))
 		resp = check(err)
 	case 10:
-		if len(arg) < 40 {
+		if len(arg) < 24 {
 			resp = c.respond([]byte(errInvalidArgument.Error()))
 			break
 		}
-		err = c.setUpCredit(arg[0:32], int64(Uint64(arg[32:40])))
+		err = c.setUpCredit(arg[0:16], int64(Uint64(arg[16:24])))
 		resp = check(err)
 	case 11:
-		if len(arg) < 40 {
+		if len(arg) < 24 {
 			resp = c.respond([]byte(errInvalidArgument.Error()))
 			break
 		}
-		err = c.setDownCredit(arg[0:32], int64(Uint64(arg[32:40])))
+		err = c.setDownCredit(arg[0:16], int64(Uint64(arg[16:24])))
 		resp = check(err)
 	case 12:
-		if len(arg) < 40 {
+		if len(arg) < 24 {
 			resp = c.respond([]byte(errInvalidArgument.Error()))
 			break
 		}
-		err = c.setExpiryTime(arg[0:32], int64(Uint64(arg[32:40])))
+		err = c.setExpiryTime(arg[0:16], int64(Uint64(arg[16:24])))
 		resp = check(err)
 	case 13:
-		if len(arg) < 40 {
+		if len(arg) < 24 {
 			resp = c.respond([]byte(errInvalidArgument.Error()))
 			break
 		}
-		err = c.addUpCredit(arg[0:32], int64(Uint64(arg[32:40])))
+		err = c.addUpCredit(arg[0:16], int64(Uint64(arg[16:24])))
 		resp = check(err)
 	case 14:
-		if len(arg) < 40 {
+		if len(arg) < 24 {
 			resp = c.respond([]byte(errInvalidArgument.Error()))
 			break
 		}
-		err = c.addDownCredit(arg[0:32], int64(Uint64(arg[32:40])))
+		err = c.addDownCredit(arg[0:16], int64(Uint64(arg[16:24])))
 		resp = check(err)
 	default:
 		return c.respond([]byte("Unsupported action")), nil
@@ -180,11 +180,11 @@ func (c *controller) respond(resp []byte) []byte {
 
 	rand.Read(buf[5:21]) //iv
 	copy(buf[21:], resp)
-	block, _ := aes.NewCipher(c.adminUID[0:16])
+	block, _ := aes.NewCipher(c.adminUID)
 	stream := cipher.NewCTR(block, buf[5:21])
 	stream.XORKeyStream(buf[21:21+respLen], buf[21:21+respLen])
 
-	mac := hmac.New(sha256.New, c.adminUID[16:32])
+	mac := hmac.New(sha256.New, c.adminUID)
 	mac.Write(buf[5 : 21+respLen])
 	copy(buf[21+respLen:], mac.Sum(nil))
 
@@ -196,7 +196,7 @@ func (c *controller) checkAndDecrypt(data []byte) ([]byte, error) {
 		return nil, errMsgTooShort
 	}
 	macIndex := len(data) - 32
-	mac := hmac.New(sha256.New, c.adminUID[16:32])
+	mac := hmac.New(sha256.New, c.adminUID)
 	mac.Write(data[5:macIndex])
 	expected := mac.Sum(nil)
 	if !hmac.Equal(data[macIndex:], expected) {
@@ -205,7 +205,7 @@ func (c *controller) checkAndDecrypt(data []byte) ([]byte, error) {
 
 	iv := data[5:21]
 	ret := data[21:macIndex]
-	block, _ := aes.NewCipher(c.adminUID[0:16])
+	block, _ := aes.NewCipher(c.adminUID)
 	stream := cipher.NewCTR(block, iv)
 	stream.XORKeyStream(ret, ret)
 	return ret, nil

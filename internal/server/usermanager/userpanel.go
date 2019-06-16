@@ -24,7 +24,7 @@ type Userpanel struct {
 	bakRoot string
 
 	activeUsersM sync.RWMutex
-	activeUsers  map[[32]byte]*User
+	activeUsers  map[[16]byte]*User
 }
 
 func MakeUserpanel(dbPath, bakRoot string) (*Userpanel, error) {
@@ -40,7 +40,7 @@ func MakeUserpanel(dbPath, bakRoot string) (*Userpanel, error) {
 	up := &Userpanel{
 		db:          db,
 		bakRoot:     bakRoot,
-		activeUsers: make(map[[32]byte]*User),
+		activeUsers: make(map[[16]byte]*User),
 	}
 	go func() {
 		for {
@@ -102,7 +102,7 @@ var ErrUserNotActive = errors.New("User is not active")
 
 func (up *Userpanel) GetAndActivateAdminUser(AdminUID []byte) (*User, error) {
 	up.activeUsersM.Lock()
-	var arrUID [32]byte
+	var arrUID [16]byte
 	copy(arrUID[:], AdminUID)
 	if user, ok := up.activeUsers[arrUID]; ok {
 		up.activeUsersM.Unlock()
@@ -129,7 +129,7 @@ func (up *Userpanel) GetAndActivateAdminUser(AdminUID []byte) (*User, error) {
 // from the db and mark it as an active user
 func (up *Userpanel) GetAndActivateUser(UID []byte) (*User, error) {
 	up.activeUsersM.Lock()
-	var arrUID [32]byte
+	var arrUID [16]byte
 	copy(arrUID[:], UID)
 	if user, ok := up.activeUsers[arrUID]; ok {
 		up.activeUsersM.Unlock()
@@ -191,7 +191,7 @@ func (up *Userpanel) updateDBEntryInt64(UID []byte, key string, value int64) err
 
 // This is used when all sessions of a user close
 func (up *Userpanel) delActiveUser(UID []byte) {
-	var arrUID [32]byte
+	var arrUID [16]byte
 	copy(arrUID[:], UID)
 	up.activeUsersM.Lock()
 	delete(up.activeUsers, arrUID)
@@ -199,7 +199,7 @@ func (up *Userpanel) delActiveUser(UID []byte) {
 }
 
 func (up *Userpanel) getActiveUser(UID []byte) *User {
-	var arrUID [32]byte
+	var arrUID [16]byte
 	copy(arrUID[:], UID)
 	up.activeUsersM.RLock()
 	ret := up.activeUsers[arrUID]
