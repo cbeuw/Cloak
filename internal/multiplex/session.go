@@ -55,6 +55,7 @@ func MakeSession(id uint32, valve *Valve, obfs Obfser, deobfs Deobfser, obfsedRe
 		die:          make(chan struct{}),
 	}
 	sesh.sb = makeSwitchboard(sesh, valve)
+	go sesh.timeoutAfter(30 * time.Second)
 	return sesh
 }
 
