@@ -1,22 +1,31 @@
 # Cloak
-A Shadowsocks plugin that obfuscates the traffic as normal HTTPS traffic to non-blocked websites through domain fronting and disguises the proxy server as a normal webserver.
 
-Cloak multiplexes all traffic through a fixed amount of underlying TCP connections which eliminates the TCP handshake overhead when using vanilla Shadowsocks. Cloak also provides user management, allowing multiple users to connect to the proxy server using **one single port**. It also provides QoS controls for individual users such as upload and download credit limit, as well as bandwidth control.
+**Cloak 2 is a WIP and not ready for release. Cloak 2 will not be compatible with Cloak 1 protocols or configurarion files**
 
-To external observers (such as the GFW), Cloak is completely transparent and behaves like an ordinary HTTPS server. This is done through several [cryptographic mechanisms](https://github.com/cbeuw/Cloak/wiki/Cryptographic-Mechanisms). This eliminates the risk of being detected by traffic analysis and/or active probing.
+Cloak is a universal pluggable transport that obfuscates proxy traffic as legitimate HTTPS traffic, disguises the proxy server as a normal webserver, multiplexes traffic through multiple TCP connections and provide multi-user usage control. 
 
-This project is based on a previous project [GoQuiet](https://github.com/cbeuw/GoQuiet). Through multiplexing, Cloak provides a siginifcant reduction in webpage loading time compared to GoQuiet (from 10% to 50+%, depending on the amount of content on the webpage, see [benchmarks](https://github.com/cbeuw/Cloak/wiki/Web-page-loading-benchmarks)).
+Cloak eliminates any "fingerprints" exposed by traditional proxy protocol designs which can be identified by adversaries through deep packet inspection. If a non-Cloak program or an unauthorised Cloak user (such as an adversary's prober) attemps to connect to Cloak server, it will serve as a transparent proxy between said machine and an ordinary website, so that to any unauthorised third party, a host running Cloak server is indistinguishable from an innocent web server.
+
+Since Cloak is transparent, it can be used in conjunction with any proxy softwares that tunnels traffic through TCP, such as Shadowsocks, OpenVPN and Tor. Multiple proxy servers can be running on the same server host machine and Cloak will act as a dispatcher, bridging clients with their desired proxy end.
+
+Cloak multiplexes traffic through multiple underlying TCP connections which reduces head-of-line blocking and eliminates TCP handshake overhead.
+
+Cloak provides multi-user support, allowing multiple clients to connect to the proxy server on the same port (443 by default). It also provides QoS controls for individual users such as data limit and bandwidth control.
+
+This project is based on [GoQuiet](https://github.com/cbeuw/GoQuiet). Through multiplexing, Cloak provides a siginifcant reduction in webpage loading time compared to GoQuiet (from 10% to 50%+, depending on the amount of content on the webpage, see [benchmarks](https://github.com/cbeuw/Cloak/wiki/Web-page-loading-benchmarks)).
 
 ## Build
-Simply `make client` and `make server`. Output binary will be in the build folder.
+Simply `make client` and `make server`. Output binary will be in `build` folder.
 Do `make server_pprof` if you want to access the live profiling data.
 
 ## Configuration
 
 ### Server
-`WebServerAddr` is the redirection address and port when the incoming traffic is not from shadowsocks. It should correspond to the IP record of the `ServerName` set in `ckclient.json`.
+`RedirAddr` is the redirection address and port when the incoming traffic is not from a Cloak client. It should correspond to the IP record of the `ServerName` field set in `ckclient.json`.
 
-`PrivateKey` is the static curve25519 Diffie-Hellman private key.
+`ProxyMethod` is a nested JSON section which defines the address of different proxy server ends. For instance, if OpenVPN server is listening on 127.0.0.1:1194, the pair should be `"openvpn":"127.0.0.1:1194"`. There can be multiple pairs.
+
+`PrivateKey` is the static curve25519 Diffie-Hellman private key encoded in base64.
 
 `AdminUID` is the UID of the admin user in base64.
 
@@ -29,13 +38,17 @@ Do `make server_pprof` if you want to access the live profiling data.
 
 `PublicKey` is the static curve25519 public key, given by the server admin.
 
-`ServerName` is the domain you want to make the GFW think you are visiting.
+`ProxyMethod` is the name of the proxy method you are using.
+
+`EncryptionMethod` is the name of the encryption algorithm you want Cloak to use. Note: Cloak isn't intended to provide data security or authentication. The point of encryption is to hide fingerprints of proxy protocols. If the proxy protocol already doesn't have any fingerprint, such as Shadowsocks, this field can be left as `plain`. Options are `plain`, `aes-gcm` and `chacha20-poly1305`.
+
+`ServerName` is the domain you want to make your ISP or firewall think you are visiting.
 
 `TicketTimeHint` is the time needed for a session ticket to expire and a new one to be generated. Leave it as the default.
 
 `NumConn` is the amount of underlying TCP connections you want to use.
 
-`MaskBrowser` is the browser you want to **make the GFW _think_ you are using, it has NOTHING to do with the web browser or any web application you are using on your machine**. Currently, `chrome` and `firefox` are supported.
+`BrowserSig` is the browser you want to **make the GFW _think_ you are using, it has NOTHING to do with the web browser or any web application you are using on your machine**. Currently, `chrome` and `firefox` are supported.
 
 ## Setup
 ### For the administrator of the server
