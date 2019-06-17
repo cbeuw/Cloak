@@ -85,6 +85,41 @@ func makeRemoteConn(sta *client.State) (net.Conn, error) {
 
 }
 
+func makeSession(sta *client.State) *mux.Session {
+	log.Println("Attemtping to start a new session")
+	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
+	// sessionID is limited to its UID.
+	rand.Seed(time.Now().UnixNano())
+	sessionID := rand.Uint32()
+	sta.SetSessionID(sessionID)
+	var UNLIMITED_DOWN int64 = 1e15
+	var UNLIMITED_UP int64 = 1e15
+	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED_DOWN, &UNLIMITED_UP)
+	obfs := mux.MakeObfs(sta.UID)
+	deobfs := mux.MakeDeobfs(sta.UID)
+	sesh := mux.MakeSession(sessionID, valve, obfs, deobfs, util.ReadTLS)
+
+	var wg sync.WaitGroup
+	for i := 0; i < sta.NumConn; i++ {
+		wg.Add(1)
+		go func() {
+		makeconn:
+			conn, err := makeRemoteConn(sta)
+			if err != nil {
+				log.Printf("Failed to establish new connections to remote: %v\n", err)
+				time.Sleep(time.Second * 3)
+				goto makeconn
+			}
+			sesh.AddConnection(conn)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	log.Printf("Session %v established", sessionID)
+	return sesh
+}
+
 func main() {
 	// Should be 127.0.0.1 to listen to ss-local on this machine
 	var localHost string
@@ -170,47 +205,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-start:
-	log.Println("Attemtping to start a new session")
-	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
-	// sessionID is limited to its UID.
-	rand.Seed(time.Now().UnixNano())
-	sessionID := rand.Uint32()
-	sta.SetSessionID(sessionID)
-	var UNLIMITED_DOWN int64 = 1e15
-	var UNLIMITED_UP int64 = 1e15
-	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED_DOWN, &UNLIMITED_UP)
-	obfs := mux.MakeObfs(sta.UID)
-	deobfs := mux.MakeDeobfs(sta.UID)
-	sesh := mux.MakeSession(sessionID, valve, obfs, deobfs, util.ReadTLS)
-
-	var wg sync.WaitGroup
-	for i := 0; i < sta.NumConn; i++ {
-		wg.Add(1)
-		go func() {
-		makeconn:
-			conn, err := makeRemoteConn(sta)
-			if err != nil {
-				log.Printf("Failed to establish new connections to remote: %v\n", err)
-				time.Sleep(time.Second * 3)
-				goto makeconn
-			}
-			sesh.AddConnection(conn)
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-
-	log.Printf("Session %v established", sessionID)
+	var sesh *mux.Session
 
 	for {
-		if sesh.IsBroken() {
-			goto start
-		}
 		ssConn, err := listener.Accept()
 		if err != nil {
 			log.Println(err)
 			continue
+		}
+		if sesh == nil || sesh.IsBroken() {
+			sesh = makeSession(sta)
 		}
 		go func() {
 			data := make([]byte, 10240)
