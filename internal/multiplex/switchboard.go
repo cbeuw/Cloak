@@ -134,13 +134,13 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 	buf := make([]byte, 20480)
 	for {
 		n, err := sb.session.obfsedRead(ce.remoteConn, buf)
-		sb.rxWait(n)
 		if err != nil {
 			//log.Println(err)
 			go ce.remoteConn.Close()
 			sb.removeConn(ce)
 			return
 		}
+		sb.rxWait(n)
 		if sb.AddRxCredit(-int64(n)) < 0 {
 			log.Println(ErrNoRxCredit)
 			sb.session.Close()
