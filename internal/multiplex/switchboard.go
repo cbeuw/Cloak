@@ -112,7 +112,9 @@ func (sb *switchboard) removeConn(closing *connEnclave) {
 		}
 	}
 	if len(sb.ces) == 0 {
+		sb.cesM.Unlock()
 		sb.session.Close()
+		return
 	}
 	sb.cesM.Unlock()
 }
