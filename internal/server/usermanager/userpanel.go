@@ -1,7 +1,6 @@
 package usermanager
 
 import (
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"os"
@@ -308,7 +307,7 @@ func (up *Userpanel) addNewUser(uinfo UserInfo) error {
 }
 
 func (up *Userpanel) delUser(UID []byte) error {
-	err := up.backupDB(strconv.FormatInt(time.Now().Unix(), 10) + "_pre_del_" + base64.StdEncoding.EncodeToString(UID) + ".bak")
+	err := up.backupDB(strconv.FormatInt(time.Now().Unix(), 10) + ".bak")
 	if err != nil {
 		return err
 	}
