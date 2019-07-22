@@ -50,9 +50,6 @@ func makeSwitchboard(sesh *Session, valve *Valve) *switchboard {
 
 var errNilOptimum error = errors.New("The optimal connection is nil")
 
-var ErrNoRxCredit error = errors.New("No Rx credit is left")
-var ErrNoTxCredit error = errors.New("No Tx credit is left")
-
 func (sb *switchboard) send(data []byte) (int, error) {
 	ce := sb.getOptimum()
 	if ce == nil {
@@ -65,11 +62,7 @@ func (sb *switchboard) send(data []byte) (int, error) {
 		return n, err
 	}
 	sb.txWait(n)
-	if sb.AddTxCredit(-int64(n)) < 0 {
-		log.Println(ErrNoTxCredit)
-		go sb.session.Close()
-		return n, ErrNoTxCredit
-	}
+	sb.Valve.AddTx(int64(n))
 	atomic.AddUint32(&ce.sendQueue, ^uint32(n-1))
 	go sb.updateOptimum()
 	return n, nil
@@ -133,17 +126,14 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 	for {
 		n, err := sb.session.obfsedRead(ce.remoteConn, buf)
 		sb.rxWait(n)
+		sb.Valve.AddRx(int64(n))
 		if err != nil {
 			//log.Println(err)
 			go ce.remoteConn.Close()
 			sb.removeConn(ce)
 			return
 		}
-		if sb.AddRxCredit(-int64(n)) < 0 {
-			log.Println(ErrNoRxCredit)
-			sb.session.Close()
-			return
-		}
+
 		frame, err := sb.session.deobfs(buf[:n])
 		if err != nil {
 			log.Println(err)

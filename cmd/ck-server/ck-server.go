@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/base64"
 	"flag"
 	"fmt"
@@ -14,7 +13,6 @@ import (
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	"github.com/cbeuw/Cloak/internal/server"
-	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"github.com/cbeuw/Cloak/internal/util"
 )
 
@@ -103,41 +101,38 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return nil
 	}
 
-	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
-	// added to the userinfo database. The distinction between going into the admin mode
-	// and normal proxy mode is that sessionID needs == 0 for admin mode
-	if bytes.Equal(UID, sta.AdminUID) && sessionID == 0 {
-		err = finishHandshake()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		c := sta.Userpanel.MakeController(sta.AdminUID)
-		for {
-			n, err := conn.Read(data)
+	/*
+		// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
+		// added to the userinfo database. The distinction between going into the admin mode
+		// and normal proxy mode is that sessionID needs == 0 for admin mode
+		if bytes.Equal(UID, sta.AdminUID) && sessionID == 0 {
+			err = finishHandshake()
 			if err != nil {
 				log.Println(err)
 				return
 			}
-			resp, err := c.HandleRequest(data[:n])
-			if err != nil {
-				log.Println(err)
+			c := sta.Userpanel.MakeController(sta.AdminUID)
+			for {
+				n, err := conn.Read(data)
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				resp, err := c.HandleRequest(data[:n])
+				if err != nil {
+					log.Println(err)
+				}
+				_, err = conn.Write(resp)
+				if err != nil {
+					log.Println(err)
+					return
+				}
 			}
-			_, err = conn.Write(resp)
-			if err != nil {
-				log.Println(err)
-				return
-			}
+
 		}
+	*/
 
-	}
-
-	var user *usermanager.User
-	if bytes.Equal(UID, sta.AdminUID) {
-		user, err = sta.Userpanel.GetAndActivateAdminUser(UID)
-	} else {
-		user, err = sta.Userpanel.GetAndActivateUser(UID)
-	}
+	user, err := sta.Panel.GetUser(UID)
 	if err != nil {
 		log.Printf("+1 unauthorised user from %v, uid: %x\n", conn.RemoteAddr(), UID)
 		goWeb(data)
@@ -276,10 +271,6 @@ func main() {
 			ssLocalHost = "[" + ssLocalHost + "]"
 		}
 		sta.ProxyBook["shadowsocks"] = ssLocalHost + ":" + ssLocalPort
-	}
-
-	if sta.AdminUID == nil {
-		log.Fatalln("AdminUID cannot be empty!")
 	}
 
 	go sta.UsedRandomCleaner()

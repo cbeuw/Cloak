@@ -8,8 +8,6 @@ import (
 	"io/ioutil"
 	"sync"
 	"time"
-
-	"github.com/cbeuw/Cloak/internal/server/usermanager"
 )
 
 type rawConfig struct {
@@ -19,6 +17,7 @@ type rawConfig struct {
 	AdminUID      string
 	DatabasePath  string
 	BackupDirPath string
+	CncMode       bool
 }
 
 // State type stores the global state of the program
@@ -28,14 +27,16 @@ type State struct {
 	BindHost string
 	BindPort string
 
-	Now         func() time.Time
-	AdminUID    []byte
-	staticPv    crypto.PrivateKey
-	Userpanel   *usermanager.Userpanel
+	Now      func() time.Time
+	AdminUID []byte
+	staticPv crypto.PrivateKey
+
+	RedirAddr string
+
 	usedRandomM sync.RWMutex
 	usedRandom  map[[32]byte]int
 
-	RedirAddr string
+	Panel *userPanel
 }
 
 func InitState(bindHost, bindPort string, nowFunc func() time.Time) (*State, error) {
@@ -45,6 +46,7 @@ func InitState(bindHost, bindPort string, nowFunc func() time.Time) (*State, err
 		Now:      nowFunc,
 	}
 	ret.usedRandom = make(map[[32]byte]int)
+	go ret.UsedRandomCleaner()
 	return ret, nil
 }
 
@@ -66,11 +68,15 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		}
 	}
 
-	up, err := usermanager.MakeUserpanel(preParse.DatabasePath, preParse.BackupDirPath)
-	if err != nil {
-		return errors.New("Attempting to open database: " + err.Error())
+	if preParse.CncMode {
+
+	} else {
+		manager, err := MakeLocalManager(preParse.DatabasePath)
+		if err != nil {
+			return err
+		}
+		sta.Panel = MakeUserPanel(manager)
 	}
-	sta.Userpanel = up
 
 	sta.RedirAddr = preParse.RedirAddr
 	sta.ProxyBook = preParse.ProxyBook
