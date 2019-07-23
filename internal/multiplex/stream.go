@@ -2,6 +2,9 @@ package multiplex
 
 import (
 	"errors"
+	"net"
+	"time"
+
 	//"log"
 	"math"
 	prand "math/rand"
@@ -155,3 +158,15 @@ func (stream *Stream) Close() error {
 func (stream *Stream) closeNoDelMap() {
 	stream.heliumMask.Do(func() { close(stream.die) })
 }
+
+// the following functions are purely for implementing net.Conn interface.
+// they are not used
+var errNotImplemented = errors.New("Not implemented")
+
+func (stream *Stream) LocalAddr() net.Addr  { return nil }
+func (stream *Stream) RemoteAddr() net.Addr { return nil }
+
+// TODO: implement the following
+func (stream *Stream) SetDeadline(t time.Time) error      { return errNotImplemented }
+func (stream *Stream) SetReadDeadline(t time.Time) error  { return errNotImplemented }
+func (stream *Stream) SetWriteDeadline(t time.Time) error { return errNotImplemented }

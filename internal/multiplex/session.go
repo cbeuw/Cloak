@@ -79,7 +79,7 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 	return stream, nil
 }
 
-func (sesh *Session) AcceptStream() (*Stream, error) {
+func (sesh *Session) Accept() (net.Conn, error) {
 	select {
 	case <-sesh.die:
 		return nil, ErrBrokenSession
@@ -158,3 +158,6 @@ func (sesh *Session) timeoutAfter(to time.Duration) {
 		sesh.streamsM.Unlock()
 	}
 }
+
+// Addr is only for implementing net.Listener
+func (sesh *Session) Addr() net.Addr { return nil }

@@ -183,7 +183,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		log.Printf("New session from UID:%v, sessionID:%v\n", b64.EncodeToString(UID), sessionID)
 		sesh.AddConnection(conn)
 		for {
-			newStream, err := sesh.AcceptStream()
+			newStream, err := sesh.Accept()
 			if err != nil {
 				if err == mux.ErrBrokenSession {
 					log.Printf("Session closed for UID:%v, sessionID:%v\n", b64.EncodeToString(UID), sessionID)
