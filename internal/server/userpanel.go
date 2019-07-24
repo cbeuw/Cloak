@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -122,7 +123,24 @@ func (panel *userPanel) commitUpdate() {
 		}
 		statuses = append(statuses, status)
 	}
-	panel.manager.uploadStatus(statuses)
+
+	responses, err := panel.manager.uploadStatus(statuses)
+	if err != nil {
+		log.Println(err)
+	}
+	for _, resp := range responses {
+		var arrUID [16]byte
+		copy(arrUID[:], resp.UID)
+		switch resp.action {
+		case TERMINATE:
+			panel.activeUsersM.RLock()
+			user := panel.activeUsers[arrUID]
+			panel.activeUsersM.RUnlock()
+			if user != nil {
+				user.Terminate(resp.message)
+			}
+		}
+	}
 	panel.usageUpdateQueue = make(map[[16]byte]*usagePair)
 	panel.usageUpdateQueueM.Unlock()
 }

@@ -48,9 +48,13 @@ func (u *ActiveUser) GetSession(sessionID uint32, obfs mux.Obfser, deobfs mux.De
 	}
 }
 
-func (u *ActiveUser) Terminate() {
+// TODO: allow message to pass through this and sesh.Close()
+func (u *ActiveUser) Terminate(reason string) {
 	u.sessionsM.Lock()
 	for _, sesh := range u.sessions {
+		if reason != "" {
+			sesh.SetTerminalMsg(reason)
+		}
 		go sesh.Close()
 	}
 	u.sessionsM.Unlock()

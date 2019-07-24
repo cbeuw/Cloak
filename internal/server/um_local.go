@@ -96,20 +96,53 @@ func i64ToB(value int64) []byte {
 	return oct
 }
 
-func (manager *localManager) uploadStatus(uploads []statusUpdate) error {
+func (manager *localManager) uploadStatus(uploads []statusUpdate) ([]statusResponse, error) {
+	var responses []statusResponse
 	err := manager.db.Update(func(tx *bolt.Tx) error {
 		for _, status := range uploads {
+			var resp statusResponse
 			bucket := tx.Bucket(status.UID)
 			if bucket == nil {
 				log.Printf("%x doesn't exist\n", status.UID)
 				continue
 			}
+
 			oldUp := int64(Uint64(bucket.Get([]byte("UpCredit"))))
-			bucket.Put([]byte("UpCredit"), i64ToB(oldUp-status.upUsage))
+			newUp := oldUp - status.upUsage
+			if newUp <= 0 {
+				resp = statusResponse{
+					status.UID,
+					TERMINATE,
+					"No upload credit left",
+				}
+			}
+			bucket.Put([]byte("UpCredit"), i64ToB(newUp))
+
 			oldDown := int64(Uint64(bucket.Get([]byte("DownCredit"))))
-			bucket.Put([]byte("DownCredit"), i64ToB(oldDown-status.downUsage))
+			newDown := oldDown - status.downUsage
+			if newDown <= 0 {
+				resp = statusResponse{
+					status.UID,
+					TERMINATE,
+					"No download credit left",
+				}
+			}
+			bucket.Put([]byte("DownCredit"), i64ToB(newDown))
+
+			expiry := int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
+			if time.Now().Unix()>expiry{
+				resp = statusResponse{
+					status.UID,
+					TERMINATE,
+					"User has expired",
+				}
+			}
+
+			if resp.UID != nil {
+				responses = append(responses, resp)
+			}
 		}
 		return nil
 	})
-	return err
+	return responses, err
 }
