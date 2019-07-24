@@ -41,6 +41,8 @@ type Session struct {
 	broken  uint32
 	die     chan struct{}
 	suicide sync.Once
+
+	terminalMsg atomic.Value
 }
 
 func MakeSession(id uint32, valve *Valve, obfs Obfser, deobfs Deobfser, obfsedRead func(net.Conn, []byte) (int, error)) *Session {
@@ -121,6 +123,19 @@ func (sesh *Session) getStream(id uint32, closingFrame bool) *Stream {
 			sesh.streamsM.Unlock()
 			return stream
 		}
+	}
+}
+
+func (sesh *Session) SetTerminalMsg(msg string) {
+	sesh.terminalMsg.Store(msg)
+}
+
+func (sesh *Session) TerminalMsg() string {
+	msg := sesh.terminalMsg.Load()
+	if msg != nil {
+		return msg.(string)
+	} else {
+		return ""
 	}
 }
 

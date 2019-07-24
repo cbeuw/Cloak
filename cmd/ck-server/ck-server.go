@@ -186,7 +186,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			newStream, err := sesh.Accept()
 			if err != nil {
 				if err == mux.ErrBrokenSession {
-					log.Printf("Session closed for UID:%v, sessionID:%v\n", b64.EncodeToString(UID), sessionID)
+					log.Printf("Session closed for UID:%v, sessionID:%v, reason:%v\n", b64.EncodeToString(UID), sessionID, sesh.TerminalMsg())
 					user.DelSession(sessionID)
 					return
 				} else {
