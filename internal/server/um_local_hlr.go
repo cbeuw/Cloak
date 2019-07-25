@@ -45,7 +45,7 @@ func (manager *localManager) listAllUsersHlr(w http.ResponseWriter, r *http.Requ
 	_, _ = w.Write(resp)
 }
 
-func (manager *localManager) getUserInfo(w http.ResponseWriter, r *http.Request) {
+func (manager *localManager) getUserInfoHlr(w http.ResponseWriter, r *http.Request) {
 	b64UID := gmux.Vars(r)["UID"]
 	if b64UID == "" {
 		http.Error(w, "UID cannot be empty", http.StatusBadRequest)
@@ -84,7 +84,7 @@ func (manager *localManager) getUserInfo(w http.ResponseWriter, r *http.Request)
 	_, _ = w.Write(resp)
 }
 
-func (manager *localManager) writeUserInfo(w http.ResponseWriter, r *http.Request) {
+func (manager *localManager) writeUserInfoHlr(w http.ResponseWriter, r *http.Request) {
 	b64UID := gmux.Vars(r)["UID"]
 	if b64UID == "" {
 		http.Error(w, "UID cannot be empty", http.StatusBadRequest)
@@ -143,7 +143,7 @@ func (manager *localManager) writeUserInfo(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (manager *localManager) deleteUser(w http.ResponseWriter, r *http.Request) {
+func (manager *localManager) deleteUserHlr(w http.ResponseWriter, r *http.Request) {
 	b64UID := gmux.Vars(r)["UID"]
 	if b64UID == "" {
 		http.Error(w, "UID cannot be empty", http.StatusBadRequest)

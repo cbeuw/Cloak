@@ -53,9 +53,9 @@ func corsMiddleware(next http.Handler) http.Handler {
 func (manager *localManager) registerMux() *gmux.Router {
 	r := gmux.NewRouter()
 	r.HandleFunc("/admin/users", manager.listAllUsersHlr).Methods("GET")
-	r.HandleFunc("/admin/users/{UID}", manager.getUserInfo).Methods("GET")
-	r.HandleFunc("/admin/users/{UID}", manager.writeUserInfo).Methods("POST")
-	r.HandleFunc("/admin/users/{UID}", manager.deleteUser).Methods("DELETE")
+	r.HandleFunc("/admin/users/{UID}", manager.getUserInfoHlr).Methods("GET")
+	r.HandleFunc("/admin/users/{UID}", manager.writeUserInfoHlr).Methods("POST")
+	r.HandleFunc("/admin/users/{UID}", manager.deleteUserHlr).Methods("DELETE")
 	r.Use(corsMiddleware)
 	return r
 }
