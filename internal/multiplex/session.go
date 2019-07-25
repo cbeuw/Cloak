@@ -173,6 +173,7 @@ func (sesh *Session) timeoutAfter(to time.Duration) {
 	sesh.streamsM.Lock()
 	if len(sesh.streams) == 0 && !sesh.IsBroken() {
 		sesh.streamsM.Unlock()
+		sesh.SetTerminalMsg("timeout")
 		sesh.Close()
 	} else {
 		sesh.streamsM.Unlock()

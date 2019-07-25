@@ -105,6 +105,7 @@ func (sb *switchboard) removeConn(closing *connEnclave) {
 		}
 	}
 	if len(sb.ces) == 0 {
+		sb.session.SetTerminalMsg("no underlying connection left")
 		sb.session.Close()
 	}
 	sb.cesM.Unlock()
