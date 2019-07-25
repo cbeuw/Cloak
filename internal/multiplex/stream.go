@@ -73,7 +73,12 @@ func (stream *Stream) feed() {
 			}
 			_, err := stream.feederW.Write(data)
 			if err != nil {
-				log.Println(err)
+				if err == io.ErrClosedPipe {
+					stream.Close()
+					return
+				} else {
+					log.Println(err)
+				}
 			}
 		}
 	}
@@ -164,6 +169,8 @@ func (stream *Stream) Close() error {
 	stream.session.sb.send(tlsRecord)
 
 	stream.session.delStream(stream.id)
+	stream.feederW.Close()
+	stream.feederR.Close()
 	//log.Printf("%v actively closed\n", stream.id)
 	stream.writingM.Unlock()
 	return nil
