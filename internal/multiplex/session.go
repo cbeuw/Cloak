@@ -35,6 +35,8 @@ type Session struct {
 	// Switchboard manages all connections to remote
 	sb *switchboard
 
+	addrs atomic.Value
+
 	// For accepting new streams
 	acceptCh chan *Stream
 
@@ -56,6 +58,7 @@ func MakeSession(id uint32, valve *Valve, obfs Obfser, deobfs Deobfser, obfsedRe
 		acceptCh:     make(chan *Stream, acceptBacklog),
 		die:          make(chan struct{}),
 	}
+	sesh.addrs.Store([]net.Addr{nil, nil})
 	sesh.sb = makeSwitchboard(sesh, valve)
 	go sesh.timeoutAfter(30 * time.Second)
 	return sesh
@@ -63,6 +66,8 @@ func MakeSession(id uint32, valve *Valve, obfs Obfser, deobfs Deobfser, obfsedRe
 
 func (sesh *Session) AddConnection(conn net.Conn) {
 	sesh.sb.addConn(conn)
+	addrs := []net.Addr{conn.LocalAddr(), conn.RemoteAddr()}
+	sesh.addrs.Store(addrs)
 }
 
 func (sesh *Session) OpenStream() (*Stream, error) {
@@ -174,5 +179,4 @@ func (sesh *Session) timeoutAfter(to time.Duration) {
 	}
 }
 
-// Addr is only for implementing net.Listener
-func (sesh *Session) Addr() net.Addr { return nil }
+func (sesh *Session) Addr() net.Addr { return sesh.addrs.Load().([]net.Addr)[0] }

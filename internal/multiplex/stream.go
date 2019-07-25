@@ -2,6 +2,8 @@ package multiplex
 
 import (
 	"errors"
+	"io"
+	"log"
 	"net"
 	"time"
 
@@ -29,6 +31,8 @@ type Stream struct {
 	newFrameCh chan *Frame
 	// sortedBufCh are order-sorted data ready to be read raw
 	sortedBufCh chan []byte
+	feederR     *io.PipeReader
+	feederW     *io.PipeWriter
 
 	// atomic
 	nextSendSeq uint32
@@ -41,6 +45,7 @@ type Stream struct {
 }
 
 func makeStream(id uint32, sesh *Session) *Stream {
+	r, w := io.Pipe()
 	stream := &Stream{
 		id:          id,
 		session:     sesh,
@@ -48,9 +53,30 @@ func makeStream(id uint32, sesh *Session) *Stream {
 		sh:          []*frameNode{},
 		newFrameCh:  make(chan *Frame, 1024),
 		sortedBufCh: make(chan []byte, 1024),
+		feederR:     r,
+		feederW:     w,
 	}
 	go stream.recvNewFrame()
+	go stream.feed()
 	return stream
+}
+
+func (stream *Stream) feed() {
+	for {
+		select {
+		case <-stream.die:
+			return
+		case data := <-stream.sortedBufCh:
+			if len(data) == 0 {
+				stream.passiveClose()
+				return
+			}
+			_, err := stream.feederW.Write(data)
+			if err != nil {
+				log.Println(err)
+			}
+		}
+	}
 }
 
 func (stream *Stream) Read(buf []byte) (n int, err error) {
@@ -65,16 +91,8 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 	select {
 	case <-stream.die:
 		return 0, ErrBrokenStream
-	case data := <-stream.sortedBufCh:
-		if len(data) == 0 {
-			stream.passiveClose()
-			return 0, ErrBrokenStream
-		}
-		if len(buf) < len(data) {
-			return 0, errors.New("buf too small")
-		}
-		copy(buf, data)
-		return len(data), nil
+	default:
+		return stream.feederR.Read(buf)
 	}
 
 }
@@ -163,8 +181,8 @@ func (stream *Stream) closeNoDelMap() {
 // they are not used
 var errNotImplemented = errors.New("Not implemented")
 
-func (stream *Stream) LocalAddr() net.Addr  { return nil }
-func (stream *Stream) RemoteAddr() net.Addr { return nil }
+func (stream *Stream) LocalAddr() net.Addr  { return stream.session.addrs.Load().([]net.Addr)[0] }
+func (stream *Stream) RemoteAddr() net.Addr { return stream.session.addrs.Load().([]net.Addr)[1] }
 
 // TODO: implement the following
 func (stream *Stream) SetDeadline(t time.Time) error      { return errNotImplemented }

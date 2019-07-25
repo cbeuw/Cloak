@@ -1,0 +1,159 @@
+swagger: '2.0'
+info:
+  description: |
+    This is the API of Cloak server
+  version: 1.0.0
+  title: Cloak Server
+  contact:
+    email: cbeuw.andy@gmail.com
+  license:
+    name: GPLv3
+    url: https://www.gnu.org/licenses/gpl-3.0.en.html
+# host: petstore.swagger.io
+# basePath: /v2
+tags:
+  - name: admin
+    description: Endpoints used by the host administrators
+  - name: users
+    description: Operations related to user controls by admin
+# schemes:
+# - http
+paths:
+  /admin/users:
+    get:
+      tags:
+        - admin
+        - users
+      summary: Show all users
+      description: Returns an array of all UserInfo
+      operationId: listAllUsers
+      produces:
+        - application/json
+      responses:
+        200:
+          description: successful operation
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/UserInfo'
+        500:
+          description: internal error
+  /admin/users/{UID}:
+    get:
+      tags:
+        - admin
+        - users
+      summary: Show userinfo by UID
+      description: Returns a UserInfo object
+      operationId: getUserInfo
+      produces:
+        - application/json
+      parameters:
+        - name: UID
+          in: path
+          description: UID of the user
+          required: true
+          type: string
+          format: byte
+      responses:
+        200:
+          description: successful operation
+          schema:
+            $ref: '#/definitions/UserInfo'
+        400:
+          description: bad request
+        404:
+          description: User not found
+        500:
+          description: internal error
+    post:
+      tags:
+        - admin
+        - users
+      summary: Updates the userinfo of the specified user, if the user does not exist, then a new user is created
+      operationId: writeUserInfo
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: UID
+          in: path
+          description: UID of the user
+          required: true
+          type: string
+          format: byte
+        - name: UserInfo
+          in: body
+          description: New userinfo
+          required: true
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/UserInfo'
+      responses:
+        201:
+          description: successful operation
+        400:
+          description: bad request
+        500:
+          description: internal error
+    delete:
+      tags:
+        - admin
+        - users
+      summary: Deletes a user
+      operationId: deleteUser
+      produces:
+        - application/json
+      parameters:
+        - name: UID
+          in: path
+          description: UID of the user to be deleted
+          required: true
+          type: string
+          format: byte
+      responses:
+        200:
+          description: successful operation
+        400:
+          description: bad request
+        404:
+          description: User not found
+        500:
+          description: internal error
+
+definitions:
+  UserInfo:
+    type: object
+    properties:
+      UID:
+        type: string
+        format: byte
+      SessionsCap:
+        type: integer
+        format: int32
+      UpRate:
+        type: integer
+        format: int64
+      DownRate:
+        type: integer
+        format: int64
+      UpCredit:
+        type: integer
+        format: int64
+      DownCredit:
+        type: integer
+        format: int64
+      ExpiryTime:
+        type: integer
+        format: int64
+externalDocs:
+  description: Find out more about Swagger
+  url: http://swagger.io
+# Added by API Auto Mocking Plugin
+host: virtserver.swaggerhub.com
+basePath: /cbeuw/ck-server/1.0.0
+schemes:
+  - https
+  - http

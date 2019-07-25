@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -81,70 +83,6 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	finishHandshake := func() error {
-		reply := server.ComposeReply(ch)
-		_, err = conn.Write(reply)
-		if err != nil {
-			go conn.Close()
-			return err
-		}
-
-		// Two discarded messages: ChangeCipherSpec and Finished
-		discardBuf := make([]byte, 1024)
-		for c := 0; c < 2; c++ {
-			_, err = util.ReadTLS(conn, discardBuf)
-			if err != nil {
-				go conn.Close()
-				return err
-			}
-		}
-		return nil
-	}
-
-	/*
-		// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
-		// added to the userinfo database. The distinction between going into the admin mode
-		// and normal proxy mode is that sessionID needs == 0 for admin mode
-		if bytes.Equal(UID, sta.AdminUID) && sessionID == 0 {
-			err = finishHandshake()
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			c := sta.Userpanel.MakeController(sta.AdminUID)
-			for {
-				n, err := conn.Read(data)
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				resp, err := c.HandleRequest(data[:n])
-				if err != nil {
-					log.Println(err)
-				}
-				_, err = conn.Write(resp)
-				if err != nil {
-					log.Println(err)
-					return
-				}
-			}
-
-		}
-	*/
-
-	user, err := sta.Panel.GetUser(UID)
-	if err != nil {
-		log.Printf("+1 unauthorised user from %v, uid: %x\n", conn.RemoteAddr(), UID)
-		goWeb(data)
-		return
-	}
-
-	err = finishHandshake()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
 	var crypto mux.Crypto
 	switch encryptionMethod {
 	case 0x00:
@@ -169,7 +107,62 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	sesh, existing, err := user.GetSession(sessionID, mux.MakeObfs(sessionKey, crypto), mux.MakeDeobfs(sessionKey, crypto), util.ReadTLS)
+	obfs := mux.MakeObfs(sessionKey, crypto)
+	deobfs := mux.MakeDeobfs(sessionKey, crypto)
+
+	finishHandshake := func() error {
+		reply := server.ComposeReply(ch)
+		_, err = conn.Write(reply)
+		if err != nil {
+			go conn.Close()
+			return err
+		}
+
+		// Two discarded messages: ChangeCipherSpec and Finished
+		discardBuf := make([]byte, 1024)
+		for c := 0; c < 2; c++ {
+			_, err = util.ReadTLS(conn, discardBuf)
+			if err != nil {
+				go conn.Close()
+				return err
+			}
+		}
+		return nil
+	}
+
+	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
+	// added to the userinfo database. The distinction between going into the admin mode
+	// and normal proxy mode is that sessionID needs == 0 for admin mode
+	if bytes.Equal(UID, sta.AdminUID) && sessionID == 0 {
+		err = finishHandshake()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		sesh := mux.MakeSession(0, mux.UNLIMITED_VALVE, obfs, deobfs, util.ReadTLS)
+		sesh.AddConnection(conn)
+		//TODO: Router could be nil in cnc mode
+		err = http.Serve(sesh, sta.LocalAPIRouter)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
+
+	user, err := sta.Panel.GetUser(UID)
+	if err != nil {
+		log.Printf("+1 unauthorised user from %v, uid: %v\n", conn.RemoteAddr(), base64.StdEncoding.EncodeToString(UID))
+		goWeb(data)
+		return
+	}
+
+	err = finishHandshake()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	sesh, existing, err := user.GetSession(sessionID, obfs, deobfs, util.ReadTLS)
 	if err != nil {
 		user.DelSession(sessionID)
 		log.Println(err)

@@ -2,6 +2,7 @@ module github.com/cbeuw/Cloak
 
 require (
 	github.com/boltdb/bolt v1.3.1
+	github.com/gorilla/mux v1.7.3
 	github.com/juju/ratelimit v1.0.1
 	github.com/kr/pretty v0.1.0 // indirect
 	golang.org/x/crypto v0.0.0-20190123085648-057139ce5d2b

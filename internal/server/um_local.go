@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	gmux "github.com/gorilla/mux"
 )
 
 var Uint32 = binary.BigEndian.Uint32
@@ -13,8 +14,20 @@ var Uint64 = binary.BigEndian.Uint64
 var PutUint32 = binary.BigEndian.PutUint32
 var PutUint64 = binary.BigEndian.PutUint64
 
+func i64ToB(value int64) []byte {
+	oct := make([]byte, 8)
+	PutUint64(oct, uint64(value))
+	return oct
+}
+func i32ToB(value int32) []byte {
+	nib := make([]byte, 4)
+	PutUint32(nib, uint32(value))
+	return nib
+}
+
 type localManager struct {
-	db *bolt.DB
+	db     *bolt.DB
+	Router *gmux.Router
 }
 
 func MakeLocalManager(dbPath string) (*localManager, error) {
@@ -22,7 +35,20 @@ func MakeLocalManager(dbPath string) (*localManager, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &localManager{db}, nil
+	ret := &localManager{
+		db: db,
+	}
+	ret.Router = ret.registerMux()
+	return ret, nil
+}
+
+func (manager *localManager) registerMux() *gmux.Router {
+	r := gmux.NewRouter()
+	r.HandleFunc("/admin/users", manager.listAllUsersHlr).Methods("GET")
+	r.HandleFunc("/admin/users/{UID}", manager.getUserInfo).Methods("GET")
+	r.HandleFunc("/admin/users/{UID}", manager.writeUserInfo).Methods("POST")
+	r.HandleFunc("/admin/users/{UID}", manager.deleteUser).Methods("DELETE")
+	return r
 }
 
 func (manager *localManager) authenticateUser(UID []byte) (int64, int64, error) {
@@ -90,12 +116,6 @@ func (manager *localManager) authoriseNewSession(user *ActiveUser) error {
 	return nil
 }
 
-func i64ToB(value int64) []byte {
-	oct := make([]byte, 8)
-	PutUint64(oct, uint64(value))
-	return oct
-}
-
 func (manager *localManager) uploadStatus(uploads []statusUpdate) ([]statusResponse, error) {
 	var responses []statusResponse
 	err := manager.db.Update(func(tx *bolt.Tx) error {
@@ -103,7 +123,12 @@ func (manager *localManager) uploadStatus(uploads []statusUpdate) ([]statusRespo
 			var resp statusResponse
 			bucket := tx.Bucket(status.UID)
 			if bucket == nil {
-				log.Printf("%x doesn't exist\n", status.UID)
+				resp = statusResponse{
+					status.UID,
+					TERMINATE,
+					"User no longer exists",
+				}
+				responses = append(responses, resp)
 				continue
 			}
 
@@ -115,8 +140,14 @@ func (manager *localManager) uploadStatus(uploads []statusUpdate) ([]statusRespo
 					TERMINATE,
 					"No upload credit left",
 				}
+				responses = append(responses, resp)
+				continue
 			}
-			bucket.Put([]byte("UpCredit"), i64ToB(newUp))
+			err := bucket.Put([]byte("UpCredit"), i64ToB(newUp))
+			if err != nil {
+				log.Println(err)
+				continue
+			}
 
 			oldDown := int64(Uint64(bucket.Get([]byte("DownCredit"))))
 			newDown := oldDown - status.downUsage
@@ -126,20 +157,24 @@ func (manager *localManager) uploadStatus(uploads []statusUpdate) ([]statusRespo
 					TERMINATE,
 					"No download credit left",
 				}
+				responses = append(responses, resp)
+				continue
 			}
-			bucket.Put([]byte("DownCredit"), i64ToB(newDown))
+			err = bucket.Put([]byte("DownCredit"), i64ToB(newDown))
+			if err != nil {
+				log.Println(err)
+				continue
+			}
 
 			expiry := int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
-			if time.Now().Unix()>expiry{
+			if time.Now().Unix() > expiry {
 				resp = statusResponse{
 					status.UID,
 					TERMINATE,
 					"User has expired",
 				}
-			}
-
-			if resp.UID != nil {
 				responses = append(responses, resp)
+				continue
 			}
 		}
 		return nil

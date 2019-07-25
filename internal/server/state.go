@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"sync"
 	"time"
+
+	gmux "github.com/gorilla/mux"
 )
 
 type rawConfig struct {
@@ -36,7 +38,8 @@ type State struct {
 	usedRandomM sync.RWMutex
 	usedRandom  map[[32]byte]int
 
-	Panel *userPanel
+	Panel          *userPanel
+	LocalAPIRouter *gmux.Router
 }
 
 func InitState(bindHost, bindPort string, nowFunc func() time.Time) (*State, error) {
@@ -76,6 +79,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 			return err
 		}
 		sta.Panel = MakeUserPanel(manager)
+		sta.LocalAPIRouter = manager.Router
 	}
 
 	sta.RedirAddr = preParse.RedirAddr

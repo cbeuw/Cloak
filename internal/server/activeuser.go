@@ -36,7 +36,7 @@ func (u *ActiveUser) GetSession(sessionID uint32, obfs mux.Obfser, deobfs mux.De
 		u.sessionsM.Unlock()
 		return sesh, true, nil
 	} else {
-		err := u.panel.manager.authoriseNewSession(u)
+		err := u.panel.Manager.authoriseNewSession(u)
 		if err != nil {
 			u.sessionsM.Unlock()
 			return nil, false, err

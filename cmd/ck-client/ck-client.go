@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"io"
@@ -96,7 +97,7 @@ func main() {
 	// The proxy port,should be 443
 	var remotePort string
 	var config string
-	isAdmin := new(bool)
+	var b64AdminUID string
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
@@ -114,8 +115,8 @@ func main() {
 		flag.StringVar(&remoteHost, "s", "", "remoteHost: IP of your proxy server")
 		flag.StringVar(&remotePort, "p", "443", "remotePort: proxy port, should be 443")
 		flag.StringVar(&config, "c", "ckclient.json", "config: path to the configuration file or options seperated with semicolons")
+		flag.StringVar(&b64AdminUID, "a", "", "adminUID: enter the adminUID to serve the admin api")
 		askVersion := flag.Bool("v", false, "Print the version number")
-		isAdmin = flag.Bool("a", false, "Admin mode")
 		printUsage := flag.Bool("h", false, "Print this message")
 		flag.Parse()
 
@@ -130,19 +131,6 @@ func main() {
 		}
 
 		log.Println("Starting standalone mode")
-	}
-
-	if *isAdmin {
-		sta := client.InitState("", "", "", "", time.Now)
-		err := sta.ParseConfig(config)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = adminPrompt(sta)
-		if err != nil {
-			log.Println(err)
-		}
-		return
 	}
 
 	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now)
@@ -164,15 +152,24 @@ func main() {
 	if sta.TicketTimeHint == 0 {
 		log.Fatal("TicketTimeHint cannot be empty or 0")
 	}
+
 	listeningIP := sta.LocalHost
 	if net.ParseIP(listeningIP).To4() == nil {
 		// IPv6 needs square brackets
 		listeningIP = "[" + listeningIP + "]"
 	}
 	listener, err := net.Listen("tcp", listeningIP+":"+sta.LocalPort)
-	log.Println("Listening for proxy clients on " + listeningIP + ":" + sta.LocalPort)
+	log.Println("Listening on " + listeningIP + ":" + sta.LocalPort)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	var adminUID []byte
+	if b64AdminUID != "" {
+		adminUID, err = base64.StdEncoding.DecodeString(b64AdminUID)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 start:
@@ -181,11 +178,14 @@ start:
 	// sessionID is limited to its UID.
 	rand.Seed(time.Now().UnixNano())
 	sessionID := rand.Uint32()
-	sta.SetSessionID(sessionID)
-	var UNLIMITED_DOWN int64 = 1e15
-	var UNLIMITED_UP int64 = 1e15
-	valve := mux.MakeValve(1e12, 1e12, &UNLIMITED_DOWN, &UNLIMITED_UP)
 
+	if adminUID != nil {
+		sessionID = 0
+		sta.UID = adminUID
+		sta.NumConn = 1
+	}
+
+	sta.SetSessionID(sessionID)
 	var crypto mux.Crypto
 	switch sta.EncryptionMethod {
 	case 0x00:
@@ -207,7 +207,8 @@ start:
 	sessionKey := make([]byte, 32)
 	rand.Read(sessionKey)
 	sta.SessionKey = sessionKey
-	sesh := mux.MakeSession(sessionID, valve, mux.MakeObfs(sta.SessionKey, crypto), mux.MakeDeobfs(sta.SessionKey, crypto), util.ReadTLS)
+
+	sesh := mux.MakeSession(sessionID, mux.UNLIMITED_VALVE, mux.MakeObfs(sta.SessionKey, crypto), mux.MakeDeobfs(sta.SessionKey, crypto), util.ReadTLS)
 
 	var wg sync.WaitGroup
 	for i := 0; i < sta.NumConn; i++ {

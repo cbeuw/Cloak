@@ -10,7 +10,7 @@ import (
 )
 
 type userPanel struct {
-	manager UserManager
+	Manager UserManager
 
 	activeUsersM      sync.RWMutex
 	activeUsers       map[[16]byte]*ActiveUser
@@ -20,7 +20,7 @@ type userPanel struct {
 
 func MakeUserPanel(manager UserManager) *userPanel {
 	ret := &userPanel{
-		manager:          manager,
+		Manager:          manager,
 		activeUsers:      make(map[[16]byte]*ActiveUser),
 		usageUpdateQueue: make(map[[16]byte]*usagePair),
 	}
@@ -37,13 +37,12 @@ func (panel *userPanel) GetUser(UID []byte) (*ActiveUser, error) {
 		return user, nil
 	}
 
-	upRate, downRate, err := panel.manager.authenticateUser(UID)
+	upRate, downRate, err := panel.Manager.authenticateUser(UID)
 	if err != nil {
 		panel.activeUsersM.Unlock()
 		return nil, err
 	}
-	var upUsage, downUsage int64
-	valve := mux.MakeValve(upRate, downRate, &upUsage, &downUsage)
+	valve := mux.MakeValve(upRate, downRate)
 	user := &ActiveUser{
 		panel:    panel,
 		valve:    valve,
@@ -124,7 +123,7 @@ func (panel *userPanel) commitUpdate() {
 		statuses = append(statuses, status)
 	}
 
-	responses, err := panel.manager.uploadStatus(statuses)
+	responses, err := panel.Manager.uploadStatus(statuses)
 	if err != nil {
 		log.Println(err)
 	}

@@ -4,25 +4,7 @@ package main
 
 // TODO: rewrite this. Think of another way of admin control
 
-import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/binary"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"log"
-	"net"
-
-	"github.com/cbeuw/Cloak/internal/client"
-	"github.com/cbeuw/Cloak/internal/client/TLS"
-	"github.com/cbeuw/Cloak/internal/util"
-)
-
+/*
 type UserInfo struct {
 	UID []byte
 	// ALL of the following fields have to be accessed atomically
@@ -53,7 +35,7 @@ func adminPrompt(sta *client.State) error {
 4       addNewUser              userinfo        ok
 5       delUser                 uid             ok
 6       syncMemFromDB           uid             ok
-                                                  
+
 7       setSessionsCap          uid cap         ok
 8       setUpRate               uid rate        ok
 9       setDownRate             uid rate        ok
@@ -276,3 +258,4 @@ func (a *administrator) checkAndDecrypt(data []byte) ([]byte, error) {
 	stream.XORKeyStream(ret, ret)
 	return ret, nil
 }
+*/

@@ -21,15 +21,18 @@ type Valve struct {
 	tx *int64
 }
 
-func MakeValve(rxRate, txRate int64, rx, tx *int64) *Valve {
+func MakeValve(rxRate, txRate int64) *Valve {
+	var rx, tx int64
 	v := &Valve{
-		rx: rx,
-		tx: tx,
+		rx: &rx,
+		tx: &tx,
 	}
 	v.SetRxRate(rxRate)
 	v.SetTxRate(txRate)
 	return v
 }
+
+var UNLIMITED_VALVE = MakeValve(1<<63-1, 1<<63-1)
 
 func (v *Valve) SetRxRate(rate int64) { v.rxtb.Store(ratelimit.NewBucketWithRate(float64(rate), rate)) }
 func (v *Valve) SetTxRate(rate int64) { v.txtb.Store(ratelimit.NewBucketWithRate(float64(rate), rate)) }
