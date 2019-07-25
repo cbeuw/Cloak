@@ -16,11 +16,6 @@ server:
 	go build -ldflags "-X main.version=${version}" ./cmd/ck-server
 	mv ck-server* ./build
 
-server_pprof: 
-	mkdir -p build
-	go build -ldflags "-X main.version=${version}" -tags pprof ./cmd/ck-server
-	mv ck-server* ./build
-
 install:
 	mv build/ck-* /usr/local/bin
 

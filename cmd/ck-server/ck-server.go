@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -244,7 +245,12 @@ func main() {
 		}
 
 		if *pprofAddr != "" {
-			startPprof(*pprofAddr)
+			runtime.SetBlockProfileRate(5)
+			go func() {
+				log.Println(http.ListenAndServe(*pprofAddr, nil))
+			}()
+			log.Println("pprof listening on " + *pprofAddr)
+
 		}
 
 		log.Printf("Starting standalone mode, listening on %v:%v", bindHost, bindPort)
