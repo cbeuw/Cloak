@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/binary"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/boltdb/bolt"
@@ -42,12 +43,20 @@ func MakeLocalManager(dbPath string) (*localManager, error) {
 	return ret, nil
 }
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (manager *localManager) registerMux() *gmux.Router {
 	r := gmux.NewRouter()
 	r.HandleFunc("/admin/users", manager.listAllUsersHlr).Methods("GET")
 	r.HandleFunc("/admin/users/{UID}", manager.getUserInfo).Methods("GET")
 	r.HandleFunc("/admin/users/{UID}", manager.writeUserInfo).Methods("POST")
 	r.HandleFunc("/admin/users/{UID}", manager.deleteUser).Methods("DELETE")
+	r.Use(corsMiddleware)
 	return r
 }
 

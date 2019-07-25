@@ -152,8 +152,7 @@ externalDocs:
   description: Find out more about Swagger
   url: http://swagger.io
 # Added by API Auto Mocking Plugin
-host: virtserver.swaggerhub.com
-basePath: /cbeuw/ck-server/1.0.0
+host: 127.0.0.1:8080
+basePath: /
 schemes:
-  - https
   - http
