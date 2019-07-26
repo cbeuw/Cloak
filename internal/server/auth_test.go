@@ -1,22 +1,27 @@
 package server
 
 import (
+	"bytes"
 	//"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/ecdh"
 	"testing"
 	//"github.com/cbeuw/Cloak/internal/ecdh"
 )
 
-/*
 func TestDecryptSessionTicket(t *testing.T) {
-	UID, _ := hex.DecodeString("26a8e88bcd7c64a69ca051740851d22a6818de2fddafc00882331f1c5a8b866c")
-	sessionID := uint32(42)
-	pvb, _ := hex.DecodeString("083794692e77b28fa2152dfee53142185fd58ea8172d3545fdeeaea97b3c597c")
+	UID, _ := hex.DecodeString("4cd8cc15600d7eb68131fd8097673746")
+	pvb, _ := hex.DecodeString("10de5a3c4a4d04efafc3e06d1506363a72bd6d053baef123e6a9a79a0c04b547")
 	staticPv, _ := ecdh.Unmarshal(pvb)
-	sessionTicket, _ := hex.DecodeString("f586223b50cada583d61dc9bf3d01cc3a45aab4b062ed6a31ead0badb87f7761aab4f9f737a1d8ff2a2aa4d50ceb808844588ee3c8fdf36c33a35ef5003e287337659c8164a7949e9e63623090763fc24d0386c8904e47bdd740e09dd9b395c72de669629c2a865ed581452d23306adf26de0c8a46ee05e3dac876f2bcd9a2de946d319498f579383d06b3e66b3aca05f533fdc5f017eeba45b42080aabd4f71151fa0dfc1b0e23be4ed3abdb47adc0d5740ca7b7689ad34426309fb6984a086")
+	proxyMethod := "shadowsocks"
+	encryptionMethod := byte(0)
+	tthKey, _ := hex.DecodeString("92389a9b2769e2b76514c4cb163217bed0c5500bceb4a5ade1ceae597616db23")
 
-	decryUID, decrySessionID, _, _ := decryptSessionTicket(staticPv, sessionTicket)
+	sessionTicket, _ := hex.DecodeString("9ee339202508b6fbe9c19988575330c547efbc27b0d072ed93c0cc265b67d826825a49211b8f86b4364b436ed5db15925774c3bec4a1776f70a17db68ba541dc4c23871d2cc1a5074b081bbe0f8b86f1c7f7749964517dcfd8830532eddc8ac707544ec04b754a133b9595ebc2af988156dbe1e4f3b89c9dc289d441cb5a15d72cc59423981d43a498292d509e5fa5c8e8bf8ee85a2e4991ae126fcd6e4d2aa1119e918c80afa2dc38bec1ef621c9c3994af43b1983c241c68e04e8043c95d74")
+
+	decryUID, decryProxyMethod, decryEncryptionMethod, decryTthKey := decryptSessionTicket(staticPv, sessionTicket)
+
 	if !bytes.Equal(decryUID, UID) {
 		t.Error(
 			"For", "UID",
@@ -24,43 +29,65 @@ func TestDecryptSessionTicket(t *testing.T) {
 			"got", fmt.Sprintf("%x", decryUID),
 		)
 	}
-	if decrySessionID != sessionID {
+	if proxyMethod != decryProxyMethod {
 		t.Error(
-			"For", "sessionID",
-			"expecting", fmt.Sprintf("%x", sessionID),
-			"got", fmt.Sprintf("%x", decrySessionID),
+			"For", "proxyMethod",
+			"expecting", fmt.Sprintf("%x", proxyMethod),
+			"got", fmt.Sprintf("%x", decryProxyMethod),
+		)
+	}
+	if encryptionMethod != decryEncryptionMethod {
+		t.Error(
+			"For", "encryptionMethod",
+			"expecting", fmt.Sprintf("%x", encryptionMethod),
+			"got", fmt.Sprintf("%x", decryEncryptionMethod),
+		)
+	}
+	if !bytes.Equal(tthKey, decryTthKey) {
+		t.Error(
+			"For", "tthKey",
+			"expecting", fmt.Sprintf("%x", tthKey),
+			"got", fmt.Sprintf("%x", decryTthKey),
 		)
 	}
 
 }
-*/
 
 func TestValidateRandom(t *testing.T) {
-	UID, _ := hex.DecodeString("26a8e88bcd7c64a69ca051740851d22a6818de2fddafc00882331f1c5a8b866c")
-	random, _ := hex.DecodeString("6274de9992a6f96a86fc35cf6644a5e7844951889a802e9531add440eabb939b")
-	right := validateRandom(random, UID, 1547912444)
+	sessionID := uint32(2422026642)
+	random, _ := hex.DecodeString("905d319272711946f6400db4f5028d6893f7b22659c78371c1f72386191a8ab4")
+	UID, _ := hex.DecodeString("4cd8cc15600d7eb68131fd8097673746")
+
+	right, decrySessionID := validateRandom(random, UID, 1564150721)
 	if !right {
 		t.Error(
-			"For", fmt.Sprintf("good random: %x at time %v", random, 1547912444),
+			"For", fmt.Sprintf("good random: %x at time %v", random, 1564150721),
 			"expecting", true,
 			"got", false,
 		)
 	}
+	if sessionID != decrySessionID {
+		t.Error(
+			"For", fmt.Sprintf("good random: %x at time %v", random, 1564150721),
+			"expecting", sessionID,
+			"got", decrySessionID,
+		)
+	}
 
-	replay := validateRandom(random, UID, 1547955645)
+	replay, _ := validateRandom(random, UID, 1764150721)
 	if replay {
 		t.Error(
-			"For", fmt.Sprintf("expired random: %x at time %v", random, 1547955645),
+			"For", fmt.Sprintf("expired random: %x at time %v", random, 1764150721),
 			"expecting", false,
 			"got", true,
 		)
 	}
 
 	random[13] = 0x42
-	bogus := validateRandom(random, UID, 1547912444)
+	bogus, _ := validateRandom(random, UID, 1564150721)
 	if bogus {
 		t.Error(
-			"For", fmt.Sprintf("bogus random: %x at time %v", random, 1547912444),
+			"For", fmt.Sprintf("bogus random: %x at time %v", random, 1564150721),
 			"expecting", false,
 			"got", true,
 		)

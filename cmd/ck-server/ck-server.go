@@ -73,7 +73,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	isCloak, UID, sessionID, proxyMethod, encryptionMethod, sessionKey := server.TouchStone(ch, sta)
+	isCloak, UID, sessionID, proxyMethod, encryptionMethod, tthKey := server.TouchStone(ch, sta)
 	if !isCloak {
 		log.Printf("+1 non Cloak TLS traffic from %v\n", conn.RemoteAddr())
 		goWeb(data)
@@ -109,8 +109,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	obfs := mux.MakeObfs(sessionKey, crypto)
-	deobfs := mux.MakeDeobfs(sessionKey, crypto)
+	obfs := mux.MakeObfs(tthKey, crypto)
+	deobfs := mux.MakeDeobfs(tthKey, crypto)
 
 	finishHandshake := func() error {
 		reply := server.ComposeReply(ch)

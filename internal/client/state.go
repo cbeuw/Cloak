@@ -2,7 +2,9 @@ package client
 
 import (
 	"crypto"
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -24,6 +26,14 @@ type rawConfig struct {
 	NumConn          int
 }
 
+type tthIntervalKeys struct {
+	interval    int64
+	ephPv       crypto.PrivateKey
+	ephPub      crypto.PublicKey
+	intervalKey []byte
+	seed        int64
+}
+
 // State stores global variables
 type State struct {
 	LocalHost  string
@@ -31,13 +41,13 @@ type State struct {
 	RemoteHost string
 	RemotePort string
 
-	Now        func() time.Time
-	sessionID  uint32
-	SessionKey []byte
-	UID        []byte
-	staticPub  crypto.PublicKey
-	keyPairsM  sync.RWMutex
-	keyPairs   map[int64]*keyPair
+	Now       func() time.Time
+	SessionID uint32
+	UID       []byte
+	staticPub crypto.PublicKey
+
+	intervalDataM sync.Mutex
+	intervalData  *tthIntervalKeys
 
 	ProxyMethod      string
 	EncryptionMethod byte
@@ -49,17 +59,36 @@ type State struct {
 
 func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
 	ret := &State{
-		LocalHost:  localHost,
-		LocalPort:  localPort,
-		RemoteHost: remoteHost,
-		RemotePort: remotePort,
-		Now:        nowFunc,
+		LocalHost:    localHost,
+		LocalPort:    localPort,
+		RemoteHost:   remoteHost,
+		RemotePort:   remotePort,
+		Now:          nowFunc,
+		intervalData: &tthIntervalKeys{},
 	}
-	ret.keyPairs = make(map[int64]*keyPair)
 	return ret
 }
 
-func (sta *State) SetSessionID(id uint32) { sta.sessionID = id }
+func (sta *State) UpdateIntervalKeys() {
+	sta.intervalDataM.Lock()
+	currentInterval := sta.Now().Unix() / int64(sta.TicketTimeHint)
+	if currentInterval == sta.intervalData.interval {
+		sta.intervalDataM.Unlock()
+		return
+	}
+	sta.intervalData.interval = currentInterval
+	ephPv, ephPub, _ := ecdh.GenerateKey(rand.Reader)
+	intervalKey := ecdh.GenerateSharedSecret(ephPv, sta.staticPub)
+	seed := int64(binary.BigEndian.Uint64(ephPv.(*[32]byte)[0:8]))
+	sta.intervalData.ephPv, sta.intervalData.ephPub, sta.intervalData.intervalKey, sta.intervalData.seed = ephPv, ephPub, intervalKey, seed
+	sta.intervalDataM.Unlock()
+}
+
+func (sta *State) GetIntervalKeys() (crypto.PublicKey, []byte, int64) {
+	sta.intervalDataM.Lock()
+	defer sta.intervalDataM.Unlock()
+	return sta.intervalData.ephPub, sta.intervalData.intervalKey, sta.intervalData.seed
+}
 
 // semi-colon separated value. This is for Android plugin options
 func ssvToJson(ssv string) (ret []byte) {

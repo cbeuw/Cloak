@@ -5,37 +5,37 @@ import (
 	"crypto"
 	"crypto/sha256"
 	"encoding/binary"
-	"log"
-
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
+	"log"
 )
 
-// input ticket, return UID
-func decryptSessionTicket(staticPv crypto.PrivateKey, ticket []byte) ([]byte, uint32, string, byte, []byte) {
+func decryptSessionTicket(staticPv crypto.PrivateKey, ticket []byte) (UID []byte, proxyMethod string, encryptionMethod byte, tthKey []byte) {
+	// sessionTicket: [marshalled ephemeral pub key 32 bytes][encrypted UID 16 bytes, proxy method 16 bytes, encryption method 1 byte][16 bytes authentication tag][padding 111 bytes]
 	ephPub, _ := ecdh.Unmarshal(ticket[0:32])
-	key := ecdh.GenerateSharedSecret(staticPv, ephPub)
-	plain, err := util.AESGCMDecrypt(ticket[0:12], key, ticket[32:117])
+	tthKey = ecdh.GenerateSharedSecret(staticPv, ephPub)
+	plain, err := util.AESGCMDecrypt(ticket[0:12], tthKey, ticket[32:81])
 	if err != nil {
-		return nil, 0, "", 0x00, nil
+		return
 	}
-	sessionID := binary.BigEndian.Uint32(plain[16:20])
-	return plain[0:16], sessionID, string(bytes.Trim(plain[20:36], "\x00")), plain[36], plain[37:69]
+	return plain[0:16], string(bytes.Trim(plain[16:32], "\x00")), plain[32], tthKey
 }
 
-func validateRandom(random []byte, UID []byte, time int64) bool {
+func validateRandom(random []byte, UID []byte, time int64) (bool, uint32) {
 	t := make([]byte, 8)
 	binary.BigEndian.PutUint64(t, uint64(time/(12*60*60)))
-	rdm := random[0:16]
+	front := random[0:16]
 	preHash := make([]byte, 56)
 	copy(preHash[0:32], UID)
 	copy(preHash[32:40], t)
-	copy(preHash[40:56], rdm)
+	copy(preHash[40:56], front)
 	h := sha256.New()
 	h.Write(preHash)
-	return bytes.Equal(h.Sum(nil)[0:16], random[16:32])
+
+	sessionID := binary.BigEndian.Uint32(front[0:4])
+	return bytes.Equal(h.Sum(nil)[0:16], random[16:32]), sessionID
 }
-func TouchStone(ch *ClientHello, sta *State) (isCK bool, UID []byte, sessionID uint32, proxyMethod string, encryptionMethod byte, sessionKey []byte) {
+func TouchStone(ch *ClientHello, sta *State) (isCK bool, UID []byte, sessionID uint32, proxyMethod string, encryptionMethod byte, tthKey []byte) {
 	var random [32]byte
 	copy(random[:], ch.random)
 
@@ -50,14 +50,17 @@ func TouchStone(ch *ClientHello, sta *State) (isCK bool, UID []byte, sessionID u
 	}
 
 	ticket := ch.extensions[[2]byte{0x00, 0x23}]
-	if len(ticket) < 68 {
+
+	if len(ticket) < 81 {
 		return
 	}
-	UID, sessionID, proxyMethod, encryptionMethod, sessionKey = decryptSessionTicket(sta.staticPv, ticket)
+
+	UID, proxyMethod, encryptionMethod, tthKey = decryptSessionTicket(sta.staticPv, ticket)
+
 	if len(UID) < 16 {
 		return
 	}
-	isCK = validateRandom(ch.random, UID, sta.Now().Unix())
+	isCK, sessionID = validateRandom(ch.random, UID, sta.Now().Unix())
 	if !isCK {
 		return
 	}

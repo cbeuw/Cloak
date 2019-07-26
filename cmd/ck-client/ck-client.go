@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
@@ -176,16 +177,18 @@ start:
 	log.Println("Attemtping to start a new session")
 	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 	// sessionID is limited to its UID.
-	rand.Seed(time.Now().UnixNano())
-	sessionID := rand.Uint32()
+	quad := make([]byte, 4)
+	rand.Read(quad)
+	sta.SessionID = binary.BigEndian.Uint32(quad)
+
+	sta.UpdateIntervalKeys()
 
 	if adminUID != nil {
-		sessionID = 0
+		sta.SessionID = 0
 		sta.UID = adminUID
 		sta.NumConn = 1
 	}
 
-	sta.SetSessionID(sessionID)
 	var crypto mux.Crypto
 	switch sta.EncryptionMethod {
 	case 0x00:
@@ -204,11 +207,8 @@ start:
 		}
 	}
 
-	sessionKey := make([]byte, 32)
-	rand.Read(sessionKey)
-	sta.SessionKey = sessionKey
-
-	sesh := mux.MakeSession(sessionID, mux.UNLIMITED_VALVE, mux.MakeObfs(sta.SessionKey, crypto), mux.MakeDeobfs(sta.SessionKey, crypto), util.ReadTLS)
+	_, tthKey, _ := sta.GetIntervalKeys()
+	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, mux.MakeObfs(tthKey, crypto), mux.MakeDeobfs(tthKey, crypto), util.ReadTLS)
 
 	var wg sync.WaitGroup
 	for i := 0; i < sta.NumConn; i++ {
@@ -227,7 +227,7 @@ start:
 	}
 	wg.Wait()
 
-	log.Printf("Session %v established", sessionID)
+	log.Printf("Session %v established", sta.SessionID)
 
 	for {
 		if sesh.IsBroken() {
