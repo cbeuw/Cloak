@@ -88,6 +88,40 @@ func makeRemoteConn(sta *client.State) (net.Conn, error) {
 
 }
 
+func makeSession(sta *client.State) *mux.Session {
+	log.Println("Attemtping to start a new session")
+	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
+	// sessionID is limited to its UID.
+	quad := make([]byte, 4)
+	rand.Read(quad)
+	sta.SessionID = binary.BigEndian.Uint32(quad)
+
+	sta.UpdateIntervalKeys()
+
+	_, tthKey, _ := sta.GetIntervalKeys()
+	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, mux.MakeObfs(tthKey, sta.Cipher), mux.MakeDeobfs(tthKey, sta.Cipher), util.ReadTLS)
+
+	var wg sync.WaitGroup
+	for i := 0; i < sta.NumConn; i++ {
+		wg.Add(1)
+		go func() {
+		makeconn:
+			conn, err := makeRemoteConn(sta)
+			if err != nil {
+				log.Printf("Failed to establish new connections to remote: %v\n", err)
+				time.Sleep(time.Second * 3)
+				goto makeconn
+			}
+			sesh.AddConnection(conn)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	log.Printf("Session %v established", sta.SessionID)
+	return sesh
+}
+
 func main() {
 	// Should be 127.0.0.1 to listen to a proxy client on this machine
 	var localHost string
@@ -173,70 +207,22 @@ func main() {
 		}
 	}
 
-start:
-	log.Println("Attemtping to start a new session")
-	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
-	// sessionID is limited to its UID.
-	quad := make([]byte, 4)
-	rand.Read(quad)
-	sta.SessionID = binary.BigEndian.Uint32(quad)
-
-	sta.UpdateIntervalKeys()
-
 	if adminUID != nil {
 		sta.SessionID = 0
 		sta.UID = adminUID
 		sta.NumConn = 1
 	}
 
-	var crypto mux.Crypto
-	switch sta.EncryptionMethod {
-	case 0x00:
-		crypto = &mux.Plain{}
-	case 0x01:
-		crypto, err = mux.MakeAESGCMCipher(sta.UID)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-	case 0x02:
-		crypto, err = mux.MakeCPCipher(sta.UID)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-	}
-
-	_, tthKey, _ := sta.GetIntervalKeys()
-	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, mux.MakeObfs(tthKey, crypto), mux.MakeDeobfs(tthKey, crypto), util.ReadTLS)
-
-	var wg sync.WaitGroup
-	for i := 0; i < sta.NumConn; i++ {
-		wg.Add(1)
-		go func() {
-		makeconn:
-			conn, err := makeRemoteConn(sta)
-			if err != nil {
-				log.Printf("Failed to establish new connections to remote: %v\n", err)
-				time.Sleep(time.Second * 3)
-				goto makeconn
-			}
-			sesh.AddConnection(conn)
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-
-	log.Printf("Session %v established", sta.SessionID)
+	var sesh *mux.Session
 
 	for {
-		if sesh.IsBroken() {
-			goto start
-		}
 		localConn, err := listener.Accept()
 		if err != nil {
 			log.Println(err)
 			continue
+		}
+		if sesh == nil || sesh.IsBroken() {
+			sesh = makeSession(sta)
 		}
 		go func() {
 			data := make([]byte, 10240)
