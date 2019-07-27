@@ -45,9 +45,7 @@ func MakeAESGCMCipher(key []byte) (*AESGCM, error) {
 
 func (a *AESGCM) encrypt(plaintext []byte, nonce []byte) ([]byte, error) {
 	ciphertext := a.cipher.Seal(nil, nonce, plaintext, nil)
-	ret := make([]byte, len(plaintext)+16)
-	copy(ret, ciphertext)
-	return ret, nil
+	return ciphertext, nil
 }
 
 func (a *AESGCM) decrypt(ciphertext []byte, nonce []byte) ([]byte, error) {
@@ -75,9 +73,7 @@ func MakeCPCipher(key []byte) (*C20P1305, error) {
 
 func (c *C20P1305) encrypt(plaintext []byte, nonce []byte) ([]byte, error) {
 	ciphertext := c.cipher.Seal(nil, nonce, plaintext, nil)
-	ret := make([]byte, len(plaintext)+16)
-	copy(ret, ciphertext)
-	return ret, nil
+	return ciphertext, nil
 }
 
 func (c *C20P1305) decrypt(ciphertext []byte, nonce []byte) ([]byte, error) {
