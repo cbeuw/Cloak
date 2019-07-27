@@ -112,6 +112,7 @@ func (stream *Stream) Write(in []byte) (n int, err error) {
 func (stream *Stream) passiveClose() {
 	stream.heliumMask.Do(func() { close(stream.die) })
 	stream.session.delStream(stream.id)
+	stream.sortedBuf.Close()
 	//log.Printf("%v passive closing\n", stream.id)
 }
 
