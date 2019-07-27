@@ -46,6 +46,7 @@ type State struct {
 	SessionID uint32
 	UID       []byte
 	staticPub crypto.PublicKey
+	IsAdmin   bool
 
 	intervalDataM sync.Mutex
 	intervalData  *tthIntervalKeys

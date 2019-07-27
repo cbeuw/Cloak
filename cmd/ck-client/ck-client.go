@@ -90,11 +90,13 @@ func makeRemoteConn(sta *client.State) (net.Conn, error) {
 
 func makeSession(sta *client.State) *mux.Session {
 	log.Println("Attemtping to start a new session")
-	// sessionID is usergenerated. There shouldn't be a security concern because the scope of
-	// sessionID is limited to its UID.
-	quad := make([]byte, 4)
-	rand.Read(quad)
-	sta.SessionID = binary.BigEndian.Uint32(quad)
+	if !sta.IsAdmin {
+		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
+		// sessionID is limited to its UID.
+		quad := make([]byte, 4)
+		rand.Read(quad)
+		sta.SessionID = binary.BigEndian.Uint32(quad)
+	}
 
 	sta.UpdateIntervalKeys()
 
@@ -208,6 +210,7 @@ func main() {
 	}
 
 	if adminUID != nil {
+		sta.IsAdmin = true
 		sta.SessionID = 0
 		sta.UID = adminUID
 		sta.NumConn = 1
