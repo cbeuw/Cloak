@@ -2,8 +2,6 @@ package multiplex
 
 import (
 	"errors"
-	"io"
-	"log"
 	"net"
 	"time"
 
@@ -29,10 +27,8 @@ type Stream struct {
 
 	// New frames are received through newFrameCh by frameSorter
 	newFrameCh chan *Frame
-	// sortedBufCh are order-sorted data ready to be read raw
-	sortedBufCh chan []byte
-	feederR     *io.PipeReader
-	feederW     *io.PipeWriter
+
+	sortedBuf *bufferedPipe
 
 	// atomic
 	nextSendSeq uint32
@@ -45,43 +41,16 @@ type Stream struct {
 }
 
 func makeStream(id uint32, sesh *Session) *Stream {
-	r, w := io.Pipe()
 	stream := &Stream{
-		id:          id,
-		session:     sesh,
-		die:         make(chan struct{}),
-		sh:          []*frameNode{},
-		newFrameCh:  make(chan *Frame, 1024),
-		sortedBufCh: make(chan []byte, 1024),
-		feederR:     r,
-		feederW:     w,
+		id:         id,
+		session:    sesh,
+		die:        make(chan struct{}),
+		sh:         []*frameNode{},
+		newFrameCh: make(chan *Frame, 1024),
+		sortedBuf:  NewBufferedPipe(),
 	}
 	go stream.recvNewFrame()
-	go stream.feed()
 	return stream
-}
-
-func (stream *Stream) feed() {
-	for {
-		select {
-		case <-stream.die:
-			return
-		case data := <-stream.sortedBufCh:
-			if len(data) == 0 {
-				stream.passiveClose()
-				return
-			}
-			_, err := stream.feederW.Write(data)
-			if err != nil {
-				if err == io.ErrClosedPipe {
-					stream.Close()
-					return
-				} else {
-					log.Println(err)
-				}
-			}
-		}
-	}
 }
 
 func (stream *Stream) Read(buf []byte) (n int, err error) {
@@ -95,9 +64,13 @@ func (stream *Stream) Read(buf []byte) (n int, err error) {
 	}
 	select {
 	case <-stream.die:
-		return 0, ErrBrokenStream
+		if stream.sortedBuf.Len() == 0 {
+			return 0, ErrBrokenStream
+		} else {
+			return stream.sortedBuf.Read(buf)
+		}
 	default:
-		return stream.feederR.Read(buf)
+		return stream.sortedBuf.Read(buf)
 	}
 
 }
@@ -168,9 +141,8 @@ func (stream *Stream) Close() error {
 	tlsRecord, _ := stream.session.obfs(f)
 	stream.session.sb.send(tlsRecord)
 
+	stream.sortedBuf.Close()
 	stream.session.delStream(stream.id)
-	stream.feederW.Close()
-	stream.feederR.Close()
 	//log.Printf("%v actively closed\n", stream.id)
 	stream.writingM.Unlock()
 	return nil

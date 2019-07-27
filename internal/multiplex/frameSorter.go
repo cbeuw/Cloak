@@ -73,10 +73,10 @@ func (s *Stream) recvNewFrame() {
 		if len(s.sh) == 0 && f.Seq == s.nextRecvSeq {
 			if f.Closing == 1 {
 				// empty data indicates closing signal
-				s.sortedBufCh <- []byte{}
+				s.passiveClose()
 				return
 			} else {
-				s.sortedBufCh <- f.Payload
+				s.sortedBuf.Write(f.Payload)
 				s.nextRecvSeq += 1
 				if s.nextRecvSeq == 0 { // getting wrapped
 					s.rev += 1
@@ -115,10 +115,10 @@ func (s *Stream) recvNewFrame() {
 			f = heap.Pop(&s.sh).(*frameNode).frame
 			if f.Closing == 1 {
 				// empty data indicates closing signal
-				s.sortedBufCh <- []byte{}
+				s.passiveClose()
 				return
 			} else {
-				s.sortedBufCh <- f.Payload
+				s.sortedBuf.Write(f.Payload)
 				s.nextRecvSeq += 1
 				if s.nextRecvSeq == 0 { // getting wrapped
 					s.rev += 1
