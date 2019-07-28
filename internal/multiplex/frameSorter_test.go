@@ -50,6 +50,6 @@ func TestRecvNewFrame(t *testing.T) {
 				)
 			}
 		}
-		close(stream.die)
+		stream.newFrameCh <- nil
 	}
 }

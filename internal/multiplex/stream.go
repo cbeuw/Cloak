@@ -36,15 +36,13 @@ type Stream struct {
 	writingM sync.RWMutex
 
 	// close(die) is used to notify different goroutines that this stream is closing
-	die        chan struct{}
-	heliumMask sync.Once // my personal fav
+	closed uint32
 }
 
 func makeStream(id uint32, sesh *Session) *Stream {
 	stream := &Stream{
 		id:         id,
 		session:    sesh,
-		die:        make(chan struct{}),
 		sh:         []*frameNode{},
 		newFrameCh: make(chan *Frame, 1024),
 		sortedBuf:  NewBufferedPipe(),
@@ -53,99 +51,100 @@ func makeStream(id uint32, sesh *Session) *Stream {
 	return stream
 }
 
-func (stream *Stream) Read(buf []byte) (n int, err error) {
+func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
+
+func (s *Stream) Read(buf []byte) (n int, err error) {
 	if len(buf) == 0 {
-		select {
-		case <-stream.die:
+		if s.isClosed() {
 			return 0, ErrBrokenStream
-		default:
+		} else {
 			return 0, nil
 		}
 	}
-	select {
-	case <-stream.die:
-		if stream.sortedBuf.Len() == 0 {
+	if s.isClosed() {
+		if s.sortedBuf.Len() == 0 {
 			return 0, ErrBrokenStream
 		} else {
-			return stream.sortedBuf.Read(buf)
+			return s.sortedBuf.Read(buf)
 		}
-	default:
-		return stream.sortedBuf.Read(buf)
+	} else {
+		return s.sortedBuf.Read(buf)
 	}
 
 }
 
-func (stream *Stream) Write(in []byte) (n int, err error) {
+func (s *Stream) Write(in []byte) (n int, err error) {
 	// RWMutex used here isn't really for RW.
 	// we use it to exploit the fact that RLock doesn't create contention.
 	// The use of RWMutex is so that the stream will not actively close
 	// in the middle of the execution of Write. This may cause the closing frame
 	// to be sent before the data frame and cause loss of packet.
-	stream.writingM.RLock()
-	select {
-	case <-stream.die:
-		stream.writingM.RUnlock()
+	s.writingM.RLock()
+	if s.isClosed() {
+		s.writingM.RUnlock()
 		return 0, ErrBrokenStream
-	default:
 	}
 
 	f := &Frame{
-		StreamID: stream.id,
-		Seq:      atomic.AddUint32(&stream.nextSendSeq, 1) - 1,
+		StreamID: s.id,
+		Seq:      atomic.AddUint32(&s.nextSendSeq, 1) - 1,
 		Closing:  0,
 		Payload:  in,
 	}
 
-	tlsRecord, err := stream.session.obfs(f)
+	tlsRecord, err := s.session.obfs(f)
 	if err != nil {
-		stream.writingM.RUnlock()
+		s.writingM.RUnlock()
 		return 0, err
 	}
-	n, err = stream.session.sb.send(tlsRecord)
-	stream.writingM.RUnlock()
+	n, err = s.session.sb.send(tlsRecord)
+	s.writingM.RUnlock()
 
 	return
 
 }
 
+// the necessary steps to mark the stream as closed and to release resources
+func (s *Stream) _close() {
+	atomic.StoreUint32(&s.closed, 1)
+	s.newFrameCh <- nil // this will trigger frameSorter to return
+	s.sortedBuf.Close()
+}
+
 // only close locally. Used when the stream close is notified by the remote
-func (stream *Stream) passiveClose() {
-	stream.heliumMask.Do(func() { close(stream.die) })
-	stream.session.delStream(stream.id)
-	stream.sortedBuf.Close()
+func (s *Stream) passiveClose() {
+	s._close()
+	s.session.delStream(s.id)
 	//log.Printf("%v passive closing\n", stream.id)
 }
 
 // active close. Close locally and tell the remote that this stream is being closed
-func (stream *Stream) Close() error {
+func (s *Stream) Close() error {
 
-	stream.writingM.Lock()
-	select {
-	case <-stream.die:
-		stream.writingM.Unlock()
+	s.writingM.Lock()
+	if s.isClosed() {
+		s.writingM.Unlock()
 		return errors.New("Already Closed")
-	default:
 	}
-	stream.heliumMask.Do(func() { close(stream.die) })
 
 	// Notify remote that this stream is closed
-	prand.Seed(int64(stream.id))
+	prand.Seed(int64(s.id))
 	padLen := int(math.Floor(prand.Float64()*200 + 300))
 	pad := make([]byte, padLen)
 	prand.Read(pad)
 	f := &Frame{
-		StreamID: stream.id,
-		Seq:      atomic.AddUint32(&stream.nextSendSeq, 1) - 1,
+		StreamID: s.id,
+		Seq:      atomic.AddUint32(&s.nextSendSeq, 1) - 1,
 		Closing:  1,
 		Payload:  pad,
 	}
-	tlsRecord, _ := stream.session.obfs(f)
-	stream.session.sb.send(tlsRecord)
+	tlsRecord, _ := s.session.obfs(f)
+	s.session.sb.send(tlsRecord)
 
-	stream.sortedBuf.Close()
-	stream.session.delStream(stream.id)
+	s._close()
+	s.session.delStream(s.id)
 	//log.Printf("%v actively closed\n", stream.id)
-	stream.writingM.Unlock()
+	s.writingM.Unlock()
 	return nil
 }
 
@@ -153,18 +152,18 @@ func (stream *Stream) Close() error {
 // This is called in session.Close() to avoid mutex deadlock
 // We don't notify the remote because session.Close() is always
 // called when the session is passively closed
-func (stream *Stream) closeNoDelMap() {
-	stream.heliumMask.Do(func() { close(stream.die) })
+func (s *Stream) closeNoDelMap() {
+	s._close()
 }
 
 // the following functions are purely for implementing net.Conn interface.
 // they are not used
 var errNotImplemented = errors.New("Not implemented")
 
-func (stream *Stream) LocalAddr() net.Addr  { return stream.session.addrs.Load().([]net.Addr)[0] }
-func (stream *Stream) RemoteAddr() net.Addr { return stream.session.addrs.Load().([]net.Addr)[1] }
+func (s *Stream) LocalAddr() net.Addr  { return s.session.addrs.Load().([]net.Addr)[0] }
+func (s *Stream) RemoteAddr() net.Addr { return s.session.addrs.Load().([]net.Addr)[1] }
 
 // TODO: implement the following
-func (stream *Stream) SetDeadline(t time.Time) error      { return errNotImplemented }
-func (stream *Stream) SetReadDeadline(t time.Time) error  { return errNotImplemented }
-func (stream *Stream) SetWriteDeadline(t time.Time) error { return errNotImplemented }
+func (s *Stream) SetDeadline(t time.Time) error      { return errNotImplemented }
+func (s *Stream) SetReadDeadline(t time.Time) error  { return errNotImplemented }
+func (s *Stream) SetWriteDeadline(t time.Time) error { return errNotImplemented }

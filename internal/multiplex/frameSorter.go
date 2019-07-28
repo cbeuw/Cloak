@@ -58,15 +58,9 @@ func (s *Stream) writeNewFrame(f *Frame) {
 // cache and order them and send them into sortedBufCh
 func (s *Stream) recvNewFrame() {
 	for {
-		var f *Frame
-		select {
-		case <-s.die:
+		f := <-s.newFrameCh
+		if f == nil {
 			return
-		case f = <-s.newFrameCh:
-		}
-		if f == nil { // This shouldn't happen
-			//log.Println("nil frame")
-			continue
 		}
 
 		// when there's no ooo packages in heap and we receive the next package in order
