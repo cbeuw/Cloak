@@ -224,7 +224,7 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		if sesh == nil || sesh.IsBroken() {
+		if sesh == nil || sesh.IsClosed() {
 			sesh = makeSession(sta)
 		}
 		go func() {
