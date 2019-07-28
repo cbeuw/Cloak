@@ -110,22 +110,20 @@ func (sesh *Session) getStream(id uint32, closingFrame bool) *Stream {
 	// it would have been neater to use defer Unlock(), however it gives
 	// non-negligable overhead and this function is performance critical
 	sesh.streamsM.Lock()
+	defer sesh.streamsM.Unlock()
 	stream := sesh.streams[id]
 	if stream != nil {
-		sesh.streamsM.Unlock()
 		return stream
 	} else {
 		if closingFrame {
 			// If the stream has been closed and the current frame is a closing frame,
 			// we return nil
-			sesh.streamsM.Unlock()
 			return nil
 		} else {
 			stream = makeStream(id, sesh)
 			sesh.streams[id] = stream
 			sesh.acceptCh <- stream
 			//log.Printf("Adding stream %v\n", id)
-			sesh.streamsM.Unlock()
 			return stream
 		}
 	}

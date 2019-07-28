@@ -74,9 +74,9 @@ func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func
 
 func (sta *State) UpdateIntervalKeys() {
 	sta.intervalDataM.Lock()
+	defer sta.intervalDataM.Unlock()
 	currentInterval := sta.Now().Unix() / int64(sta.TicketTimeHint)
 	if currentInterval == sta.intervalData.interval {
-		sta.intervalDataM.Unlock()
 		return
 	}
 	sta.intervalData.interval = currentInterval
@@ -84,7 +84,6 @@ func (sta *State) UpdateIntervalKeys() {
 	intervalKey := ecdh.GenerateSharedSecret(ephPv, sta.staticPub)
 	seed := int64(binary.BigEndian.Uint64(ephPv.(*[32]byte)[0:8]))
 	sta.intervalData.ephPv, sta.intervalData.ephPub, sta.intervalData.intervalKey, sta.intervalData.seed = ephPv, ephPub, intervalKey, seed
-	sta.intervalDataM.Unlock()
 }
 
 func (sta *State) GetIntervalKeys() (crypto.PublicKey, []byte, int64) {

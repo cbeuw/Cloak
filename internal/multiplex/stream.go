@@ -80,8 +80,8 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	// in the middle of the execution of Write. This may cause the closing frame
 	// to be sent before the data frame and cause loss of packet.
 	s.writingM.RLock()
+	defer s.writingM.RUnlock()
 	if s.isClosed() {
-		s.writingM.RUnlock()
 		return 0, ErrBrokenStream
 	}
 
@@ -94,12 +94,9 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 
 	tlsRecord, err := s.session.obfs(f)
 	if err != nil {
-		s.writingM.RUnlock()
 		return 0, err
 	}
 	n, err = s.session.sb.send(tlsRecord)
-	s.writingM.RUnlock()
-
 	return
 
 }
@@ -122,8 +119,8 @@ func (s *Stream) passiveClose() {
 func (s *Stream) Close() error {
 
 	s.writingM.Lock()
+	defer s.writingM.Unlock()
 	if s.isClosed() {
-		s.writingM.Unlock()
 		return errors.New("Already Closed")
 	}
 
@@ -144,7 +141,6 @@ func (s *Stream) Close() error {
 	s._close()
 	s.session.delStream(s.id)
 	//log.Printf("%v actively closed\n", stream.id)
-	s.writingM.Unlock()
 	return nil
 }
 

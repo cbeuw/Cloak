@@ -32,18 +32,16 @@ func (u *ActiveUser) DelSession(sessionID uint32) {
 
 func (u *ActiveUser) GetSession(sessionID uint32, obfs mux.Obfser, deobfs mux.Deobfser, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool, err error) {
 	u.sessionsM.Lock()
+	defer u.sessionsM.Unlock()
 	if sesh = u.sessions[sessionID]; sesh != nil {
-		u.sessionsM.Unlock()
 		return sesh, true, nil
 	} else {
 		err := u.panel.Manager.authoriseNewSession(u)
 		if err != nil {
-			u.sessionsM.Unlock()
 			return nil, false, err
 		}
 		sesh = mux.MakeSession(sessionID, u.valve, obfs, deobfs, obfsedRead)
 		u.sessions[sessionID] = sesh
-		u.sessionsM.Unlock()
 		return sesh, false, nil
 	}
 }
@@ -64,7 +62,6 @@ func (u *ActiveUser) Terminate(reason string) {
 
 func (u *ActiveUser) NumSession() int {
 	u.sessionsM.RLock()
-	l := len(u.sessions)
-	u.sessionsM.RUnlock()
-	return l
+	defer u.sessionsM.RUnlock()
+	return len(u.sessions)
 }
