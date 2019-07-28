@@ -28,9 +28,10 @@ func TestRecvNewFrame(t *testing.T) {
 
 		var testSorted []uint32
 		for x := 0; x < len(set); x++ {
-			p := <-stream.sortedBufCh
+			oct := make([]byte, 8)
+			stream.sortedBuf.Write(oct)
 			//log.Print(p)
-			testSorted = append(testSorted, uint32(binary.BigEndian.Uint64(p)))
+			testSorted = append(testSorted, uint32(binary.BigEndian.Uint64(oct)))
 		}
 		sorted64 := make([]uint64, len(set))
 		copy(sorted64, set)
