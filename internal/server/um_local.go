@@ -56,6 +56,9 @@ func (manager *localManager) registerMux() *gmux.Router {
 	r.HandleFunc("/admin/users/{UID}", manager.getUserInfoHlr).Methods("GET")
 	r.HandleFunc("/admin/users/{UID}", manager.writeUserInfoHlr).Methods("POST")
 	r.HandleFunc("/admin/users/{UID}", manager.deleteUserHlr).Methods("DELETE")
+	r.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
+	})
 	r.Use(corsMiddleware)
 	return r
 }

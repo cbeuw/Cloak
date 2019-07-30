@@ -96,7 +96,7 @@ func (manager *localManager) writeUserInfoHlr(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	jsonUinfo := gmux.Vars(r)["UserInfo"]
+	jsonUinfo := r.FormValue("UserInfo")
 	if jsonUinfo == "" {
 		http.Error(w, "UserInfo cannot be empty", http.StatusBadRequest)
 		return
@@ -112,7 +112,7 @@ func (manager *localManager) writeUserInfoHlr(w http.ResponseWriter, r *http.Req
 	}
 
 	err = manager.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucket(uinfo.UID)
+		bucket, err := tx.CreateBucketIfNotExists(uinfo.UID)
 		if err != nil {
 			return err
 		}
