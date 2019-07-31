@@ -1,5 +1,7 @@
 # Cloak
 
+![Cloak](https://user-images.githubusercontent.com/7034308/62246517-b0630580-b3db-11e9-8a6e-d445a3fc0cbc.png)
+
 Cloak is a universal pluggable transport that obfuscates proxy traffic as legitimate HTTPS traffic, disguises the proxy server as a normal web server, multiplexes traffic through multiple TCP connections and provide multi-user usage control. 
 
 Cloak eliminates any "fingerprints" exposed by traditional proxy protocol designs which can be identified by adversaries through deep packet inspection. If a non-Cloak program or an unauthorised Cloak user (such as an adversary's prober) attempts to connect to Cloak server, it will serve as a transparent proxy between said machine and an ordinary website, so that to any unauthorised third party, a host running Cloak server is indistinguishable from an innocent web server.
@@ -57,7 +59,7 @@ Do `make server_pprof` if you want to access the live profiling data.
 3. Run `ck-server -u`. This will be used as the AdminUID
 4. Copy example_config/ckserver.json into a desired location. Change `PrivateKey` to the private key you just obtained; change `AdminUID` to the UID you just obtained.
 5. Configure your underlying proxy server so that they all listen on localhost. Edit `ProxyBook` in the configuration file accordingly
-6. Run `sudo ck-server -c <path to ckserver.json`. ck-server needs root privilege because it binds to a low numbered port (443). Alternatively you can follow https://superuser.com/a/892391 to avoid granting ck-server root privilege unnecessarily.
+6. [Configure the proxy program.](https://github.com/cbeuw/Cloak/wiki/Underlying-proxy-configuration-guides) Run `sudo ck-server -c <path to ckserver.json>`. ck-server needs root privilege because it binds to a low numbered port (443). Alternatively you can follow https://superuser.com/a/892391 to avoid granting ck-server root privilege unnecessarily.
 
 #### If you want to add more users
 1. On your client, run `ck-client -s <IP of the server> -l <A local port> -a <AdminUID> -c <path-to-ckclient.json>` to enter admin mode
@@ -74,7 +76,7 @@ Note: the user database is persistent as it's in-disk. You don't need to add the
 1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo. If you wish to build it, make sure you fetch the dependencies using `go get github.com/boltdb/bolt`, `go get github.com/juju/ratelimit` and `go get github.com/gorilla/mux`
 2. Obtain the public key and your UID (or the AdminUID, if you are the server admin) from the administrator of your server
 3. Copy example_config/ckclient.json into a location of your choice. Enter the `UID` and `PublicKey` you have obtained. Set `ProxyMethod` to match exactly the corresponding entry in `ProxyBook` on the server end
-4. Run `ck-client -c <path to ckclient.json> -s <ip of your server> -l <local port to listen to proxy clients>`
+4. [Configure the proxy program.](https://github.com/cbeuw/Cloak/wiki/Underlying-proxy-configuration-guides) Run `ck-client -c <path to ckclient.json> -s <ip of your server>`
 
 ## Support me
 If you find this project useful, donations are greatly appreciated!
