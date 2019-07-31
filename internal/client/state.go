@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cbeuw/Cloak/internal/ecdh"
-	mux "github.com/cbeuw/Cloak/internal/multiplex"
 )
 
 type rawConfig struct {
@@ -51,7 +50,6 @@ type State struct {
 
 	ProxyMethod      string
 	EncryptionMethod byte
-	Cipher           mux.Crypto
 	TicketTimeHint   int
 	ServerName       string
 	BrowserSig       string
@@ -139,19 +137,10 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	switch preParse.EncryptionMethod {
 	case "plain":
 		sta.EncryptionMethod = 0x00
-		sta.Cipher = &mux.Plain{}
 	case "aes-gcm":
 		sta.EncryptionMethod = 0x01
-		sta.Cipher, err = mux.MakeAESGCMCipher(sta.UID)
-		if err != nil {
-			return err
-		}
 	case "chacha20-poly1305":
 		sta.EncryptionMethod = 0x02
-		sta.Cipher, err = mux.MakeCPCipher(sta.UID)
-		if err != nil {
-			return err
-		}
 	default:
 		return errors.New("Unknown encryption method")
 	}

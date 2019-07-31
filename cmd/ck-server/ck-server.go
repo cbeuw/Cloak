@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"crypto/aes"
+	"crypto/cipher"
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"golang.org/x/crypto/chacha20poly1305"
 	"io"
 	"log"
 	"net"
@@ -86,19 +88,25 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	var crypto mux.Crypto
+	var payloadCipher cipher.AEAD
 	switch encryptionMethod {
 	case 0x00:
-		crypto = &mux.Plain{}
+		payloadCipher = nil
 	case 0x01:
-		crypto, err = mux.MakeAESGCMCipher(UID)
+		c, err := aes.NewCipher(tthKey)
+		if err != nil {
+			log.Println(err)
+			goWeb(data)
+			return
+		}
+		payloadCipher, err = cipher.NewGCM(c)
 		if err != nil {
 			log.Println(err)
 			goWeb(data)
 			return
 		}
 	case 0x02:
-		crypto, err = mux.MakeCPCipher(UID)
+		payloadCipher, err = chacha20poly1305.New(tthKey)
 		if err != nil {
 			log.Println(err)
 			goWeb(data)
@@ -117,8 +125,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	obfs := mux.MakeObfs(headerCipher, crypto)
-	deobfs := mux.MakeDeobfs(headerCipher, crypto)
+	obfs := mux.MakeObfs(headerCipher, payloadCipher)
+	deobfs := mux.MakeDeobfs(headerCipher, payloadCipher)
 
 	finishHandshake := func() error {
 		reply := server.ComposeReply(ch)

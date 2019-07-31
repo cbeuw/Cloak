@@ -4,10 +4,12 @@ package main
 
 import (
 	"crypto/aes"
+	"crypto/cipher"
 	"encoding/base64"
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"golang.org/x/crypto/chacha20poly1305"
 	"io"
 	"log"
 	"math/rand"
@@ -100,13 +102,36 @@ func makeSession(sta *client.State) *mux.Session {
 	}
 
 	sta.UpdateIntervalKeys()
-
 	_, tthKey := sta.GetIntervalKeys()
+
+	var payloadCipher cipher.AEAD
+	var err error
+	switch sta.EncryptionMethod {
+	case 0x00:
+		payloadCipher = nil
+	case 0x01:
+		c, err := aes.NewCipher(tthKey)
+		if err != nil {
+			log.Fatal(err)
+		}
+		payloadCipher, err = cipher.NewGCM(c)
+		if err != nil {
+			log.Fatal(err)
+		}
+	case 0x02:
+		payloadCipher, err = chacha20poly1305.New(tthKey)
+		if err != nil {
+			log.Fatal(err)
+		}
+	default:
+		log.Fatal("Unknown encryption method")
+	}
+
 	headerCipher, err := aes.NewCipher(tthKey)
 	if err != nil {
 		log.Fatal(err)
 	}
-	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, mux.MakeObfs(headerCipher, sta.Cipher), mux.MakeDeobfs(headerCipher, sta.Cipher), util.ReadTLS)
+	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, mux.MakeObfs(headerCipher, payloadCipher), mux.MakeDeobfs(headerCipher, payloadCipher), util.ReadTLS)
 
 	var wg sync.WaitGroup
 	for i := 0; i < sta.NumConn; i++ {

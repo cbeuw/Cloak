@@ -15,7 +15,7 @@ var putU32 = binary.BigEndian.PutUint32
 
 const HEADER_LEN = 12
 
-func MakeObfs(headerCipher cipher.Block, algo Crypto) Obfser {
+func MakeObfs(headerCipher cipher.Block, payloadCipher cipher.AEAD) Obfser {
 	obfs := func(f *Frame) ([]byte, error) {
 		ret := make([]byte, 5+HEADER_LEN+len(f.Payload)+16)
 		recordLayer := ret[0:5]
@@ -28,11 +28,13 @@ func MakeObfs(headerCipher cipher.Block, algo Crypto) Obfser {
 		header[8] = f.Closing
 		rand.Read(header[9:12])
 
-		ciphertext, err := algo.encrypt(f.Payload, header)
-		if err != nil {
-			return nil, err
+		if payloadCipher == nil {
+			copy(encryptedPayload, f.Payload)
+			rand.Read(encryptedPayload[len(encryptedPayload)-16:])
+		} else {
+			ciphertext := payloadCipher.Seal(nil, header, f.Payload, nil)
+			copy(encryptedPayload, ciphertext)
 		}
-		copy(encryptedPayload, ciphertext)
 
 		iv := encryptedPayload[len(encryptedPayload)-16:]
 		cipher.NewCTR(headerCipher, iv).XORKeyStream(header, header)
@@ -48,7 +50,7 @@ func MakeObfs(headerCipher cipher.Block, algo Crypto) Obfser {
 	return obfs
 }
 
-func MakeDeobfs(headerCipher cipher.Block, algo Crypto) Deobfser {
+func MakeDeobfs(headerCipher cipher.Block, payloadCipher cipher.AEAD) Deobfser {
 	deobfs := func(in []byte) (*Frame, error) {
 		if len(in) < 5+HEADER_LEN+16 {
 			return nil, errors.New("Input cannot be shorter than 33 bytes")
@@ -65,13 +67,17 @@ func MakeDeobfs(headerCipher cipher.Block, algo Crypto) Deobfser {
 		seq := u32(header[4:8])
 		closing := header[8]
 
-		decryptedPayload, err := algo.decrypt(payload, header)
-		if err != nil {
-			return nil, err
-		}
+		outputPayload := make([]byte, len(payload)-16)
 
-		outputPayload := make([]byte, len(decryptedPayload))
-		copy(outputPayload, decryptedPayload)
+		if payloadCipher == nil {
+			copy(outputPayload, payload)
+		} else {
+			plaintext, err := payloadCipher.Open(nil, header, payload, nil)
+			if err != nil {
+				return nil, err
+			}
+			copy(outputPayload, plaintext)
+		}
 
 		ret := &Frame{
 			StreamID: streamID,
