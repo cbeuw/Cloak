@@ -13,13 +13,12 @@ import (
 )
 
 type rawConfig struct {
-	ProxyBook     map[string]string
-	RedirAddr     string
-	PrivateKey    string
-	AdminUID      string
-	DatabasePath  string
-	BackupDirPath string
-	CncMode       bool
+	ProxyBook    map[string]string
+	RedirAddr    string
+	PrivateKey   string
+	AdminUID     string
+	DatabasePath string
+	CncMode      bool
 }
 
 // State type stores the global state of the program
@@ -72,6 +71,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	}
 
 	if preParse.CncMode {
+		//TODO: implement command & control mode
 
 	} else {
 		manager, err := MakeLocalManager(preParse.DatabasePath)
