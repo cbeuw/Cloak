@@ -1,8 +1,8 @@
 package multiplex
 
 import (
+	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha1"
 	"encoding/binary"
 	"errors"
 )
@@ -15,19 +15,7 @@ var putU32 = binary.BigEndian.PutUint32
 
 const HEADER_LEN = 12
 
-func genXorKey(key, salt []byte) []byte {
-	h := sha1.New()
-	h.Write(append(key, salt...))
-	return h.Sum(nil)[:12]
-}
-
-func xor(a []byte, b []byte) {
-	for i := range a {
-		a[i] ^= b[i]
-	}
-}
-
-func MakeObfs(key []byte, algo Crypto) Obfser {
+func MakeObfs(headerCipher cipher.Block, algo Crypto) Obfser {
 	obfs := func(f *Frame) ([]byte, error) {
 		ret := make([]byte, 5+HEADER_LEN+len(f.Payload)+16)
 		recordLayer := ret[0:5]
@@ -46,11 +34,8 @@ func MakeObfs(key []byte, algo Crypto) Obfser {
 		}
 		copy(encryptedPayload, ciphertext)
 
-		cKey := make([]byte, len(key))
-		copy(cKey, key)
-		salt := encryptedPayload[len(encryptedPayload)-16:]
-		xorKey := genXorKey(cKey, salt)
-		xor(header, xorKey)
+		iv := encryptedPayload[len(encryptedPayload)-16:]
+		cipher.NewCTR(headerCipher, iv).XORKeyStream(header, header)
 
 		// Composing final obfsed message
 		// We don't use util.AddRecordLayer here to avoid unnecessary malloc
@@ -63,7 +48,7 @@ func MakeObfs(key []byte, algo Crypto) Obfser {
 	return obfs
 }
 
-func MakeDeobfs(key []byte, algo Crypto) Deobfser {
+func MakeDeobfs(headerCipher cipher.Block, algo Crypto) Deobfser {
 	deobfs := func(in []byte) (*Frame, error) {
 		if len(in) < 5+HEADER_LEN+16 {
 			return nil, errors.New("Input cannot be shorter than 33 bytes")
@@ -72,12 +57,9 @@ func MakeDeobfs(key []byte, algo Crypto) Deobfser {
 
 		header := peeled[0:12]
 		payload := peeled[12:]
-		salt := peeled[len(peeled)-16:]
+		iv := peeled[len(peeled)-16:]
 
-		cKey := make([]byte, len(key))
-		copy(cKey, key)
-		xorKey := genXorKey(cKey, salt)
-		xor(header, xorKey)
+		cipher.NewCTR(headerCipher, iv).XORKeyStream(header, header)
 
 		streamID := u32(header[0:4])
 		seq := u32(header[4:8])

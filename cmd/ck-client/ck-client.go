@@ -3,6 +3,7 @@
 package main
 
 import (
+	"crypto/aes"
 	"encoding/base64"
 	"encoding/binary"
 	"flag"
@@ -101,7 +102,11 @@ func makeSession(sta *client.State) *mux.Session {
 	sta.UpdateIntervalKeys()
 
 	_, tthKey := sta.GetIntervalKeys()
-	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, mux.MakeObfs(tthKey, sta.Cipher), mux.MakeDeobfs(tthKey, sta.Cipher), util.ReadTLS)
+	headerCipher, err := aes.NewCipher(tthKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, mux.MakeObfs(headerCipher, sta.Cipher), mux.MakeDeobfs(headerCipher, sta.Cipher), util.ReadTLS)
 
 	var wg sync.WaitGroup
 	for i := 0; i < sta.NumConn; i++ {

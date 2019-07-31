@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/aes"
 	"encoding/base64"
 	"flag"
 	"fmt"
@@ -109,8 +110,15 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	obfs := mux.MakeObfs(tthKey, crypto)
-	deobfs := mux.MakeDeobfs(tthKey, crypto)
+	headerCipher, err := aes.NewCipher(tthKey)
+	if err != nil {
+		log.Println(err)
+		goWeb(data)
+		return
+	}
+
+	obfs := mux.MakeObfs(headerCipher, crypto)
+	deobfs := mux.MakeDeobfs(headerCipher, crypto)
 
 	finishHandshake := func() error {
 		reply := server.ComposeReply(ch)
