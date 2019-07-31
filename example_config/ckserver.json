@@ -1,11 +1,11 @@
 {
-		"ProxyBook":{
-			"shadowsocks":"127.0.0.1:8388",
-			"openvpn":"127.0.0.1:8389",
-			"tor":"127.0.0.1:9001"
-		},
-		"RedirAddr":"204.79.197.200:443",
-		"PrivateKey":"EN5aPEpNBO+vw+BtFQY2OnK9bQU7rvEj5qmnmgwEtUc=",
-		"AdminUID":"5nneblJy6lniPJfr81LuYQ==",
+  "ProxyBook": {
+    "shadowsocks": "127.0.0.1:8388",
+    "openvpn": "127.0.0.1:8389",
+    "tor": "127.0.0.1:9001"
+  },
+  "RedirAddr": "204.79.197.200:443",
+  "PrivateKey": "EN5aPEpNBO+vw+BtFQY2OnK9bQU7rvEj5qmnmgwEtUc=",
+  "AdminUID": "5nneblJy6lniPJfr81LuYQ==",
   "DatabasePath": "userinfo.db"
 }
