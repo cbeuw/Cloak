@@ -148,7 +148,7 @@ func main() {
 		config = os.Getenv("SS_PLUGIN_OPTIONS")
 	} else {
 		localHost = "127.0.0.1"
-		flag.StringVar(&localPort, "l", "", "localPort: Cloak listens to proxy clients on this port")
+		flag.StringVar(&localPort, "l", "1984", "localPort: Cloak listens to proxy clients on this port")
 		flag.StringVar(&remoteHost, "s", "", "remoteHost: IP of your proxy server")
 		flag.StringVar(&remotePort, "p", "443", "remotePort: proxy port, should be 443")
 		flag.StringVar(&config, "c", "ckclient.json", "config: path to the configuration file or options seperated with semicolons")
