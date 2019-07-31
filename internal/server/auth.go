@@ -10,11 +10,16 @@ import (
 	"log"
 )
 
+const SESSION_TICKET_LEN = 192
+const PUB_KEY_LEN = 32
+const AUTH_TAG_LEN = 16
+const USED_STAGNO_LEN = 16 + 16 + 1
+
 func decryptSessionTicket(staticPv crypto.PrivateKey, ticket []byte) (UID []byte, proxyMethod string, encryptionMethod byte, tthKey []byte) {
-	// sessionTicket: [marshalled ephemeral pub key 32 bytes][encrypted UID 16 bytes, proxy method 16 bytes, encryption method 1 byte][16 bytes authentication tag][padding 111 bytes]
-	ephPub, _ := ecdh.Unmarshal(ticket[0:32])
+	// sessionTicket: [marshalled ephemeral pub key 32 bytes][encrypted UID 16 bytes, proxy method 16 bytes, encryption method 1 byte][reserved 111 bytes][padding 111 bytes]
+	ephPub, _ := ecdh.Unmarshal(ticket[0:PUB_KEY_LEN])
 	tthKey = ecdh.GenerateSharedSecret(staticPv, ephPub)
-	plain, err := util.AESGCMDecrypt(ticket[0:12], tthKey, ticket[32:81])
+	plain, err := util.AESGCMDecrypt(ticket[0:12], tthKey, ticket[PUB_KEY_LEN:])
 	if err != nil {
 		return
 	}
@@ -51,7 +56,7 @@ func TouchStone(ch *ClientHello, sta *State) (isCK bool, UID []byte, sessionID u
 
 	ticket := ch.extensions[[2]byte{0x00, 0x23}]
 
-	if len(ticket) < 81 {
+	if len(ticket) < PUB_KEY_LEN+USED_STAGNO_LEN+AUTH_TAG_LEN {
 		return
 	}
 

@@ -100,7 +100,7 @@ func makeSession(sta *client.State) *mux.Session {
 
 	sta.UpdateIntervalKeys()
 
-	_, tthKey, _ := sta.GetIntervalKeys()
+	_, tthKey := sta.GetIntervalKeys()
 	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, mux.MakeObfs(tthKey, sta.Cipher), mux.MakeDeobfs(tthKey, sta.Cipher), util.ReadTLS)
 
 	var wg sync.WaitGroup

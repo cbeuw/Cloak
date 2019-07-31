@@ -4,7 +4,6 @@ import (
 	"crypto"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -32,7 +31,6 @@ type tthIntervalKeys struct {
 	ephPv       crypto.PrivateKey
 	ephPub      crypto.PublicKey
 	intervalKey []byte
-	seed        int64
 }
 
 // State stores global variables
@@ -82,14 +80,13 @@ func (sta *State) UpdateIntervalKeys() {
 	sta.intervalData.interval = currentInterval
 	ephPv, ephPub, _ := ecdh.GenerateKey(rand.Reader)
 	intervalKey := ecdh.GenerateSharedSecret(ephPv, sta.staticPub)
-	seed := int64(binary.BigEndian.Uint64(ephPv.(*[32]byte)[0:8]))
-	sta.intervalData.ephPv, sta.intervalData.ephPub, sta.intervalData.intervalKey, sta.intervalData.seed = ephPv, ephPub, intervalKey, seed
+	sta.intervalData.ephPv, sta.intervalData.ephPub, sta.intervalData.intervalKey = ephPv, ephPub, intervalKey
 }
 
-func (sta *State) GetIntervalKeys() (crypto.PublicKey, []byte, int64) {
+func (sta *State) GetIntervalKeys() (crypto.PublicKey, []byte) {
 	sta.intervalDataM.Lock()
 	defer sta.intervalDataM.Unlock()
-	return sta.intervalData.ephPub, sta.intervalData.intervalKey, sta.intervalData.seed
+	return sta.intervalData.ephPub, sta.intervalData.intervalKey
 }
 
 // semi-colon separated value. This is for Android plugin options
