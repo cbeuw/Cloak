@@ -1,6 +1,6 @@
 # Cloak
 
-![Cloak](https://user-images.githubusercontent.com/7034308/62246517-b0630580-b3db-11e9-8a6e-d445a3fc0cbc.png)
+![Cloak](https://user-images.githubusercontent.com/7034308/62257147-0051c480-b3fc-11e9-9a26-85f1772d3d89.png)
 
 Cloak is a universal pluggable transport that obfuscates proxy traffic as legitimate HTTPS traffic, disguises the proxy server as a normal web server, multiplexes traffic through multiple TCP connections and provide multi-user usage control. 
 
