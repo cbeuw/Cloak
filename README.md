@@ -18,7 +18,6 @@ This project is based on [GoQuiet](https://github.com/cbeuw/GoQuiet). Through mu
 
 ## Build
 Simply `make client` and `make server`. Output binary will be in `build` folder.
-Do `make server_pprof` if you want to access the live profiling data.
 
 ## Configuration
 
