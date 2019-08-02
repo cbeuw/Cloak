@@ -101,14 +101,20 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	return nil
 }
 
+// This is the accepting window of the encrypted timestamp from client
+// we reject the client if the timestamp is outside of this window.
+// This is for replay prevention so that we don't have to save unlimited amount of
+// random
+const TIMESTAMP_WINDOW = 12 * time.Hour
+
 // UsedRandomCleaner clears the cache of used random fields every 12 hours
 func (sta *State) UsedRandomCleaner() {
 	for {
-		time.Sleep(12 * time.Hour)
+		time.Sleep(TIMESTAMP_WINDOW)
 		now := int(sta.Now().Unix())
 		sta.usedRandomM.Lock()
 		for key, t := range sta.usedRandom {
-			if now-t > 12*3600 {
+			if now-t > int(TIMESTAMP_WINDOW.Seconds()) {
 				delete(sta.usedRandom, key)
 			}
 		}

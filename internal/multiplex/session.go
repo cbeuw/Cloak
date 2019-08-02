@@ -26,6 +26,8 @@ type Session struct {
 	// This is supposed to read one TLS message, the same as GoQuiet's ReadTillDrain
 	obfsedRead func(net.Conn, []byte) (int, error)
 
+	SessionKey []byte
+
 	// atomic
 	nextStreamID uint32
 
@@ -45,13 +47,14 @@ type Session struct {
 	terminalMsg atomic.Value
 }
 
-func MakeSession(id uint32, valve *Valve, obfs Obfser, deobfs Deobfser, obfsedRead func(net.Conn, []byte) (int, error)) *Session {
+func MakeSession(id uint32, valve *Valve, obfs Obfser, deobfs Deobfser, sessionKey []byte, obfsedRead func(net.Conn, []byte) (int, error)) *Session {
 	sesh := &Session{
 		id:           id,
-		obfs:         obfs,
-		deobfs:       deobfs,
 		obfsedRead:   obfsedRead,
 		nextStreamID: 1,
+		obfs:         obfs,
+		deobfs:       deobfs,
+		SessionKey:   sessionKey,
 		streams:      make(map[uint32]*Stream),
 		acceptCh:     make(chan *Stream, acceptBacklog),
 	}

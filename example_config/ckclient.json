@@ -4,7 +4,6 @@
 	"UID":"5nneblJy6lniPJfr81LuYQ==",
 	"PublicKey":"IYoUzkle/T/kriE+Ufdm7AHQtIeGnBWbhhlTbmDpUUI=",
 	"ServerName":"www.bing.com",
-	"TicketTimeHint":3600,
 	"NumConn":4,
 	"BrowserSig":"chrome"
 }

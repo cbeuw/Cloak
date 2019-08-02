@@ -30,7 +30,7 @@ func (u *ActiveUser) DelSession(sessionID uint32) {
 	u.sessionsM.Unlock()
 }
 
-func (u *ActiveUser) GetSession(sessionID uint32, obfs mux.Obfser, deobfs mux.Deobfser, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool, err error) {
+func (u *ActiveUser) GetSession(sessionID uint32, obfs mux.Obfser, deobfs mux.Deobfser, sessionKey []byte, obfsedRead func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool, err error) {
 	u.sessionsM.Lock()
 	defer u.sessionsM.Unlock()
 	if sesh = u.sessions[sessionID]; sesh != nil {
@@ -40,7 +40,7 @@ func (u *ActiveUser) GetSession(sessionID uint32, obfs mux.Obfser, deobfs mux.De
 		if err != nil {
 			return nil, false, err
 		}
-		sesh = mux.MakeSession(sessionID, u.valve, obfs, deobfs, obfsedRead)
+		sesh = mux.MakeSession(sessionID, u.valve, obfs, deobfs, sessionKey, obfsedRead)
 		u.sessions[sessionID] = sesh
 		return sesh, false, nil
 	}

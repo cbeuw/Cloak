@@ -3,19 +3,17 @@
 package main
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"encoding/base64"
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"golang.org/x/crypto/chacha20poly1305"
 	"io"
 	"log"
 	"math/rand"
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cbeuw/Cloak/internal/client"
@@ -48,12 +46,12 @@ func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 }
 
 // This establishes a connection with ckserver and performs a handshake
-func makeRemoteConn(sta *client.State) (net.Conn, error) {
+func makeRemoteConn(sta *client.State) (net.Conn, []byte, error) {
 
 	// For android
 	d := net.Dialer{Control: protector}
 
-	clientHello := TLS.ComposeInitHandshake(sta)
+	clientHello, sharedSecret := TLS.ComposeInitHandshake(sta)
 	connectingIP := sta.RemoteHost
 	if net.ParseIP(connectingIP).To4() == nil {
 		// IPv6 needs square brackets
@@ -62,32 +60,28 @@ func makeRemoteConn(sta *client.State) (net.Conn, error) {
 	remoteConn, err := d.Dial("tcp", connectingIP+":"+sta.RemotePort)
 	if err != nil {
 		log.Printf("Connecting to remote: %v\n", err)
-		return nil, err
+		return nil, nil, err
 	}
 	_, err = remoteConn.Write(clientHello)
 	if err != nil {
 		log.Printf("Sending ClientHello: %v\n", err)
-		return nil, err
+		return nil, nil, err
 	}
 
-	// Three discarded messages: ServerHello, ChangeCipherSpec and Finished
-	discardBuf := make([]byte, 1024)
-	for c := 0; c < 3; c++ {
-		_, err = util.ReadTLS(remoteConn, discardBuf)
-		if err != nil {
-			log.Printf("Reading discarded message %v: %v\n", c, err)
-			return nil, err
-		}
-	}
-
-	reply := TLS.ComposeReply()
-	_, err = remoteConn.Write(reply)
+	buf := make([]byte, 1024)
+	_, err = util.ReadTLS(remoteConn, buf)
 	if err != nil {
-		log.Printf("Sending reply to remote: %v\n", err)
-		return nil, err
+		log.Printf("Reading ServerHello: %v\n", err)
+	}
+	serverRandom := buf[11:43]
+	sessionKey := client.DecryptSessionKey(serverRandom, sharedSecret)
+	_, err = util.ReadTLS(remoteConn, buf)
+	if err != nil {
+		log.Printf("Reading Change Cipher Spec %v\n", err)
+		return nil, nil, err
 	}
 
-	return remoteConn, nil
+	return remoteConn, sessionKey, nil
 
 }
 
@@ -98,57 +92,40 @@ func makeSession(sta *client.State) *mux.Session {
 		// sessionID is limited to its UID.
 		quad := make([]byte, 4)
 		rand.Read(quad)
-		sta.SessionID = binary.BigEndian.Uint32(quad)
+		atomic.StoreUint32(&sta.SessionID, binary.BigEndian.Uint32(quad))
 	}
 
-	sta.UpdateIntervalKeys()
-	_, tthKey := sta.GetIntervalKeys()
-
-	var payloadCipher cipher.AEAD
-	var err error
-	switch sta.EncryptionMethod {
-	case 0x00:
-		payloadCipher = nil
-	case 0x01:
-		c, err := aes.NewCipher(tthKey)
-		if err != nil {
-			log.Fatal(err)
-		}
-		payloadCipher, err = cipher.NewGCM(c)
-		if err != nil {
-			log.Fatal(err)
-		}
-	case 0x02:
-		payloadCipher, err = chacha20poly1305.New(tthKey)
-		if err != nil {
-			log.Fatal(err)
-		}
-	default:
-		log.Fatal("Unknown encryption method")
-	}
-
-	headerCipher, err := aes.NewCipher(tthKey)
-	if err != nil {
-		log.Fatal(err)
-	}
-	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, mux.MakeObfs(headerCipher, payloadCipher), mux.MakeDeobfs(headerCipher, payloadCipher), util.ReadTLS)
-
+	connsCh := make(chan net.Conn, sta.NumConn)
+	var _sessionKey atomic.Value
 	var wg sync.WaitGroup
 	for i := 0; i < sta.NumConn; i++ {
 		wg.Add(1)
 		go func() {
 		makeconn:
-			conn, err := makeRemoteConn(sta)
+			conn, sk, err := makeRemoteConn(sta)
+			_sessionKey.Store(sk)
 			if err != nil {
 				log.Printf("Failed to establish new connections to remote: %v\n", err)
 				time.Sleep(time.Second * 3)
 				goto makeconn
 			}
-			sesh.AddConnection(conn)
+			connsCh <- conn
 			wg.Done()
 		}()
 	}
 	wg.Wait()
+
+	sessionKey := _sessionKey.Load().([]byte)
+	obfs, deobfs, err := util.GenerateObfs(sta.EncryptionMethod, sessionKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, obfs, deobfs, sessionKey, util.ReadTLS)
+
+	for i := 0; i < sta.NumConn; i++ {
+		conn := <-connsCh
+		sesh.AddConnection(conn)
+	}
 
 	log.Printf("Session %v established", sta.SessionID)
 	return sesh
@@ -215,9 +192,6 @@ func main() {
 	}
 	if sta.RemoteHost == "" {
 		log.Fatal("Must specify remoteHost")
-	}
-	if sta.TicketTimeHint == 0 {
-		log.Fatal("TicketTimeHint cannot be empty or 0")
 	}
 
 	listeningIP := sta.LocalHost

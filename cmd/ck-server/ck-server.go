@@ -2,12 +2,10 @@ package main
 
 import (
 	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
+	"crypto/rand"
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"golang.org/x/crypto/chacha20poly1305"
 	"io"
 	"log"
 	"net"
@@ -48,17 +46,6 @@ func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 }
 
 func dispatchConnection(conn net.Conn, sta *server.State) {
-	goWeb := func(data []byte) {
-		webConn, err := net.Dial("tcp", sta.RedirAddr)
-		if err != nil {
-			log.Printf("Making connection to redirection server: %v\n", err)
-			return
-		}
-		webConn.Write(data)
-		go pipe(webConn, conn)
-		go pipe(conn, webConn)
-	}
-
 	buf := make([]byte, 1500)
 
 	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
@@ -69,95 +56,89 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	}
 	conn.SetReadDeadline(time.Time{})
 	data := buf[:i]
+
+	goWeb := func() {
+		webConn, err := net.Dial("tcp", sta.RedirAddr)
+		if err != nil {
+			log.Printf("Making connection to redirection server: %v\n", err)
+			return
+		}
+		webConn.Write(data)
+		go pipe(webConn, conn)
+		go pipe(conn, webConn)
+	}
+
 	ch, err := server.ParseClientHello(data)
 	if err != nil {
 		log.Printf("+1 non Cloak non (or malformed) TLS traffic from %v\n", conn.RemoteAddr())
-		goWeb(data)
+		goWeb()
 		return
 	}
 
-	isCloak, UID, sessionID, proxyMethod, encryptionMethod, tthKey := server.TouchStone(ch, sta)
+	isCloak, UID, sessionID, proxyMethod, encryptionMethod, sharedSecret := server.TouchStone(ch, sta)
 	if !isCloak {
 		log.Printf("+1 non Cloak TLS traffic from %v\n", conn.RemoteAddr())
-		goWeb(data)
+		goWeb()
 		return
 	}
 	if _, ok := sta.ProxyBook[proxyMethod]; !ok {
 		log.Printf("+1 Cloak TLS traffic with invalid proxy method `%v` from %v\n", proxyMethod, conn.RemoteAddr())
-		goWeb(data)
+		goWeb()
 		return
 	}
 
-	var payloadCipher cipher.AEAD
-	switch encryptionMethod {
-	case 0x00:
-		payloadCipher = nil
-	case 0x01:
-		c, err := aes.NewCipher(tthKey)
-		if err != nil {
-			log.Println(err)
-			goWeb(data)
-			return
-		}
-		payloadCipher, err = cipher.NewGCM(c)
-		if err != nil {
-			log.Println(err)
-			goWeb(data)
-			return
-		}
-	case 0x02:
-		payloadCipher, err = chacha20poly1305.New(tthKey)
-		if err != nil {
-			log.Println(err)
-			goWeb(data)
-			return
-		}
-	default:
-		log.Println("Unknown encryption method")
-		goWeb(data)
-		return
-	}
-
-	headerCipher, err := aes.NewCipher(tthKey)
+	user, err := sta.Panel.GetUser(UID)
 	if err != nil {
-		log.Println(err)
-		goWeb(data)
+		log.Printf("+1 unauthorised user from %v, uid: %v\n", conn.RemoteAddr(), base64.StdEncoding.EncodeToString(UID))
+		goWeb()
 		return
 	}
 
-	obfs := mux.MakeObfs(headerCipher, payloadCipher)
-	deobfs := mux.MakeDeobfs(headerCipher, payloadCipher)
-
-	finishHandshake := func() error {
-		reply := server.ComposeReply(ch)
+	finishHandshake := func(sessionKey []byte) error {
+		reply := server.ComposeReply(ch, sharedSecret, sessionKey)
 		_, err = conn.Write(reply)
 		if err != nil {
 			go conn.Close()
 			return err
 		}
-
-		// Two discarded messages: ChangeCipherSpec and Finished
-		discardBuf := make([]byte, 1024)
-		for c := 0; c < 2; c++ {
-			_, err = util.ReadTLS(conn, discardBuf)
-			if err != nil {
-				go conn.Close()
-				return err
-			}
-		}
 		return nil
+	}
+
+	sessionKey := make([]byte, 32)
+	rand.Read(sessionKey)
+	obfs, deobfs, err := util.GenerateObfs(encryptionMethod, sessionKey)
+	if err != nil {
+		log.Println(err)
+		goWeb()
+	}
+
+	sesh, existing, err := user.GetSession(sessionID, obfs, deobfs, sessionKey, util.ReadTLS)
+	if err != nil {
+		user.DelSession(sessionID)
+		log.Println(err)
+		return
+	}
+
+	if existing {
+		err = finishHandshake(sesh.SessionKey)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		sesh.AddConnection(conn)
+		return
 	}
 
 	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
 	// added to the userinfo database. The distinction between going into the admin mode
 	// and normal proxy mode is that sessionID needs == 0 for admin mode
 	if bytes.Equal(UID, sta.AdminUID) && sessionID == 0 {
-		err = finishHandshake()
+		err = finishHandshake(sessionKey)
 		if err != nil {
 			log.Println(err)
 			return
 		}
-		sesh := mux.MakeSession(0, mux.UNLIMITED_VALVE, obfs, deobfs, util.ReadTLS)
+		sesh := mux.MakeSession(0, mux.UNLIMITED_VALVE, obfs, deobfs, sessionKey, util.ReadTLS)
 		sesh.AddConnection(conn)
 		//TODO: Router could be nil in cnc mode
 		err = http.Serve(sesh, sta.LocalAPIRouter)
@@ -167,51 +148,33 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		}
 	}
 
-	user, err := sta.Panel.GetUser(UID)
-	if err != nil {
-		log.Printf("+1 unauthorised user from %v, uid: %v\n", conn.RemoteAddr(), base64.StdEncoding.EncodeToString(UID))
-		goWeb(data)
-		return
-	}
-
-	err = finishHandshake()
+	err = finishHandshake(sessionKey)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	sesh, existing, err := user.GetSession(sessionID, obfs, deobfs, util.ReadTLS)
-	if err != nil {
-		user.DelSession(sessionID)
-		log.Println(err)
-		return
-	}
+	log.Printf("New session from UID:%v, sessionID:%v\n", b64.EncodeToString(UID), sessionID)
+	sesh.AddConnection(conn)
 
-	if existing {
-		sesh.AddConnection(conn)
-		return
-	} else {
-		log.Printf("New session from UID:%v, sessionID:%v\n", b64.EncodeToString(UID), sessionID)
-		sesh.AddConnection(conn)
-		for {
-			newStream, err := sesh.Accept()
-			if err != nil {
-				if err == mux.ErrBrokenSession {
-					log.Printf("Session closed for UID:%v, sessionID:%v, reason:%v\n", b64.EncodeToString(UID), sessionID, sesh.TerminalMsg())
-					user.DelSession(sessionID)
-					return
-				} else {
-					continue
-				}
-			}
-			localConn, err := net.Dial("tcp", sta.ProxyBook[proxyMethod])
-			if err != nil {
-				log.Printf("Failed to connect to %v: %v\n", proxyMethod, err)
+	for {
+		newStream, err := sesh.Accept()
+		if err != nil {
+			if err == mux.ErrBrokenSession {
+				log.Printf("Session closed for UID:%v, sessionID:%v, reason:%v\n", b64.EncodeToString(UID), sessionID, sesh.TerminalMsg())
+				user.DelSession(sessionID)
+				return
+			} else {
 				continue
 			}
-			go pipe(localConn, newStream)
-			go pipe(newStream, localConn)
 		}
+		localConn, err := net.Dial("tcp", sta.ProxyBook[proxyMethod])
+		if err != nil {
+			log.Printf("Failed to connect to %v: %v\n", proxyMethod, err)
+			continue
+		}
+		go pipe(localConn, newStream)
+		go pipe(newStream, localConn)
 	}
 
 }
@@ -288,8 +251,6 @@ func main() {
 		}
 		sta.ProxyBook["shadowsocks"] = ssLocalHost + ":" + ssLocalPort
 	}
-
-	go sta.UsedRandomCleaner()
 
 	listen := func(addr, port string) {
 		listener, err := net.Listen("tcp", addr+":"+port)

@@ -2,13 +2,11 @@ package client
 
 import (
 	"crypto"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cbeuw/Cloak/internal/ecdh"
@@ -20,16 +18,8 @@ type rawConfig struct {
 	EncryptionMethod string
 	UID              string
 	PublicKey        string
-	TicketTimeHint   int
 	BrowserSig       string
 	NumConn          int
-}
-
-type tthIntervalKeys struct {
-	interval    int64
-	ephPv       crypto.PrivateKey
-	ephPub      crypto.PublicKey
-	intervalKey []byte
 }
 
 // State stores global variables
@@ -45,12 +35,8 @@ type State struct {
 	staticPub crypto.PublicKey
 	IsAdmin   bool
 
-	intervalDataM sync.Mutex
-	intervalData  *tthIntervalKeys
-
 	ProxyMethod      string
 	EncryptionMethod byte
-	TicketTimeHint   int
 	ServerName       string
 	BrowserSig       string
 	NumConn          int
@@ -58,33 +44,13 @@ type State struct {
 
 func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
 	ret := &State{
-		LocalHost:    localHost,
-		LocalPort:    localPort,
-		RemoteHost:   remoteHost,
-		RemotePort:   remotePort,
-		Now:          nowFunc,
-		intervalData: &tthIntervalKeys{},
+		LocalHost:  localHost,
+		LocalPort:  localPort,
+		RemoteHost: remoteHost,
+		RemotePort: remotePort,
+		Now:        nowFunc,
 	}
 	return ret
-}
-
-func (sta *State) UpdateIntervalKeys() {
-	sta.intervalDataM.Lock()
-	defer sta.intervalDataM.Unlock()
-	currentInterval := sta.Now().Unix() / int64(sta.TicketTimeHint)
-	if currentInterval == sta.intervalData.interval {
-		return
-	}
-	sta.intervalData.interval = currentInterval
-	ephPv, ephPub, _ := ecdh.GenerateKey(rand.Reader)
-	intervalKey := ecdh.GenerateSharedSecret(ephPv, sta.staticPub)
-	sta.intervalData.ephPv, sta.intervalData.ephPub, sta.intervalData.intervalKey = ephPv, ephPub, intervalKey
-}
-
-func (sta *State) GetIntervalKeys() (crypto.PublicKey, []byte) {
-	sta.intervalDataM.Lock()
-	defer sta.intervalDataM.Unlock()
-	return sta.intervalData.ephPub, sta.intervalData.intervalKey
 }
 
 // semi-colon separated value. This is for Android plugin options
@@ -147,7 +113,6 @@ func (sta *State) ParseConfig(conf string) (err error) {
 
 	sta.ProxyMethod = preParse.ProxyMethod
 	sta.ServerName = preParse.ServerName
-	sta.TicketTimeHint = preParse.TicketTimeHint
 	sta.BrowserSig = preParse.BrowserSig
 	sta.NumConn = preParse.NumConn
 

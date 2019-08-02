@@ -1,11 +1,12 @@
 package server
 
 import (
+	"bytes"
+	"crypto/rand"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
-	"time"
-
-	"github.com/cbeuw/Cloak/internal/util"
+	"fmt"
 )
 
 // ClientHello contains every field in a ClientHello message
@@ -47,6 +48,35 @@ func parseExtensions(input []byte) (ret map[[2]byte][]byte, err error) {
 		ret[typ] = data
 	}
 	return ret, err
+}
+
+func parseKeyShare(input []byte) (ret []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New("malformed key_share")
+		}
+	}()
+	totalLen := int(u16(input[0:2]))
+	// 2 bytes "client key share length"
+	pointer := 2
+	for pointer < totalLen {
+		if bytes.Equal([]byte{0x00, 0x1d}, input[pointer:pointer+2]) {
+			// skip "key exchange length"
+			pointer += 2
+			length := int(u16(input[pointer : pointer+2]))
+			pointer += 2
+			if length != 32 {
+				return nil, fmt.Errorf("key share length should be 32, instead of %v", length)
+			}
+			return input[pointer : pointer+length], nil
+		}
+		pointer += 2
+		length := int(u16(input[pointer : pointer+2]))
+		pointer += 2
+		_ = input[pointer : pointer+length]
+		pointer += length
+	}
+	return nil, errors.New("x25519 does not exist")
 }
 
 // AddRecordLayer adds record layer to data
@@ -131,21 +161,34 @@ func ParseClientHello(data []byte) (ret *ClientHello, err error) {
 	return
 }
 
-func composeServerHello(ch *ClientHello) []byte {
-	var serverHello [10][]byte
-	serverHello[0] = []byte{0x02}                                   // handshake type
-	serverHello[1] = []byte{0x00, 0x00, 0x4d}                       // length 77
-	serverHello[2] = []byte{0x03, 0x03}                             // server version
-	serverHello[3] = util.PsudoRandBytes(32, time.Now().UnixNano()) // random
-	serverHello[4] = []byte{0x20}                                   // session id length 32
-	serverHello[5] = ch.sessionId                                   // session id
-	serverHello[6] = []byte{0xc0, 0x30}                             // cipher suite TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	serverHello[7] = []byte{0x00}                                   // compression method null
-	serverHello[8] = []byte{0x00, 0x05}                             // extensions length 5
-	serverHello[9] = []byte{0xff, 0x01, 0x00, 0x01, 0x00}           // extensions renegotiation_info
-	ret := []byte{}
-	for i := 0; i < 10; i++ {
-		ret = append(ret, serverHello[i]...)
+func xor(a []byte, b []byte) {
+	for i := range a {
+		a[i] ^= b[i]
+	}
+}
+
+func composeServerHello(ch *ClientHello, sharedSecret []byte, sessionKey []byte) []byte {
+	var serverHello [11][]byte
+	serverHello[0] = []byte{0x02}             // handshake type
+	serverHello[1] = []byte{0x00, 0x00, 0x76} // length 77
+	serverHello[2] = []byte{0x03, 0x03}       // server version
+	xor(sharedSecret, sessionKey)
+	serverHello[3] = sharedSecret       // random
+	serverHello[4] = []byte{0x20}       // session id length 32
+	serverHello[5] = ch.sessionId       // session id
+	serverHello[6] = []byte{0xc0, 0x30} // cipher suite TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+	serverHello[7] = []byte{0x00}       // compression method null
+	serverHello[8] = []byte{0x00, 0x2e} // extensions length 46
+
+	keyShare, _ := hex.DecodeString("00330024001d0020")
+	keyExchange := make([]byte, 32)
+	rand.Read(keyExchange)
+	serverHello[9] = append(keyShare, keyExchange...)
+
+	serverHello[10], _ = hex.DecodeString("002b00020304")
+	var ret []byte
+	for _, s := range serverHello {
+		ret = append(ret, s...)
 	}
 	return ret
 }
@@ -153,14 +196,10 @@ func composeServerHello(ch *ClientHello) []byte {
 // ComposeReply composes the ServerHello, ChangeCipherSpec and Finished messages
 // together with their respective record layers into one byte slice. The content
 // of these messages are random and useless for this plugin
-func ComposeReply(ch *ClientHello) []byte {
+func ComposeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) []byte {
 	TLS12 := []byte{0x03, 0x03}
-	shBytes := AddRecordLayer(composeServerHello(ch), []byte{0x16}, TLS12)
+	shBytes := AddRecordLayer(composeServerHello(ch, sharedSecret, sessionKey), []byte{0x16}, TLS12)
 	ccsBytes := AddRecordLayer([]byte{0x01}, []byte{0x14}, TLS12)
-	finished := make([]byte, 64)
-	finished = util.PsudoRandBytes(40, time.Now().UnixNano())
-	fBytes := AddRecordLayer(finished, []byte{0x16}, TLS12)
 	ret := append(shBytes, ccsBytes...)
-	ret = append(ret, fBytes...)
 	return ret
 }
