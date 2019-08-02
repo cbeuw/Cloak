@@ -119,13 +119,13 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 
 	sessionKey := make([]byte, 32)
 	rand.Read(sessionKey)
-	obfs, deobfs, err := util.GenerateObfs(encryptionMethod, sessionKey)
+	obfuscator, err := util.GenerateObfs(encryptionMethod, sessionKey)
 	if err != nil {
 		log.Error(err)
 		goWeb()
 	}
 
-	sesh, existing, err := user.GetSession(sessionID, obfs, deobfs, sessionKey, util.ReadTLS)
+	sesh, existing, err := user.GetSession(sessionID, obfuscator, util.ReadTLS)
 	if err != nil {
 		user.DelSession(sessionID)
 		log.Error(err)
@@ -151,7 +151,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			log.Error(err)
 			return
 		}
-		sesh := mux.MakeSession(0, mux.UNLIMITED_VALVE, obfs, deobfs, sessionKey, util.ReadTLS)
+		sesh := mux.MakeSession(0, mux.UNLIMITED_VALVE, obfuscator, util.ReadTLS)
 		sesh.AddConnection(conn)
 		//TODO: Router could be nil in cnc mode
 		err = http.Serve(sesh, sta.LocalAPIRouter)

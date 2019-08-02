@@ -76,7 +76,7 @@ func ReadTLS(conn net.Conn, buffer []byte) (n int, err error) {
 	return
 }
 
-func GenerateObfs(encryptionMethod byte, sessionKey []byte) (obfs mux.Obfser, deobfs mux.Deobfser, err error) {
+func GenerateObfs(encryptionMethod byte, sessionKey []byte) (obfuscator *mux.Obfuscator, err error) {
 	var payloadCipher cipher.AEAD
 	switch encryptionMethod {
 	case 0x00:
@@ -97,7 +97,7 @@ func GenerateObfs(encryptionMethod byte, sessionKey []byte) (obfs mux.Obfser, de
 			return
 		}
 	default:
-		return nil, nil, errors.New("Unknown encryption method")
+		return nil, errors.New("Unknown encryption method")
 	}
 
 	headerCipher, err := aes.NewCipher(sessionKey)
@@ -105,8 +105,11 @@ func GenerateObfs(encryptionMethod byte, sessionKey []byte) (obfs mux.Obfser, de
 		return
 	}
 
-	obfs = mux.MakeObfs(headerCipher, payloadCipher)
-	deobfs = mux.MakeDeobfs(headerCipher, payloadCipher)
+	obfuscator = &mux.Obfuscator{
+		mux.MakeObfs(headerCipher, payloadCipher),
+		mux.MakeDeobfs(headerCipher, payloadCipher),
+		sessionKey,
+	}
 	return
 }
 

@@ -116,11 +116,11 @@ func makeSession(sta *client.State) *mux.Session {
 	wg.Wait()
 
 	sessionKey := _sessionKey.Load().([]byte)
-	obfs, deobfs, err := util.GenerateObfs(sta.EncryptionMethod, sessionKey)
+	obfuscator, err := util.GenerateObfs(sta.EncryptionMethod, sessionKey)
 	if err != nil {
 		log.Fatal(err)
 	}
-	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, obfs, deobfs, sessionKey, util.ReadTLS)
+	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, obfuscator, util.ReadTLS)
 
 	for i := 0; i < sta.NumConn; i++ {
 		conn := <-connsCh

@@ -11,14 +11,10 @@ import (
 )
 
 func setupSesh() *Session {
-	UID := make([]byte, 16)
-	rand.Read(UID)
-	tthKey := make([]byte, 32)
-	rand.Read(tthKey)
-	crypto := &Plain{}
-	obfs := MakeObfs(tthKey, crypto)
-	deobfs := MakeDeobfs(tthKey, crypto)
-	return MakeSession(0, UNLIMITED_VALVE, obfs, deobfs, util.ReadTLS)
+	sessionKey := make([]byte, 32)
+	rand.Read(sessionKey)
+	obfuscator, _ := util.GenerateObfs(0x00, sessionKey)
+	return MakeSession(0, UNLIMITED_VALVE, obfuscator, util.ReadTLS)
 }
 
 type blackhole struct {
@@ -66,38 +62,3 @@ func BenchmarkStream_Write(b *testing.B) {
 		b.SetBytes(PAYLOAD_LEN)
 	}
 }
-
-/*
-func BenchmarkStream_Write(b *testing.B) {
-	mc := mock_conn.NewConn()
-	go func(){
-		w := bufio.NewWriter(ioutil.Discard)
-		for {
-			_, err := w.ReadFrom(mc.Server)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-		}
-	}()
-
-	sesh := setupSesh()
-	sesh.AddConnection(mc.Client)
-	testData := make([]byte,PAYLOAD_LEN)
-	rand.Read(testData)
-
-	stream,_ := sesh.OpenStream()
-	b.ResetTimer()
-	for i:=0;i<b.N;i++{
-		_,err := stream.Write(testData)
-		if err != nil {
-			b.Error(
-				"For","stream write",
-				"got",err,
-				)
-		}
-		b.SetBytes(PAYLOAD_LEN)
-	}
-}
-
-*/

@@ -73,7 +73,7 @@ func ssvToJson(ssv string) (ret []byte) {
 		value := sp[1]
 		// JSON doesn't like quotation marks around int
 		// Yes this is extremely ugly but it's still better than writing a tokeniser
-		if key == "TicketTimeHint" || key == "NumConn" {
+		if key == "NumConn" {
 			ret = append(ret, []byte(`"`+key+`":`+value+`,`)...)
 		} else {
 			ret = append(ret, []byte(`"`+key+`":"`+value+`",`)...)

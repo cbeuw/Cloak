@@ -120,12 +120,12 @@ func (sb *switchboard) closeAll() {
 	sb.cesM.RUnlock()
 }
 
-// deplex function costantly reads from a TCP connection, call deobfs and distribute it
+// deplex function costantly reads from a TCP connection, call Deobfs and distribute it
 // to the corresponding stream
 func (sb *switchboard) deplex(ce *connEnclave) {
 	buf := make([]byte, 20480)
 	for {
-		n, err := sb.session.obfsedRead(ce.remoteConn, buf)
+		n, err := sb.session.unitRead(ce.remoteConn, buf)
 		sb.rxWait(n)
 		sb.Valve.AddRx(int64(n))
 		if err != nil {
@@ -135,7 +135,7 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 			return
 		}
 
-		frame, err := sb.session.deobfs(buf[:n])
+		frame, err := sb.session.Deobfs(buf[:n])
 		if err != nil {
 			log.Debugf("Failed to decrypt a frame for session %v: %v", sb.session.id, err)
 			continue

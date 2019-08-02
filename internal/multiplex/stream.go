@@ -93,7 +93,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 		Payload:  in,
 	}
 
-	tlsRecord, err := s.session.obfs(f)
+	tlsRecord, err := s.session.Obfs(f)
 	if err != nil {
 		return 0, err
 	}
@@ -136,7 +136,7 @@ func (s *Stream) Close() error {
 		Closing:  1,
 		Payload:  pad,
 	}
-	tlsRecord, _ := s.session.obfs(f)
+	tlsRecord, _ := s.session.Obfs(f)
 	s.session.sb.send(tlsRecord)
 
 	s._close()

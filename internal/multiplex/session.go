@@ -15,17 +15,21 @@ const (
 var ErrBrokenSession = errors.New("broken session")
 var errRepeatSessionClosing = errors.New("trying to close a closed session")
 
+type Obfuscator struct {
+	// Used in Stream.Write. Add multiplexing headers, encrypt and add TLS header
+	Obfs Obfser
+	// Remove TLS header, decrypt and unmarshall frames
+	Deobfs     Deobfser
+	SessionKey []byte
+}
+
 type Session struct {
 	id uint32
 
-	// Used in Stream.Write. Add multiplexing headers, encrypt and add TLS header
-	obfs Obfser
-	// Remove TLS header, decrypt and unmarshall multiplexing headers
-	deobfs Deobfser
-	// This is supposed to read one TLS message, the same as GoQuiet's ReadTillDrain
-	obfsedRead func(net.Conn, []byte) (int, error)
+	*Obfuscator
 
-	SessionKey []byte
+	// This is supposed to read one TLS message, the same as GoQuiet's ReadTillDrain
+	unitRead func(net.Conn, []byte) (int, error)
 
 	// atomic
 	nextStreamID uint32
@@ -46,14 +50,12 @@ type Session struct {
 	terminalMsg atomic.Value
 }
 
-func MakeSession(id uint32, valve *Valve, obfs Obfser, deobfs Deobfser, sessionKey []byte, obfsedRead func(net.Conn, []byte) (int, error)) *Session {
+func MakeSession(id uint32, valve *Valve, obfuscator *Obfuscator, unitReader func(net.Conn, []byte) (int, error)) *Session {
 	sesh := &Session{
 		id:           id,
-		obfsedRead:   obfsedRead,
+		unitRead:     unitReader,
 		nextStreamID: 1,
-		obfs:         obfs,
-		deobfs:       deobfs,
-		SessionKey:   sessionKey,
+		Obfuscator:   obfuscator,
 		streams:      make(map[uint32]*Stream),
 		acceptCh:     make(chan *Stream, acceptBacklog),
 	}
