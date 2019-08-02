@@ -43,8 +43,6 @@ Simply `make client` and `make server`. Output binary will be in `build` folder.
 
 `ServerName` is the domain you want to make your ISP or firewall think you are visiting.
 
-`TicketTimeHint` is the time needed for a session ticket to expire and a new one to be generated. Leave it as the default.
-
 `NumConn` is the amount of underlying TCP connections you want to use. The default of 4 should be appropriate for most people. Setting it too high will hinder the performance. 
 
 `BrowserSig` is the browser you want to **appear** to be using. It's not relevant to the browser you are actually using. Currently, `chrome` and `firefox` are supported.
