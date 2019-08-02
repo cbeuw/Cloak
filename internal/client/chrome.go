@@ -3,10 +3,9 @@
 package client
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
-	"math/rand"
-	"time"
 )
 
 type Chrome struct{}
@@ -14,8 +13,9 @@ type Chrome struct{}
 func makeGREASE() []byte {
 	// see https://tools.ietf.org/html/draft-davidben-tls-grease-01
 	// This is exclusive to Chrome.
-	rand.Seed(time.Now().UnixNano())
-	sixteenth := rand.Intn(16)
+	var one [1]byte
+	rand.Read(one[:])
+	sixteenth := one[0] % 16
 	monoGREASE := byte(sixteenth*16 + 0xA)
 	doubleGREASE := []byte{monoGREASE, monoGREASE}
 	return doubleGREASE
