@@ -71,7 +71,7 @@ func (c *Chrome) composeExtensions(serverName string, keyShare []byte) []byte {
 	// len(ext[16]) = 229 - len(ext[1])
 	// 2+2+len(padding) = 229 - len(ext[1])
 	// len(padding) = 225 - len(ext[1])
-	ext[16] = addExtRec([]byte{0x00, 0x15}, makeNullBytes(225-len(ext[1]))) // padding
+	ext[16] = addExtRec([]byte{0x00, 0x15}, make([]byte, 225-len(ext[1]))) // padding
 	var ret []byte
 	for _, e := range ext {
 		ret = append(ret, e...)

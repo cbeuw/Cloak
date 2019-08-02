@@ -42,7 +42,7 @@ func (f *Firefox) composeExtensions(serverName string, keyShare []byte) []byte {
 	ext[12] = addExtRec([]byte{0x00, 0x1c}, []byte{0x40, 0x01}) // record size limit
 	// len(ext[0]) + 237 + 4 + len(padding) = 399
 	// len(padding) = 158 - len(ext[0])
-	ext[13] = addExtRec([]byte{0x00, 0x15}, makeNullBytes(158-len(serverName))) // padding
+	ext[13] = addExtRec([]byte{0x00, 0x15}, make([]byte, 158-len(serverName))) // padding
 	var ret []byte
 	for _, e := range ext {
 		ret = append(ret, e...)

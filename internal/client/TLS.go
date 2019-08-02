@@ -23,14 +23,6 @@ func makeServerName(serverName string) []byte {
 	return ret
 }
 
-func makeNullBytes(length int) []byte {
-	ret := make([]byte, length)
-	for i := 0; i < length; i++ {
-		ret[i] = 0x00
-	}
-	return ret
-}
-
 // addExtensionRecord, add type, length to extension data
 func addExtRec(typ []byte, data []byte) []byte {
 	length := make([]byte, 2)
