@@ -1,6 +1,6 @@
 # Cloak
 
-![Cloak](https://user-images.githubusercontent.com/7034308/62257147-0051c480-b3fc-11e9-9a26-85f1772d3d89.png)
+![Cloak](https://user-images.githubusercontent.com/7034308/62282723-f6ee4980-b447-11e9-8cca-e3270b8f45f5.png)
 
 Cloak is a universal pluggable transport that obfuscates proxy traffic as legitimate HTTPS traffic, disguises the proxy server as a normal web server, multiplexes traffic through multiple TCP connections and provide multi-user usage control. 
 
@@ -18,7 +18,6 @@ This project is based on [GoQuiet](https://github.com/cbeuw/GoQuiet). Through mu
 
 ## Build
 Simply `make client` and `make server`. Output binary will be in `build` folder.
-Do `make server_pprof` if you want to access the live profiling data.
 
 ## Configuration
 
