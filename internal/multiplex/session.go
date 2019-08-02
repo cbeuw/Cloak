@@ -2,7 +2,6 @@ package multiplex
 
 import (
 	"errors"
-	//"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -122,7 +121,6 @@ func (sesh *Session) getStream(id uint32, closingFrame bool) *Stream {
 			stream = makeStream(id, sesh)
 			sesh.streams[id] = stream
 			sesh.acceptCh <- stream
-			//log.Printf("Adding stream %v\n", id)
 			return stream
 		}
 	}

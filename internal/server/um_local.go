@@ -2,7 +2,7 @@ package server
 
 import (
 	"encoding/binary"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 
@@ -157,7 +157,7 @@ func (manager *localManager) uploadStatus(uploads []statusUpdate) ([]statusRespo
 			}
 			err := bucket.Put([]byte("UpCredit"), i64ToB(newUp))
 			if err != nil {
-				log.Println(err)
+				log.Error(err)
 				continue
 			}
 
@@ -174,7 +174,7 @@ func (manager *localManager) uploadStatus(uploads []statusUpdate) ([]statusRespo
 			}
 			err = bucket.Put([]byte("DownCredit"), i64ToB(newDown))
 			if err != nil {
-				log.Println(err)
+				log.Error(err)
 				continue
 			}
 

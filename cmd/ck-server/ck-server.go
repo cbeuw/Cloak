@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -19,9 +18,10 @@ import (
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	"github.com/cbeuw/Cloak/internal/server"
 	"github.com/cbeuw/Cloak/internal/util"
+	log "github.com/sirupsen/logrus"
 )
 
-var b64 = base64.StdEncoding
+var b64 = base64.StdEncoding.EncodeToString
 var version string
 
 func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
@@ -46,6 +46,12 @@ func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
 }
 
 func dispatchConnection(conn net.Conn, sta *server.State) {
+	remoteAddr := conn.RemoteAddr()
+	var err error
+	rejectLogger := log.WithFields(log.Fields{
+		"remoteAddr": remoteAddr,
+		"error":      err,
+	})
 	buf := make([]byte, 1500)
 
 	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
@@ -60,7 +66,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	goWeb := func() {
 		webConn, err := net.Dial("tcp", sta.RedirAddr)
 		if err != nil {
-			log.Printf("Making connection to redirection server: %v\n", err)
+			log.Errorf("Making connection to redirection server: %v", err)
 			return
 		}
 		webConn.Write(data)
@@ -70,26 +76,33 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 
 	ch, err := server.ParseClientHello(data)
 	if err != nil {
-		log.Printf("+1 non Cloak non (or malformed) TLS traffic from %v\n", conn.RemoteAddr())
+		rejectLogger.Warn("+1 non Cloak non (or malformed) TLS traffic")
 		goWeb()
 		return
 	}
 
-	isCloak, UID, sessionID, proxyMethod, encryptionMethod, sharedSecret := server.TouchStone(ch, sta)
-	if !isCloak {
-		log.Printf("+1 non Cloak TLS traffic from %v\n", conn.RemoteAddr())
+	UID, sessionID, proxyMethod, encryptionMethod, sharedSecret, err := server.TouchStone(ch, sta)
+	if err != nil {
+		rejectLogger.Warn("+1 non Cloak TLS traffic")
 		goWeb()
 		return
 	}
 	if _, ok := sta.ProxyBook[proxyMethod]; !ok {
-		log.Printf("+1 Cloak TLS traffic with invalid proxy method `%v` from %v\n", proxyMethod, conn.RemoteAddr())
+		log.WithFields(log.Fields{
+			"UID":         UID,
+			"proxyMethod": proxyMethod,
+		}).Warn("+1 Cloak TLS traffic with invalid proxy method")
 		goWeb()
 		return
 	}
 
 	user, err := sta.Panel.GetUser(UID)
 	if err != nil {
-		log.Printf("+1 unauthorised user from %v, uid: %v\n", conn.RemoteAddr(), base64.StdEncoding.EncodeToString(UID))
+		log.WithFields(log.Fields{
+			"UID":        b64(UID),
+			"remoteAddr": remoteAddr,
+			"error":      err,
+		}).Warn("+1 unauthorised UID")
 		goWeb()
 		return
 	}
@@ -108,21 +121,21 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	rand.Read(sessionKey)
 	obfs, deobfs, err := util.GenerateObfs(encryptionMethod, sessionKey)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		goWeb()
 	}
 
 	sesh, existing, err := user.GetSession(sessionID, obfs, deobfs, sessionKey, util.ReadTLS)
 	if err != nil {
 		user.DelSession(sessionID)
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 
 	if existing {
 		err = finishHandshake(sesh.SessionKey)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 			return
 		}
 		sesh.AddConnection(conn)
@@ -135,7 +148,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	if bytes.Equal(UID, sta.AdminUID) && sessionID == 0 {
 		err = finishHandshake(sessionKey)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 			return
 		}
 		sesh := mux.MakeSession(0, mux.UNLIMITED_VALVE, obfs, deobfs, sessionKey, util.ReadTLS)
@@ -143,25 +156,32 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		//TODO: Router could be nil in cnc mode
 		err = http.Serve(sesh, sta.LocalAPIRouter)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 			return
 		}
 	}
 
 	err = finishHandshake(sessionKey)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 
-	log.Printf("New session from UID:%v, sessionID:%v\n", b64.EncodeToString(UID), sessionID)
+	log.WithFields(log.Fields{
+		"UID":       b64(UID),
+		"sessionID": sessionID,
+	}).Info("New session")
 	sesh.AddConnection(conn)
 
 	for {
 		newStream, err := sesh.Accept()
 		if err != nil {
 			if err == mux.ErrBrokenSession {
-				log.Printf("Session closed for UID:%v, sessionID:%v, reason:%v\n", b64.EncodeToString(UID), sessionID, sesh.TerminalMsg())
+				log.WithFields(log.Fields{
+					"UID":       b64(UID),
+					"sessionID": sessionID,
+					"reason":    sesh.TerminalMsg(),
+				}).Info("Session closed")
 				user.DelSession(sessionID)
 				return
 			} else {
@@ -170,7 +190,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		}
 		localConn, err := net.Dial("tcp", sta.ProxyBook[proxyMethod])
 		if err != nil {
-			log.Printf("Failed to connect to %v: %v\n", proxyMethod, err)
+			log.Errorf("Failed to connect to %v: %v", proxyMethod, err)
 			continue
 		}
 		go pipe(localConn, newStream)
@@ -186,7 +206,7 @@ func main() {
 	var bindPort string
 	var config string
 
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.SetLevel(log.DebugLevel)
 
 	if os.Getenv("SS_LOCAL_HOST") != "" {
 		bindHost = os.Getenv("SS_REMOTE_HOST")
@@ -207,7 +227,7 @@ func main() {
 		flag.Parse()
 
 		if *askVersion {
-			fmt.Printf("ck-server %s\n", version)
+			fmt.Printf("ck-server %s", version)
 			return
 		}
 		if *printUsage {
@@ -227,13 +247,13 @@ func main() {
 		if *pprofAddr != "" {
 			runtime.SetBlockProfileRate(5)
 			go func() {
-				log.Println(http.ListenAndServe(*pprofAddr, nil))
+				log.Info(http.ListenAndServe(*pprofAddr, nil))
 			}()
-			log.Println("pprof listening on " + *pprofAddr)
+			log.Infof("pprof listening on %v", *pprofAddr)
 
 		}
 
-		log.Printf("Starting standalone mode, listening on %v:%v", bindHost, bindPort)
+		log.Infof("Starting standalone mode, listening on %v:%v", bindHost, bindPort)
 	}
 	sta, _ := server.InitState(bindHost, bindPort, time.Now)
 
@@ -254,14 +274,14 @@ func main() {
 
 	listen := func(addr, port string) {
 		listener, err := net.Listen("tcp", addr+":"+port)
-		log.Println("Listening on " + addr + ":" + port)
+		log.Infof("Listening on " + addr + ":" + port)
 		if err != nil {
 			log.Fatal(err)
 		}
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				log.Printf("%v", err)
+				log.Errorf("%v", err)
 				continue
 			}
 			go dispatchConnection(conn, sta)

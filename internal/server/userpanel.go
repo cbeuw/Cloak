@@ -1,12 +1,12 @@
 package server
 
 import (
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
+	log "github.com/sirupsen/logrus"
 )
 
 type userPanel struct {
@@ -101,7 +101,7 @@ func (panel *userPanel) updateUsageQueueForOne(user *ActiveUser) {
 
 }
 
-func (panel *userPanel) commitUpdate() {
+func (panel *userPanel) commitUpdate() error {
 	panel.usageUpdateQueueM.Lock()
 	statuses := make([]statusUpdate, 0, len(panel.usageUpdateQueue))
 	for arrUID, usage := range panel.usageUpdateQueue {
@@ -125,7 +125,7 @@ func (panel *userPanel) commitUpdate() {
 
 	responses, err := panel.Manager.uploadStatus(statuses)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
 	for _, resp := range responses {
 		var arrUID [16]byte
@@ -142,6 +142,7 @@ func (panel *userPanel) commitUpdate() {
 	}
 	panel.usageUpdateQueue = make(map[[16]byte]*usagePair)
 	panel.usageUpdateQueueM.Unlock()
+	return nil
 }
 
 func (panel *userPanel) regularQueueUpload() {
@@ -149,7 +150,10 @@ func (panel *userPanel) regularQueueUpload() {
 		time.Sleep(1 * time.Minute)
 		go func() {
 			panel.updateUsageQueue()
-			panel.commitUpdate()
+			err := panel.commitUpdate()
+			if err != nil {
+				log.Error(err)
+			}
 		}()
 	}
 }

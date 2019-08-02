@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	//"log"
+	log "github.com/sirupsen/logrus"
 	"math"
 	prand "math/rand"
 	"sync"
@@ -48,6 +48,7 @@ func makeStream(id uint32, sesh *Session) *Stream {
 		sortedBuf:  NewBufferedPipe(),
 	}
 	go stream.recvNewFrame()
+	log.Tracef("stream %v opened", id)
 	return stream
 }
 
@@ -112,7 +113,7 @@ func (s *Stream) _close() {
 func (s *Stream) passiveClose() {
 	s._close()
 	s.session.delStream(s.id)
-	//log.Printf("%v passive closing\n", stream.id)
+	log.WithField("streamId", s.id).Trace("stream passively closed")
 }
 
 // active close. Close locally and tell the remote that this stream is being closed
@@ -140,7 +141,7 @@ func (s *Stream) Close() error {
 
 	s._close()
 	s.session.delStream(s.id)
-	//log.Printf("%v actively closed\n", stream.id)
+	log.WithField("streamId", s.id).Trace("stream actively closed")
 	return nil
 }
 
@@ -149,6 +150,7 @@ func (s *Stream) Close() error {
 // We don't notify the remote because session.Close() is always
 // called when the session is passively closed
 func (s *Stream) closeNoDelMap() {
+	log.WithField("streamId", s.id).Trace("stream closed by session")
 	s._close()
 }
 

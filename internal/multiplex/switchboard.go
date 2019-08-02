@@ -2,7 +2,7 @@ package multiplex
 
 import (
 	"errors"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -129,7 +129,7 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 		sb.rxWait(n)
 		sb.Valve.AddRx(int64(n))
 		if err != nil {
-			//log.Println(err)
+			log.Tracef("a connection for session %v has closed: %v", sb.session.id, err)
 			go ce.remoteConn.Close()
 			sb.removeConn(ce)
 			return
@@ -137,7 +137,7 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 
 		frame, err := sb.session.deobfs(buf[:n])
 		if err != nil {
-			log.Println(err)
+			log.Debugf("Failed to decrypt a frame for session %v: %v", sb.session.id, err)
 			continue
 		}
 

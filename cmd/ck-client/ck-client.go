@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"net"
 	"os"
@@ -20,6 +19,7 @@ import (
 	"github.com/cbeuw/Cloak/internal/client/TLS"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	"github.com/cbeuw/Cloak/internal/util"
+	log "github.com/sirupsen/logrus"
 )
 
 var version string
@@ -51,7 +51,7 @@ func makeRemoteConn(sta *client.State) (net.Conn, []byte, error) {
 	// For android
 	d := net.Dialer{Control: protector}
 
-	clientHello, sharedSecret := TLS.ComposeInitHandshake(sta)
+	clientHello, sharedSecret := TLS.ComposeClientHello(sta)
 	connectingIP := sta.RemoteHost
 	if net.ParseIP(connectingIP).To4() == nil {
 		// IPv6 needs square brackets
@@ -59,25 +59,25 @@ func makeRemoteConn(sta *client.State) (net.Conn, []byte, error) {
 	}
 	remoteConn, err := d.Dial("tcp", connectingIP+":"+sta.RemotePort)
 	if err != nil {
-		log.Printf("Connecting to remote: %v\n", err)
+		log.WithField("error", err).Error("Failed to connect to remote")
 		return nil, nil, err
 	}
 	_, err = remoteConn.Write(clientHello)
 	if err != nil {
-		log.Printf("Sending ClientHello: %v\n", err)
+		log.WithField("error", err).Error("Failed to send ClientHello")
 		return nil, nil, err
 	}
 
 	buf := make([]byte, 1024)
 	_, err = util.ReadTLS(remoteConn, buf)
 	if err != nil {
-		log.Printf("Reading ServerHello: %v\n", err)
+		log.WithField("error", err).Error("Failed to read ServerHello")
 	}
 	serverRandom := buf[11:43]
 	sessionKey := client.DecryptSessionKey(serverRandom, sharedSecret)
 	_, err = util.ReadTLS(remoteConn, buf)
 	if err != nil {
-		log.Printf("Reading Change Cipher Spec %v\n", err)
+		log.WithField("error", err).Error("Failed to read ChangeCipherSpec")
 		return nil, nil, err
 	}
 
@@ -86,7 +86,7 @@ func makeRemoteConn(sta *client.State) (net.Conn, []byte, error) {
 }
 
 func makeSession(sta *client.State) *mux.Session {
-	log.Println("Attemtping to start a new session")
+	log.Info("Attemtping to start a new session")
 	if !sta.IsAdmin {
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 		// sessionID is limited to its UID.
@@ -105,7 +105,8 @@ func makeSession(sta *client.State) *mux.Session {
 			conn, sk, err := makeRemoteConn(sta)
 			_sessionKey.Store(sk)
 			if err != nil {
-				log.Printf("Failed to establish new connections to remote: %v\n", err)
+				log.Errorf("Failed to establish new connections to remote: %v", err)
+				// TODO increase the interval if failed multiple times
 				time.Sleep(time.Second * 3)
 				goto makeconn
 			}
@@ -127,7 +128,7 @@ func makeSession(sta *client.State) *mux.Session {
 		sesh.AddConnection(conn)
 	}
 
-	log.Printf("Session %v established", sta.SessionID)
+	log.Infof("Session %v established", sta.SessionID)
 	return sesh
 }
 
@@ -143,9 +144,8 @@ func main() {
 	var config string
 	var b64AdminUID string
 
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
 	log_init()
+	log.SetLevel(log.DebugLevel)
 
 	if os.Getenv("SS_LOCAL_HOST") != "" {
 		localHost = os.Getenv("SS_LOCAL_HOST")
@@ -165,7 +165,7 @@ func main() {
 		flag.Parse()
 
 		if *askVersion {
-			fmt.Printf("ck-client %s\n", version)
+			fmt.Printf("ck-client %s", version)
 			return
 		}
 
@@ -174,7 +174,7 @@ func main() {
 			return
 		}
 
-		log.Println("Starting standalone mode")
+		log.Info("Starting standalone mode")
 	}
 
 	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now)
@@ -200,7 +200,6 @@ func main() {
 		listeningIP = "[" + listeningIP + "]"
 	}
 	listener, err := net.Listen("tcp", listeningIP+":"+sta.LocalPort)
-	log.Println("Listening on " + listeningIP + ":" + sta.LocalPort)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -214,10 +213,13 @@ func main() {
 	}
 
 	if adminUID != nil {
+		log.Infof("API base is %v:%v", listeningIP, sta.LocalPort)
 		sta.IsAdmin = true
 		sta.SessionID = 0
 		sta.UID = adminUID
 		sta.NumConn = 1
+	} else {
+		log.Infof("Listening on %v:%v for proxy clients", listeningIP, sta.LocalPort)
 	}
 
 	var sesh *mux.Session
@@ -225,7 +227,7 @@ func main() {
 	for {
 		localConn, err := listener.Accept()
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 			continue
 		}
 		if sesh == nil || sesh.IsClosed() {
@@ -235,19 +237,19 @@ func main() {
 			data := make([]byte, 10240)
 			i, err := io.ReadAtLeast(localConn, data, 1)
 			if err != nil {
-				log.Println(err)
+				log.Errorf("Failed to read first packet from proxy client: %v", err)
 				localConn.Close()
 				return
 			}
 			stream, err := sesh.OpenStream()
 			if err != nil {
-				log.Println(err)
+				log.Errorf("Failed to open stream: %v", err)
 				localConn.Close()
 				return
 			}
 			_, err = stream.Write(data[:i])
 			if err != nil {
-				log.Println(err)
+				log.Errorf("Failed to write to stream: %v", err)
 				localConn.Close()
 				stream.Close()
 				return

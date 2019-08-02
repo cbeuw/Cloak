@@ -3,12 +3,18 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
-	"log"
 )
 
-func TouchStone(ch *ClientHello, sta *State) (isCK bool, UID []byte, sessionID uint32, proxyMethod string, encryptionMethod byte, sharedSecret []byte) {
+var ErrReplay = errors.New("duplicate random")
+var ErrInvalidPubKey = errors.New("public key has invalid format")
+var ErrCiphertextLength = errors.New("ciphertext has the wrong length")
+var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
+
+func TouchStone(ch *ClientHello, sta *State) (UID []byte, sessionID uint32, proxyMethod string, encryptionMethod byte, sharedSecret []byte, err error) {
 	var random [32]byte
 	copy(random[:], ch.random)
 
@@ -18,27 +24,31 @@ func TouchStone(ch *ClientHello, sta *State) (isCK bool, UID []byte, sessionID u
 	sta.usedRandomM.Unlock()
 
 	if used != 0 {
-		log.Println("Replay! Duplicate random")
+		err = ErrReplay
 		return
 	}
 
 	ephPub, ok := ecdh.Unmarshal(random[:])
 	if !ok {
+		err = ErrInvalidPubKey
 		return
 	}
 
 	sharedSecret = ecdh.GenerateSharedSecret(sta.staticPv, ephPub)
-	keyShare, err := parseKeyShare(ch.extensions[[2]byte{0x00, 0x33}])
+	var keyShare []byte
+	keyShare, err = parseKeyShare(ch.extensions[[2]byte{0x00, 0x33}])
 	if err != nil {
 		return
 	}
-	ciphertext := append(ch.sessionId, keyShare...)
 
+	ciphertext := append(ch.sessionId, keyShare...)
 	if len(ciphertext) != 64 {
+		err = fmt.Errorf("%v: %v", ErrCiphertextLength, len(ciphertext))
 		return
 	}
 
-	plaintext, err := util.AESGCMDecrypt(random[0:12], sharedSecret, ciphertext)
+	var plaintext []byte
+	plaintext, err = util.AESGCMDecrypt(random[0:12], sharedSecret, ciphertext)
 	if err != nil {
 		return
 	}
@@ -48,11 +58,9 @@ func TouchStone(ch *ClientHello, sta *State) (isCK bool, UID []byte, sessionID u
 	encryptionMethod = plaintext[28]
 	timestamp := int64(binary.BigEndian.Uint64(plaintext[29:37]))
 	if timestamp/int64(TIMESTAMP_WINDOW.Seconds()) != sta.Now().Unix()/int64(TIMESTAMP_WINDOW.Seconds()) {
-		isCK = false
+		err = fmt.Errorf("%v: received timestamp %v", ErrTimestampOutOfWindow, timestamp)
 		return
 	}
 	sessionID = binary.BigEndian.Uint32(plaintext[37:41])
-
-	isCK = true
 	return
 }

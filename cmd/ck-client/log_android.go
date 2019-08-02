@@ -28,7 +28,7 @@ import "C"
 
 import (
 	"bufio"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"unsafe"
 )
@@ -66,8 +66,6 @@ func lineLog(f *os.File, priority C.int) {
 
 func log_init() {
 	log.SetOutput(infoWriter{})
-	// android logcat includes all of log.LstdFlags
-	log.SetFlags(log.Flags() &^ log.LstdFlags)
 
 	r, w, err := os.Pipe()
 	if err != nil {
