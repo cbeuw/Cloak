@@ -167,7 +167,7 @@ func xor(a []byte, b []byte) {
 	}
 }
 
-func composeServerHello(ch *ClientHello, sharedSecret []byte, sessionKey []byte) []byte {
+func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte) []byte {
 	var serverHello [11][]byte
 	serverHello[0] = []byte{0x02}             // handshake type
 	serverHello[1] = []byte{0x00, 0x00, 0x76} // length 77
@@ -175,7 +175,7 @@ func composeServerHello(ch *ClientHello, sharedSecret []byte, sessionKey []byte)
 	xor(sharedSecret, sessionKey)
 	serverHello[3] = sharedSecret       // random
 	serverHello[4] = []byte{0x20}       // session id length 32
-	serverHello[5] = ch.sessionId       // session id
+	serverHello[5] = sessionId          // session id
 	serverHello[6] = []byte{0xc0, 0x30} // cipher suite TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
 	serverHello[7] = []byte{0x00}       // compression method null
 	serverHello[8] = []byte{0x00, 0x2e} // extensions length 46
@@ -198,7 +198,7 @@ func composeServerHello(ch *ClientHello, sharedSecret []byte, sessionKey []byte)
 // of these messages are random and useless for this plugin
 func ComposeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) []byte {
 	TLS12 := []byte{0x03, 0x03}
-	shBytes := AddRecordLayer(composeServerHello(ch, sharedSecret, sessionKey), []byte{0x16}, TLS12)
+	shBytes := AddRecordLayer(composeServerHello(ch.sessionId, sharedSecret, sessionKey), []byte{0x16}, TLS12)
 	ccsBytes := AddRecordLayer([]byte{0x01}, []byte{0x14}, TLS12)
 	ret := append(shBytes, ccsBytes...)
 	return ret
