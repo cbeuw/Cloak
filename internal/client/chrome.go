@@ -1,23 +1,19 @@
 // Chrome 76
 
-package TLS
+package client
 
 import (
 	"encoding/binary"
 	"encoding/hex"
 	"math/rand"
 	"time"
-
-	"github.com/cbeuw/Cloak/internal/client"
 )
 
-type chrome struct {
-	browser
-}
+type Chrome struct{}
 
 func makeGREASE() []byte {
 	// see https://tools.ietf.org/html/draft-davidben-tls-grease-01
-	// This is exclusive to chrome.
+	// This is exclusive to Chrome.
 	rand.Seed(time.Now().UnixNano())
 	sixteenth := rand.Intn(16)
 	monoGREASE := byte(sixteenth*16 + 0xA)
@@ -25,7 +21,7 @@ func makeGREASE() []byte {
 	return doubleGREASE
 }
 
-func (c *chrome) composeExtensions(sta *client.State, keyShare []byte) []byte {
+func (c *Chrome) composeExtensions(serverName string, keyShare []byte) []byte {
 
 	makeSupportedGroups := func() []byte {
 		suppGroupListLen := []byte{0x00, 0x08}
@@ -51,13 +47,13 @@ func (c *chrome) composeExtensions(sta *client.State, keyShare []byte) []byte {
 	// extension length is always 401, and server name length is variable
 
 	var ext [17][]byte
-	ext[0] = addExtRec(makeGREASE(), nil)                                  // First GREASE
-	ext[1] = addExtRec([]byte{0x00, 0x00}, makeServerName(sta.ServerName)) // server name indication
-	ext[2] = addExtRec([]byte{0x00, 0x17}, nil)                            // extended_master_secret
-	ext[3] = addExtRec([]byte{0xff, 0x01}, []byte{0x00})                   // renegotiation_info
-	ext[4] = addExtRec([]byte{0x00, 0x0a}, makeSupportedGroups())          // supported groups
-	ext[5] = addExtRec([]byte{0x00, 0x0b}, []byte{0x01, 0x00})             // ec point formats
-	ext[6] = addExtRec([]byte{0x00, 0x23}, nil)                            // Session tickets
+	ext[0] = addExtRec(makeGREASE(), nil)                              // First GREASE
+	ext[1] = addExtRec([]byte{0x00, 0x00}, makeServerName(serverName)) // server name indication
+	ext[2] = addExtRec([]byte{0x00, 0x17}, nil)                        // extended_master_secret
+	ext[3] = addExtRec([]byte{0xff, 0x01}, []byte{0x00})               // renegotiation_info
+	ext[4] = addExtRec([]byte{0x00, 0x0a}, makeSupportedGroups())      // supported groups
+	ext[5] = addExtRec([]byte{0x00, 0x0b}, []byte{0x01, 0x00})         // ec point formats
+	ext[6] = addExtRec([]byte{0x00, 0x23}, nil)                        // Session tickets
 	APLN, _ := hex.DecodeString("000c02683208687474702f312e31")
 	ext[7] = addExtRec([]byte{0x00, 0x10}, APLN)                                 // app layer proto negotiation
 	ext[8] = addExtRec([]byte{0x00, 0x05}, []byte{0x01, 0x00, 0x00, 0x00, 0x00}) // status request
@@ -83,8 +79,8 @@ func (c *chrome) composeExtensions(sta *client.State, keyShare []byte) []byte {
 	return ret
 }
 
-func (c *chrome) composeClientHello(sta *client.State) ([]byte, []byte) {
-	random, sessionID, keyShare, sharedSecret := client.MakeHiddenData(sta)
+func (c *Chrome) composeClientHello(sta *State) (ch []byte, sharedSecret []byte) {
+	random, sessionID, keyShare, sharedSecret := MakeHiddenData(sta)
 	var clientHello [12][]byte
 	clientHello[0] = []byte{0x01}             // handshake type
 	clientHello[1] = []byte{0x00, 0x01, 0xfc} // length 508
@@ -97,7 +93,7 @@ func (c *chrome) composeClientHello(sta *client.State) ([]byte, []byte) {
 	clientHello[7] = append(makeGREASE(), cipherSuites...) // cipher suites
 	clientHello[8] = []byte{0x01}                          // compression methods length 1
 	clientHello[9] = []byte{0x00}                          // compression methods
-	clientHello[11] = c.composeExtensions(sta, keyShare)
+	clientHello[11] = c.composeExtensions(sta.ServerName, keyShare)
 	clientHello[10] = []byte{0x00, 0x00} // extensions length 401
 	binary.BigEndian.PutUint16(clientHello[10], uint16(len(clientHello[11])))
 	var ret []byte

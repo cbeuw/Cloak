@@ -1,13 +1,12 @@
-package TLS
+package client
 
 import (
 	"encoding/binary"
-	"github.com/cbeuw/Cloak/internal/client"
 	"github.com/cbeuw/Cloak/internal/util"
 )
 
-type browser interface {
-	composeClientHello()
+type Browser interface {
+	composeClientHello(*State) ([]byte, []byte)
 }
 
 func makeServerName(serverName string) []byte {
@@ -43,16 +42,8 @@ func addExtRec(typ []byte, data []byte) []byte {
 	return ret
 }
 
-// ComposeInitHandshake composes ClientHello with record layer
-func ComposeInitHandshake(sta *client.State) ([]byte, []byte) {
-	var ch, sharedSecret []byte
-	switch sta.BrowserSig {
-	case "chrome":
-		ch, sharedSecret = (&chrome{}).composeClientHello(sta)
-	case "firefox":
-		ch, sharedSecret = (&firefox{}).composeClientHello(sta)
-	default:
-		panic("Unsupported browser:" + sta.BrowserSig)
-	}
+// ComposeClientHello composes ClientHello with record layer
+func ComposeClientHello(sta *State) ([]byte, []byte) {
+	ch, sharedSecret := sta.Browser.composeClientHello(sta)
 	return util.AddRecordLayer(ch, []byte{0x16}, []byte{0x03, 0x01}), sharedSecret
 }

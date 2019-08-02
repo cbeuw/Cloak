@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/cbeuw/Cloak/internal/client"
-	"github.com/cbeuw/Cloak/internal/client/TLS"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	"github.com/cbeuw/Cloak/internal/util"
 	log "github.com/sirupsen/logrus"
@@ -51,7 +50,7 @@ func makeRemoteConn(sta *client.State) (net.Conn, []byte, error) {
 	// For android
 	d := net.Dialer{Control: protector}
 
-	clientHello, sharedSecret := TLS.ComposeClientHello(sta)
+	clientHello, sharedSecret := client.ComposeClientHello(sta)
 	connectingIP := sta.RemoteHost
 	if net.ParseIP(connectingIP).To4() == nil {
 		// IPv6 needs square brackets

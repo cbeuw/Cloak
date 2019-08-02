@@ -35,10 +35,11 @@ type State struct {
 	staticPub crypto.PublicKey
 	IsAdmin   bool
 
+	Browser Browser
+
 	ProxyMethod      string
 	EncryptionMethod byte
 	ServerName       string
-	BrowserSig       string
 	NumConn          int
 }
 
@@ -100,7 +101,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		return err
 	}
 
-	switch preParse.EncryptionMethod {
+	switch strings.ToLower(preParse.EncryptionMethod) {
 	case "plain":
 		sta.EncryptionMethod = 0x00
 	case "aes-gcm":
@@ -111,9 +112,17 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		return errors.New("Unknown encryption method")
 	}
 
+	switch strings.ToLower(preParse.BrowserSig) {
+	case "chrome":
+		sta.Browser = &Chrome{}
+	case "firefox":
+		sta.Browser = &Firefox{}
+	default:
+		return errors.New("unsupported browser signature")
+	}
+
 	sta.ProxyMethod = preParse.ProxyMethod
 	sta.ServerName = preParse.ServerName
-	sta.BrowserSig = preParse.BrowserSig
 	sta.NumConn = preParse.NumConn
 
 	uid, err := base64.StdEncoding.DecodeString(preParse.UID)

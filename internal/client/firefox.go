@@ -1,19 +1,15 @@
 // Firefox 68
-package TLS
+package client
 
 import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
-
-	"github.com/cbeuw/Cloak/internal/client"
 )
 
-type firefox struct {
-	browser
-}
+type Firefox struct{}
 
-func (f *firefox) composeExtensions(serverName string, keyShare []byte) []byte {
+func (f *Firefox) composeExtensions(serverName string, keyShare []byte) []byte {
 	composeKeyShare := func(hidden []byte) []byte {
 		ret := make([]byte, 107)
 		ret[0], ret[1] = 0x00, 0x69 // length 105
@@ -54,8 +50,8 @@ func (f *firefox) composeExtensions(serverName string, keyShare []byte) []byte {
 	return ret
 }
 
-func (f *firefox) composeClientHello(sta *client.State) ([]byte, []byte) {
-	random, sessionID, keyShare, sharedSecret := client.MakeHiddenData(sta)
+func (f *Firefox) composeClientHello(sta *State) (ch []byte, sharedSecret []byte) {
+	random, sessionID, keyShare, sharedSecret := MakeHiddenData(sta)
 
 	var clientHello [12][]byte
 	clientHello[0] = []byte{0x01}             // handshake type
