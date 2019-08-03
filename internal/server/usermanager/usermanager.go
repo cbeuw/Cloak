@@ -1,23 +1,23 @@
-package server
+package usermanager
 
 import (
 	"errors"
 )
 
-type statusUpdate struct {
+type StatusUpdate struct {
 	UID        []byte
-	active     bool
-	numSession int
+	Active     bool
+	NumSession int
 
-	upUsage   int64
-	downUsage int64
-	timestamp int64
+	UpUsage   int64
+	DownUsage int64
+	Timestamp int64
 }
 
-type statusResponse struct {
+type StatusResponse struct {
 	UID     []byte
-	action  int
-	message string
+	Action  int
+	Message string
 }
 
 const (
@@ -32,7 +32,7 @@ var ErrNoDownCredit = errors.New("No download credit left")
 var ErrUserExpired = errors.New("User has expired")
 
 type UserManager interface {
-	authenticateUser([]byte) (int64, int64, error)
-	authoriseNewSession(*ActiveUser) error
-	uploadStatus([]statusUpdate) ([]statusResponse, error)
+	AuthenticateUser([]byte) (int64, int64, error)
+	AuthoriseNewSession([]byte, int) error
+	UploadStatus([]StatusUpdate) ([]StatusResponse, error)
 }

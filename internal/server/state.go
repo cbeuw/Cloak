@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"io/ioutil"
 	"sync"
 	"time"
@@ -74,7 +75,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		//TODO: implement command & control mode
 
 	} else {
-		manager, err := MakeLocalManager(preParse.DatabasePath)
+		manager, err := usermanager.MakeLocalManager(preParse.DatabasePath)
 		if err != nil {
 			return err
 		}

@@ -1,4 +1,4 @@
-package server
+package usermanager
 
 import (
 	"encoding/binary"
@@ -63,7 +63,7 @@ func (manager *localManager) registerMux() *gmux.Router {
 	return r
 }
 
-func (manager *localManager) authenticateUser(UID []byte) (int64, int64, error) {
+func (manager *localManager) AuthenticateUser(UID []byte) (int64, int64, error) {
 	var upRate, downRate, upCredit, downCredit, expiryTime int64
 	err := manager.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(UID)
@@ -93,11 +93,13 @@ func (manager *localManager) authenticateUser(UID []byte) (int64, int64, error) 
 	return upRate, downRate, nil
 }
 
-func (manager *localManager) authoriseNewSession(user *ActiveUser) error {
+func (manager *localManager) AuthoriseNewSession(UID []byte, numExistingSessions int) error {
+	var arrUID [16]byte
+	copy(arrUID[:], UID)
 	var sessionsCap int
 	var upCredit, downCredit, expiryTime int64
 	err := manager.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(user.arrUID[:])
+		bucket := tx.Bucket(arrUID[:])
 		if bucket == nil {
 			return ErrUserNotFound
 		}
@@ -120,7 +122,7 @@ func (manager *localManager) authoriseNewSession(user *ActiveUser) error {
 		return ErrUserExpired
 	}
 	//user.sessionsM.RLock()
-	if len(user.sessions) >= sessionsCap {
+	if numExistingSessions >= sessionsCap {
 		//user.sessionsM.RUnlock()
 		return ErrSessionsCapReached
 	}
@@ -128,14 +130,14 @@ func (manager *localManager) authoriseNewSession(user *ActiveUser) error {
 	return nil
 }
 
-func (manager *localManager) uploadStatus(uploads []statusUpdate) ([]statusResponse, error) {
-	var responses []statusResponse
+func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusResponse, error) {
+	var responses []StatusResponse
 	err := manager.db.Update(func(tx *bolt.Tx) error {
 		for _, status := range uploads {
-			var resp statusResponse
+			var resp StatusResponse
 			bucket := tx.Bucket(status.UID)
 			if bucket == nil {
-				resp = statusResponse{
+				resp = StatusResponse{
 					status.UID,
 					TERMINATE,
 					"User no longer exists",
@@ -145,9 +147,9 @@ func (manager *localManager) uploadStatus(uploads []statusUpdate) ([]statusRespo
 			}
 
 			oldUp := int64(Uint64(bucket.Get([]byte("UpCredit"))))
-			newUp := oldUp - status.upUsage
+			newUp := oldUp - status.UpUsage
 			if newUp <= 0 {
-				resp = statusResponse{
+				resp = StatusResponse{
 					status.UID,
 					TERMINATE,
 					"No upload credit left",
@@ -162,9 +164,9 @@ func (manager *localManager) uploadStatus(uploads []statusUpdate) ([]statusRespo
 			}
 
 			oldDown := int64(Uint64(bucket.Get([]byte("DownCredit"))))
-			newDown := oldDown - status.downUsage
+			newDown := oldDown - status.DownUsage
 			if newDown <= 0 {
-				resp = statusResponse{
+				resp = StatusResponse{
 					status.UID,
 					TERMINATE,
 					"No download credit left",
@@ -180,7 +182,7 @@ func (manager *localManager) uploadStatus(uploads []statusUpdate) ([]statusRespo
 
 			expiry := int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
 			if time.Now().Unix() > expiry {
-				resp = statusResponse{
+				resp = StatusResponse{
 					status.UID,
 					TERMINATE,
 					"User has expired",

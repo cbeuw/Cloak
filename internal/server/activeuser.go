@@ -36,7 +36,7 @@ func (u *ActiveUser) GetSession(sessionID uint32, obfuscator *mux.Obfuscator, un
 	if sesh = u.sessions[sessionID]; sesh != nil {
 		return sesh, true, nil
 	} else {
-		err := u.panel.Manager.authoriseNewSession(u)
+		err := u.panel.Manager.AuthoriseNewSession(u.arrUID[:], len(u.sessions))
 		if err != nil {
 			return nil, false, err
 		}

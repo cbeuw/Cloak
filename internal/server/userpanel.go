@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,7 +11,7 @@ import (
 )
 
 type userPanel struct {
-	Manager UserManager
+	Manager usermanager.UserManager
 
 	activeUsersM      sync.RWMutex
 	activeUsers       map[[16]byte]*ActiveUser
@@ -18,7 +19,7 @@ type userPanel struct {
 	usageUpdateQueue  map[[16]byte]*usagePair
 }
 
-func MakeUserPanel(manager UserManager) *userPanel {
+func MakeUserPanel(manager usermanager.UserManager) *userPanel {
 	ret := &userPanel{
 		Manager:          manager,
 		activeUsers:      make(map[[16]byte]*ActiveUser),
@@ -37,7 +38,7 @@ func (panel *userPanel) GetUser(UID []byte) (*ActiveUser, error) {
 		return user, nil
 	}
 
-	upRate, downRate, err := panel.Manager.authenticateUser(UID)
+	upRate, downRate, err := panel.Manager.AuthenticateUser(UID)
 	if err != nil {
 		panel.activeUsersM.Unlock()
 		return nil, err
@@ -103,7 +104,7 @@ func (panel *userPanel) updateUsageQueueForOne(user *ActiveUser) {
 
 func (panel *userPanel) commitUpdate() error {
 	panel.usageUpdateQueueM.Lock()
-	statuses := make([]statusUpdate, 0, len(panel.usageUpdateQueue))
+	statuses := make([]usermanager.StatusUpdate, 0, len(panel.usageUpdateQueue))
 	for arrUID, usage := range panel.usageUpdateQueue {
 		panel.activeUsersM.RLock()
 		user := panel.activeUsers[arrUID]
@@ -112,31 +113,31 @@ func (panel *userPanel) commitUpdate() error {
 		if user != nil {
 			numSession = user.NumSession()
 		}
-		status := statusUpdate{
+		status := usermanager.StatusUpdate{
 			UID:        arrUID[:],
-			active:     panel.isActive(arrUID[:]),
-			numSession: numSession,
-			upUsage:    *usage.up,
-			downUsage:  *usage.down,
-			timestamp:  time.Now().Unix(),
+			Active:     panel.isActive(arrUID[:]),
+			NumSession: numSession,
+			UpUsage:    *usage.up,
+			DownUsage:  *usage.down,
+			Timestamp:  time.Now().Unix(),
 		}
 		statuses = append(statuses, status)
 	}
 
-	responses, err := panel.Manager.uploadStatus(statuses)
+	responses, err := panel.Manager.UploadStatus(statuses)
 	if err != nil {
 		return err
 	}
 	for _, resp := range responses {
 		var arrUID [16]byte
 		copy(arrUID[:], resp.UID)
-		switch resp.action {
-		case TERMINATE:
+		switch resp.Action {
+		case usermanager.TERMINATE:
 			panel.activeUsersM.RLock()
 			user := panel.activeUsers[arrUID]
 			panel.activeUsersM.RUnlock()
 			if user != nil {
-				user.Terminate(resp.message)
+				user.Terminate(resp.Message)
 			}
 		}
 	}
