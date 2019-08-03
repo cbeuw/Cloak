@@ -69,7 +69,10 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			log.Errorf("Making connection to redirection server: %v", err)
 			return
 		}
-		webConn.Write(data)
+		_, err = webConn.Write(data)
+		if err != nil {
+			log.Error("Failed to send first packet to redirection server", err)
+		}
 		go pipe(webConn, conn)
 		go pipe(conn, webConn)
 	}
@@ -191,6 +194,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		localConn, err := net.Dial("tcp", sta.ProxyBook[proxyMethod])
 		if err != nil {
 			log.Errorf("Failed to connect to %v: %v", proxyMethod, err)
+			sesh.Close()
 			continue
 		}
 		go pipe(localConn, newStream)

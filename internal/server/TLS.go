@@ -91,12 +91,6 @@ func AddRecordLayer(input []byte, typ []byte, ver []byte) []byte {
 	return ret
 }
 
-// PeelRecordLayer peels off the record layer
-func PeelRecordLayer(data []byte) []byte {
-	ret := data[5:]
-	return ret
-}
-
 // ParseClientHello parses everything on top of the TLS layer
 // (including the record layer) into ClientHello type
 func ParseClientHello(data []byte) (ret *ClientHello, err error) {
@@ -105,45 +99,47 @@ func ParseClientHello(data []byte) (ret *ClientHello, err error) {
 			err = errors.New("Malformed ClientHello")
 		}
 	}()
-	data = PeelRecordLayer(data)
+
+	peeled := make([]byte, len(data)-5)
+	copy(peeled, data[5:])
 	pointer := 0
 	// Handshake Type
-	handshakeType := data[pointer]
+	handshakeType := peeled[pointer]
 	if handshakeType != 0x01 {
 		return ret, errors.New("Not a ClientHello")
 	}
 	pointer += 1
 	// Length
-	length := int(u32(append([]byte{0x00}, data[pointer:pointer+3]...)))
+	length := int(u32(append([]byte{0x00}, peeled[pointer:pointer+3]...)))
 	pointer += 3
-	if length != len(data[pointer:]) {
+	if length != len(peeled[pointer:]) {
 		return ret, errors.New("Hello length doesn't match")
 	}
 	// Client Version
-	clientVersion := data[pointer : pointer+2]
+	clientVersion := peeled[pointer : pointer+2]
 	pointer += 2
 	// Random
-	random := data[pointer : pointer+32]
+	random := peeled[pointer : pointer+32]
 	pointer += 32
 	// Session ID
-	sessionIdLen := int(data[pointer])
+	sessionIdLen := int(peeled[pointer])
 	pointer += 1
-	sessionId := data[pointer : pointer+sessionIdLen]
+	sessionId := peeled[pointer : pointer+sessionIdLen]
 	pointer += sessionIdLen
 	// Cipher Suites
-	cipherSuitesLen := int(u16(data[pointer : pointer+2]))
+	cipherSuitesLen := int(u16(peeled[pointer : pointer+2]))
 	pointer += 2
-	cipherSuites := data[pointer : pointer+cipherSuitesLen]
+	cipherSuites := peeled[pointer : pointer+cipherSuitesLen]
 	pointer += cipherSuitesLen
 	// Compression Methods
-	compressionMethodsLen := int(data[pointer])
+	compressionMethodsLen := int(peeled[pointer])
 	pointer += 1
-	compressionMethods := data[pointer : pointer+compressionMethodsLen]
+	compressionMethods := peeled[pointer : pointer+compressionMethodsLen]
 	pointer += compressionMethodsLen
 	// Extensions
-	extensionsLen := int(u16(data[pointer : pointer+2]))
+	extensionsLen := int(u16(peeled[pointer : pointer+2]))
 	pointer += 2
-	extensions, err := parseExtensions(data[pointer:])
+	extensions, err := parseExtensions(peeled[pointer:])
 	ret = &ClientHello{
 		handshakeType,
 		length,
