@@ -24,27 +24,6 @@ import (
 var b64 = base64.StdEncoding.EncodeToString
 var version string
 
-func pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
-	// The maximum size of TLS message will be 16380+12+16. 12 because of the stream header and 16
-	// because of the salt/mac
-	// 16408 is the max TLS message size on Firefox
-	buf := make([]byte, 16380)
-	for {
-		i, err := io.ReadAtLeast(src, buf, 1)
-		if err != nil {
-			go dst.Close()
-			go src.Close()
-			return
-		}
-		i, err = dst.Write(buf[:i])
-		if err != nil {
-			go dst.Close()
-			go src.Close()
-			return
-		}
-	}
-}
-
 func dispatchConnection(conn net.Conn, sta *server.State) {
 	remoteAddr := conn.RemoteAddr()
 	var err error
@@ -73,8 +52,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		if err != nil {
 			log.Error("Failed to send first packet to redirection server", err)
 		}
-		go pipe(webConn, conn)
-		go pipe(conn, webConn)
+		go util.Pipe(webConn, conn)
+		go util.Pipe(conn, webConn)
 	}
 
 	ch, err := server.ParseClientHello(data)
@@ -197,8 +176,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			sesh.Close()
 			continue
 		}
-		go pipe(localConn, newStream)
-		go pipe(newStream, localConn)
+		go util.Pipe(localConn, newStream)
+		go util.Pipe(newStream, localConn)
 	}
 
 }
