@@ -78,17 +78,6 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	user, err := sta.Panel.GetUser(UID)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"UID":        b64(UID),
-			"remoteAddr": remoteAddr,
-			"error":      err,
-		}).Warn("+1 unauthorised UID")
-		goWeb()
-		return
-	}
-
 	finishHandshake := func(sessionKey []byte) error {
 		reply := server.ComposeReply(ch, sharedSecret, sessionKey)
 		_, err = conn.Write(reply)
@@ -107,6 +96,37 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		goWeb()
 	}
 
+	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
+	// added to the userinfo database. The distinction between going into the admin mode
+	// and normal proxy mode is that sessionID needs == 0 for admin mode
+	if bytes.Equal(UID, sta.AdminUID) && sessionID == 0 {
+		err = finishHandshake(sessionKey)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		sesh := mux.MakeSession(0, mux.UNLIMITED_VALVE, obfuscator, util.ReadTLS)
+		sesh.AddConnection(conn)
+		//TODO: Router could be nil in cnc mode
+		log.WithField("remoteAddr", conn.RemoteAddr()).Info("New admin session")
+		err = http.Serve(sesh, sta.LocalAPIRouter)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+	}
+
+	user, err := sta.Panel.GetUser(UID)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"UID":        b64(UID),
+			"remoteAddr": remoteAddr,
+			"error":      err,
+		}).Warn("+1 unauthorised UID")
+		goWeb()
+		return
+	}
+
 	sesh, existing, err := user.GetSession(sessionID, obfuscator, util.ReadTLS)
 	if err != nil {
 		user.DelSession(sessionID)
@@ -122,25 +142,6 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		}
 		sesh.AddConnection(conn)
 		return
-	}
-
-	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
-	// added to the userinfo database. The distinction between going into the admin mode
-	// and normal proxy mode is that sessionID needs == 0 for admin mode
-	if bytes.Equal(UID, sta.AdminUID) && sessionID == 0 {
-		err = finishHandshake(sessionKey)
-		if err != nil {
-			log.Error(err)
-			return
-		}
-		sesh := mux.MakeSession(0, mux.UNLIMITED_VALVE, obfuscator, util.ReadTLS)
-		sesh.AddConnection(conn)
-		//TODO: Router could be nil in cnc mode
-		err = http.Serve(sesh, sta.LocalAPIRouter)
-		if err != nil {
-			log.Error(err)
-			return
-		}
 	}
 
 	err = finishHandshake(sessionKey)
