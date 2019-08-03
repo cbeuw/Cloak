@@ -95,7 +95,7 @@ func makeSession(sta *client.State) *mux.Session {
 	wg.Wait()
 
 	sessionKey := _sessionKey.Load().([]byte)
-	obfuscator, err := util.GenerateObfs(sta.EncryptionMethod, sessionKey)
+	obfuscator, err := mux.GenerateObfs(sta.EncryptionMethod, sessionKey)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -5,8 +5,6 @@ import (
 	"crypto/cipher"
 	"encoding/binary"
 	"errors"
-	mux "github.com/cbeuw/Cloak/internal/multiplex"
-	"golang.org/x/crypto/chacha20poly1305"
 	"io"
 	"net"
 	"strconv"
@@ -73,43 +71,6 @@ func ReadTLS(conn net.Conn, buffer []byte) (n int, err error) {
 	}
 
 	n = 5 + dataLength
-	return
-}
-
-func GenerateObfs(encryptionMethod byte, sessionKey []byte) (obfuscator *mux.Obfuscator, err error) {
-	var payloadCipher cipher.AEAD
-	switch encryptionMethod {
-	case 0x00:
-		payloadCipher = nil
-	case 0x01:
-		var c cipher.Block
-		c, err = aes.NewCipher(sessionKey)
-		if err != nil {
-			return
-		}
-		payloadCipher, err = cipher.NewGCM(c)
-		if err != nil {
-			return
-		}
-	case 0x02:
-		payloadCipher, err = chacha20poly1305.New(sessionKey)
-		if err != nil {
-			return
-		}
-	default:
-		return nil, errors.New("Unknown encryption method")
-	}
-
-	headerCipher, err := aes.NewCipher(sessionKey)
-	if err != nil {
-		return
-	}
-
-	obfuscator = &mux.Obfuscator{
-		mux.MakeObfs(headerCipher, payloadCipher),
-		mux.MakeDeobfs(headerCipher, payloadCipher),
-		sessionKey,
-	}
 	return
 }
 

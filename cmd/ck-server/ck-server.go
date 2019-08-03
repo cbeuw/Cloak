@@ -101,7 +101,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 
 	sessionKey := make([]byte, 32)
 	rand.Read(sessionKey)
-	obfuscator, err := util.GenerateObfs(encryptionMethod, sessionKey)
+	obfuscator, err := mux.GenerateObfs(encryptionMethod, sessionKey)
 	if err != nil {
 		log.Error(err)
 		goWeb()

@@ -1,10 +1,13 @@
 package multiplex
 
 import (
+	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"golang.org/x/crypto/chacha20poly1305"
+	"golang.org/x/crypto/salsa20"
 )
 
 type Obfser func(*Frame) ([]byte, error)
@@ -15,9 +18,15 @@ var putU32 = binary.BigEndian.PutUint32
 
 const HEADER_LEN = 12
 
-func MakeObfs(headerCipher cipher.Block, payloadCipher cipher.AEAD) Obfser {
+func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
+	var tagLen int
+	if payloadCipher == nil {
+		tagLen = 8 //nonce
+	} else {
+		tagLen = payloadCipher.Overhead()
+	}
 	obfs := func(f *Frame) ([]byte, error) {
-		ret := make([]byte, 5+HEADER_LEN+len(f.Payload)+16)
+		ret := make([]byte, 5+HEADER_LEN+len(f.Payload)+tagLen)
 		recordLayer := ret[0:5]
 		header := ret[5 : 5+HEADER_LEN]
 		encryptedPayload := ret[5+HEADER_LEN:]
@@ -30,14 +39,14 @@ func MakeObfs(headerCipher cipher.Block, payloadCipher cipher.AEAD) Obfser {
 
 		if payloadCipher == nil {
 			copy(encryptedPayload, f.Payload)
-			rand.Read(encryptedPayload[len(encryptedPayload)-16:])
+			rand.Read(encryptedPayload[len(encryptedPayload)-tagLen:])
 		} else {
 			ciphertext := payloadCipher.Seal(nil, header, f.Payload, nil)
 			copy(encryptedPayload, ciphertext)
 		}
 
-		iv := encryptedPayload[len(encryptedPayload)-16:]
-		cipher.NewCTR(headerCipher, iv).XORKeyStream(header, header)
+		nonce := encryptedPayload[len(encryptedPayload)-8:]
+		salsa20.XORKeyStream(header, header, nonce, &salsaKey)
 
 		// Composing final obfsed message
 		// We don't use util.AddRecordLayer here to avoid unnecessary malloc
@@ -50,24 +59,30 @@ func MakeObfs(headerCipher cipher.Block, payloadCipher cipher.AEAD) Obfser {
 	return obfs
 }
 
-func MakeDeobfs(headerCipher cipher.Block, payloadCipher cipher.AEAD) Deobfser {
+func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
+	var tagLen int
+	if payloadCipher == nil {
+		tagLen = 8 // nonce
+	} else {
+		tagLen = payloadCipher.Overhead()
+	}
 	deobfs := func(in []byte) (*Frame, error) {
-		if len(in) < 5+HEADER_LEN+16 {
+		if len(in) < 5+HEADER_LEN+tagLen {
 			return nil, errors.New("Input cannot be shorter than 33 bytes")
 		}
 		peeled := in[5:]
 
 		header := peeled[0:12]
 		payload := peeled[12:]
-		iv := peeled[len(peeled)-16:]
 
-		cipher.NewCTR(headerCipher, iv).XORKeyStream(header, header)
+		nonce := peeled[len(peeled)-8:]
+		salsa20.XORKeyStream(header, header, nonce, &salsaKey)
 
 		streamID := u32(header[0:4])
 		seq := u32(header[4:8])
 		closing := header[8]
 
-		outputPayload := make([]byte, len(payload)-16)
+		outputPayload := make([]byte, len(payload)-tagLen)
 
 		if payloadCipher == nil {
 			copy(outputPayload, payload)
@@ -88,4 +103,44 @@ func MakeDeobfs(headerCipher cipher.Block, payloadCipher cipher.AEAD) Deobfser {
 		return ret, nil
 	}
 	return deobfs
+}
+
+func GenerateObfs(encryptionMethod byte, sessionKey []byte) (obfuscator *Obfuscator, err error) {
+	if len(sessionKey) != 32 {
+		err = errors.New("sessionKey size must be 32 bytes")
+	}
+
+	blockKey := sessionKey[:16]
+	var salsaKey [32]byte
+	copy(salsaKey[:], sessionKey)
+
+	var payloadCipher cipher.AEAD
+	switch encryptionMethod {
+	case 0x00:
+		payloadCipher = nil
+	case 0x01:
+		var c cipher.Block
+		c, err = aes.NewCipher(blockKey)
+		if err != nil {
+			return
+		}
+		payloadCipher, err = cipher.NewGCM(c)
+		if err != nil {
+			return
+		}
+	case 0x02:
+		payloadCipher, err = chacha20poly1305.New(blockKey)
+		if err != nil {
+			return
+		}
+	default:
+		return nil, errors.New("Unknown encryption method")
+	}
+
+	obfuscator = &Obfuscator{
+		MakeObfs(salsaKey, payloadCipher),
+		MakeDeobfs(salsaKey, payloadCipher),
+		sessionKey,
+	}
+	return
 }
