@@ -15,20 +15,13 @@ var ErrCiphertextLength = errors.New("ciphertext has the wrong length")
 var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
 
 func TouchStone(ch *ClientHello, sta *State) (UID []byte, sessionID uint32, proxyMethod string, encryptionMethod byte, sharedSecret []byte, err error) {
-	var random [32]byte
-	copy(random[:], ch.random)
 
-	sta.usedRandomM.Lock()
-	used := sta.usedRandom[random]
-	sta.usedRandom[random] = int(sta.Now().Unix())
-	sta.usedRandomM.Unlock()
-
-	if used != 0 {
+	if sta.registerRandom(ch.random) {
 		err = ErrReplay
 		return
 	}
 
-	ephPub, ok := ecdh.Unmarshal(random[:])
+	ephPub, ok := ecdh.Unmarshal(ch.random)
 	if !ok {
 		err = ErrInvalidPubKey
 		return
@@ -48,7 +41,7 @@ func TouchStone(ch *ClientHello, sta *State) (UID []byte, sessionID uint32, prox
 	}
 
 	var plaintext []byte
-	plaintext, err = util.AESGCMDecrypt(random[0:12], sharedSecret, ciphertext)
+	plaintext, err = util.AESGCMDecrypt(ch.random[0:12], sharedSecret, ciphertext)
 	if err != nil {
 		return
 	}

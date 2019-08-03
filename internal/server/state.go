@@ -36,7 +36,7 @@ type State struct {
 	RedirAddr string
 
 	usedRandomM sync.RWMutex
-	usedRandom  map[[32]byte]int
+	usedRandom  map[[32]byte]int64
 
 	Panel          *userPanel
 	LocalAPIRouter *gmux.Router
@@ -48,7 +48,7 @@ func InitState(bindHost, bindPort string, nowFunc func() time.Time) (*State, err
 		BindPort: bindPort,
 		Now:      nowFunc,
 	}
-	ret.usedRandom = make(map[[32]byte]int)
+	ret.usedRandom = make(map[[32]byte]int64)
 	go ret.UsedRandomCleaner()
 	return ret, nil
 }
@@ -112,13 +112,23 @@ const TIMESTAMP_WINDOW = 12 * time.Hour
 func (sta *State) UsedRandomCleaner() {
 	for {
 		time.Sleep(TIMESTAMP_WINDOW)
-		now := int(sta.Now().Unix())
+		now := sta.Now().Unix()
 		sta.usedRandomM.Lock()
 		for key, t := range sta.usedRandom {
-			if now-t > int(TIMESTAMP_WINDOW.Seconds()) {
+			if now-t > int64(TIMESTAMP_WINDOW.Seconds()) {
 				delete(sta.usedRandom, key)
 			}
 		}
 		sta.usedRandomM.Unlock()
 	}
+}
+
+func (sta *State) registerRandom(r []byte) bool {
+	var random [32]byte
+	copy(random[:], r)
+	sta.usedRandomM.Lock()
+	_, used := sta.usedRandom[random]
+	sta.usedRandom[random] = sta.Now().Unix()
+	sta.usedRandomM.Unlock()
+	return used
 }
