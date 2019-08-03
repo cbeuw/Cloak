@@ -58,7 +58,7 @@ Simply `make client` and `make server`. Output binary will be in `build` folder.
 5. Configure your underlying proxy server so that they all listen on localhost. Edit `ProxyBook` in the configuration file accordingly
 6. [Configure the proxy program.](https://github.com/cbeuw/Cloak/wiki/Underlying-proxy-configuration-guides) Run `sudo ck-server -c <path to ckserver.json>`. ck-server needs root privilege because it binds to a low numbered port (443). Alternatively you can follow https://superuser.com/a/892391 to avoid granting ck-server root privilege unnecessarily.
 
-#### If you want to add more users
+#### To add users
 1. On your client, run `ck-client -s <IP of the server> -l <A local port> -a <AdminUID> -c <path-to-ckclient.json>` to enter admin mode
 2. Visit https://cbeuw.github.io/Cloak-panel (Note: this is a static site, there is no backend and all data entered into this site are processed between your browser and the Cloak API endpoint you specified. Alternatively you can download the repo at https://github.com/cbeuw/Cloak-panel and host it on your own web server). 
 3. Type in 127.0.0.1:<the port you entered in step 1> as the API Base, and click `List`.
@@ -71,7 +71,7 @@ Note: the user database is persistent as it's in-disk. You don't need to add the
 
 0. Install and configure the proxy client based on the server
 1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo. If you wish to build it, make sure you fetch the dependencies using `go get github.com/boltdb/bolt`, `go get github.com/juju/ratelimit` and `go get github.com/gorilla/mux`
-2. Obtain the public key and your UID (or the AdminUID, if you are the server admin) from the administrator of your server
+2. Obtain the public key and your UID from the administrator of your server
 3. Copy example_config/ckclient.json into a location of your choice. Enter the `UID` and `PublicKey` you have obtained. Set `ProxyMethod` to match exactly the corresponding entry in `ProxyBook` on the server end
 4. [Configure the proxy program.](https://github.com/cbeuw/Cloak/wiki/Underlying-proxy-configuration-guides) Run `ck-client -c <path to ckclient.json> -s <ip of your server>`
 
