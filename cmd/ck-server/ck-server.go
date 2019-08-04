@@ -116,7 +116,12 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		}
 	}
 
-	user, err := sta.Panel.GetUser(UID)
+	var user *server.ActiveUser
+	if sta.IsBypass(UID) {
+		user, err = sta.Panel.GetBypassUser(UID)
+	} else {
+		user, err = sta.Panel.GetUser(UID)
+	}
 	if err != nil {
 		log.WithFields(log.Fields{
 			"UID":        b64(UID),
@@ -129,7 +134,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 
 	sesh, existing, err := user.GetSession(sessionID, obfuscator, util.ReadTLS)
 	if err != nil {
-		user.DelSession(sessionID)
+		user.DeleteSession(sessionID, "")
 		log.Error(err)
 		return
 	}
@@ -165,7 +170,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 					"sessionID": sessionID,
 					"reason":    sesh.TerminalMsg(),
 				}).Info("Session closed")
-				user.DelSession(sessionID)
+				user.DeleteSession(sessionID, "")
 				return
 			} else {
 				continue

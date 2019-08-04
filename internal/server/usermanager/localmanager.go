@@ -195,3 +195,7 @@ func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusRespo
 	})
 	return responses, err
 }
+
+func (manager *localManager) Close() error {
+	return manager.db.Close()
+}

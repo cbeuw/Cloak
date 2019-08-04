@@ -67,6 +67,10 @@ Then run `make client` or `make server`. Output binary will be in `build` folder
 6. [Configure the proxy program.](https://github.com/cbeuw/Cloak/wiki/Underlying-proxy-configuration-guides) Run `sudo ck-server -c <path to ckserver.json>`. ck-server needs root privilege because it binds to a low numbered port (443). Alternatively you can follow https://superuser.com/a/892391 to avoid granting ck-server root privilege unnecessarily.
 
 #### To add users
+##### Unrestricted users
+Run `ck-server -u` and add the UID into the `BypassUID` field in `ckserver.json`
+
+##### Users subject to bandwidth and credit controls
 1. On your client, run `ck-client -s <IP of the server> -l <A local port> -a <AdminUID> -c <path-to-ckclient.json>` to enter admin mode
 2. Visit https://cbeuw.github.io/Cloak-panel (Note: this is a static site, there is no backend and all data entered into this site are processed between your browser and the Cloak API endpoint you specified. Alternatively you can download the repo at https://github.com/cbeuw/Cloak-panel and host it on your own web server). 
 3. Type in 127.0.0.1:<the port you entered in step 1> as the API Base, and click `List`.

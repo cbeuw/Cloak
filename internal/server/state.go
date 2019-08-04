@@ -15,6 +15,7 @@ import (
 
 type rawConfig struct {
 	ProxyBook    map[string]string
+	BypassUID    [][]byte
 	RedirAddr    string
 	PrivateKey   string
 	AdminUID     string
@@ -31,7 +32,9 @@ type State struct {
 
 	Now      func() time.Time
 	AdminUID []byte
-	staticPv crypto.PrivateKey
+
+	BypassUID map[[16]byte]struct{}
+	staticPv  crypto.PrivateKey
 
 	RedirAddr string
 
@@ -44,9 +47,10 @@ type State struct {
 
 func InitState(bindHost, bindPort string, nowFunc func() time.Time) (*State, error) {
 	ret := &State{
-		BindHost: bindHost,
-		BindPort: bindPort,
-		Now:      nowFunc,
+		BindHost:  bindHost,
+		BindPort:  bindPort,
+		Now:       nowFunc,
+		BypassUID: make(map[[16]byte]struct{}),
 	}
 	ret.usedRandom = make(map[[32]byte]int64)
 	go ret.UsedRandomCleaner()
@@ -99,7 +103,22 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		return errors.New("Failed to decode AdminUID: " + err.Error())
 	}
 	sta.AdminUID = adminUID
+
+	var arrUID [16]byte
+	for _, UID := range preParse.BypassUID {
+		copy(arrUID[:], UID)
+		sta.BypassUID[arrUID] = struct{}{}
+	}
+	copy(arrUID[:], adminUID)
+	sta.BypassUID[arrUID] = struct{}{}
 	return nil
+}
+
+func (sta *State) IsBypass(UID []byte) bool {
+	var arrUID [16]byte
+	copy(arrUID[:], UID)
+	_, exist := sta.BypassUID[arrUID]
+	return exist
 }
 
 // This is the accepting window of the encrypted timestamp from client

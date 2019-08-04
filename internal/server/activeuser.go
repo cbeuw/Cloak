@@ -14,18 +14,22 @@ type ActiveUser struct {
 
 	valve *mux.Valve
 
+	bypass bool
+
 	sessionsM sync.RWMutex
 	sessions  map[uint32]*mux.Session
 }
 
-func (u *ActiveUser) DelSession(sessionID uint32) {
+func (u *ActiveUser) DeleteSession(sessionID uint32, reason string) {
 	u.sessionsM.Lock()
-	delete(u.sessions, sessionID)
+	sesh, existing := u.sessions[sessionID]
+	if existing {
+		delete(u.sessions, sessionID)
+		sesh.SetTerminalMsg(reason)
+		sesh.Close()
+	}
 	if len(u.sessions) == 0 {
-		u.panel.updateUsageQueueForOne(u)
-		u.panel.activeUsersM.Lock()
-		delete(u.panel.activeUsers, u.arrUID)
-		u.panel.activeUsersM.Unlock()
+		u.panel.DeleteActiveUser(u)
 	}
 	u.sessionsM.Unlock()
 }
@@ -36,9 +40,11 @@ func (u *ActiveUser) GetSession(sessionID uint32, obfuscator *mux.Obfuscator, un
 	if sesh = u.sessions[sessionID]; sesh != nil {
 		return sesh, true, nil
 	} else {
-		err := u.panel.Manager.AuthoriseNewSession(u.arrUID[:], len(u.sessions))
-		if err != nil {
-			return nil, false, err
+		if !u.bypass {
+			err := u.panel.Manager.AuthoriseNewSession(u.arrUID[:], len(u.sessions))
+			if err != nil {
+				return nil, false, err
+			}
 		}
 		sesh = mux.MakeSession(sessionID, u.valve, obfuscator, unitReader)
 		u.sessions[sessionID] = sesh
@@ -52,12 +58,10 @@ func (u *ActiveUser) Terminate(reason string) {
 		if reason != "" {
 			sesh.SetTerminalMsg(reason)
 		}
-		go sesh.Close()
+		sesh.Close()
 	}
 	u.sessionsM.Unlock()
-	u.panel.activeUsersM.Lock()
-	delete(u.panel.activeUsers, u.arrUID)
-	u.panel.activeUsersM.Unlock()
+	u.panel.DeleteActiveUser(u)
 }
 
 func (u *ActiveUser) NumSession() int {

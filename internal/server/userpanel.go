@@ -29,6 +29,26 @@ func MakeUserPanel(manager usermanager.UserManager) *userPanel {
 	return ret
 }
 
+func (panel *userPanel) GetBypassUser(UID []byte) (*ActiveUser, error) {
+	panel.activeUsersM.Lock()
+	var arrUID [16]byte
+	copy(arrUID[:], UID)
+	if user, ok := panel.activeUsers[arrUID]; ok {
+		panel.activeUsersM.Unlock()
+		return user, nil
+	}
+	user := &ActiveUser{
+		panel:    panel,
+		valve:    mux.UNLIMITED_VALVE,
+		sessions: make(map[uint32]*mux.Session),
+		bypass:   true,
+	}
+	copy(user.arrUID[:], UID)
+	panel.activeUsers[user.arrUID] = user
+	panel.activeUsersM.Unlock()
+	return user, nil
+}
+
 func (panel *userPanel) GetUser(UID []byte) (*ActiveUser, error) {
 	panel.activeUsersM.Lock()
 	var arrUID [16]byte
@@ -49,10 +69,18 @@ func (panel *userPanel) GetUser(UID []byte) (*ActiveUser, error) {
 		valve:    valve,
 		sessions: make(map[uint32]*mux.Session),
 	}
+
 	copy(user.arrUID[:], UID)
 	panel.activeUsers[user.arrUID] = user
 	panel.activeUsersM.Unlock()
 	return user, nil
+}
+
+func (panel *userPanel) DeleteActiveUser(user *ActiveUser) {
+	panel.updateUsageQueueForOne(user)
+	panel.activeUsersM.Lock()
+	delete(panel.activeUsers, user.arrUID)
+	panel.activeUsersM.Unlock()
 }
 
 func (panel *userPanel) isActive(UID []byte) bool {
@@ -73,6 +101,10 @@ func (panel *userPanel) updateUsageQueue() {
 	panel.activeUsersM.Lock()
 	panel.usageUpdateQueueM.Lock()
 	for _, user := range panel.activeUsers {
+		if user.bypass {
+			continue
+		}
+
 		upIncured, downIncured := user.valve.Nullify()
 		if usage, ok := panel.usageUpdateQueue[user.arrUID]; ok {
 			atomic.AddInt64(usage.up, upIncured)
@@ -89,6 +121,9 @@ func (panel *userPanel) updateUsageQueue() {
 
 func (panel *userPanel) updateUsageQueueForOne(user *ActiveUser) {
 	// used when one particular user deactivates
+	if user.bypass {
+		return
+	}
 	upIncured, downIncured := user.valve.Nullify()
 	panel.usageUpdateQueueM.Lock()
 	if usage, ok := panel.usageUpdateQueue[user.arrUID]; ok {
