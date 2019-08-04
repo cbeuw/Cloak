@@ -17,7 +17,15 @@ Cloak provides multi-user support, allowing multiple clients to connect to the p
 This project is based on [GoQuiet](https://github.com/cbeuw/GoQuiet). Through multiplexing, Cloak provides a siginifcant reduction in webpage loading time compared to GoQuiet (from 10% to 50%+, depending on the amount of content on the webpage, see [benchmarks](https://github.com/cbeuw/Cloak/wiki/Web-page-loading-benchmarks)).
 
 ## Build
-Simply `make client` and `make server`. Output binary will be in `build` folder.
+If you are not using the experimental go mod support, make sure you `go get` the following dependencies:
+```
+github.com/boltdb/bolt
+github.com/cbeuw/ratelimit
+github.com/gorilla/mux
+github.com/sirupsen/logrus
+golang.org/x/crypto
+```
+Then run `make client` or `make server`. Output binary will be in `build` folder.
 
 ## Configuration
 
@@ -51,7 +59,7 @@ Simply `make client` and `make server`. Output binary will be in `build` folder.
 ### For the administrator of the server
 
 0. Set up the underlying proxy server. Note that if you are using OpenVPN, you must change the protocol to TCP as Cloak does not support UDP
-1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo. If you wish to build it, make sure you fetch the dependencies using `go get github.com/boltdb/bolt`, `go get github.com/juju/ratelimit` and `go get github.com/gorilla/mux`
+1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo.
 2. Run ck-server -k. The base64 string before the comma is the **public** key to be given to users, the one after the comma is the **private** key to be kept secret
 3. Run `ck-server -u`. This will be used as the AdminUID
 4. Copy example_config/ckserver.json into a desired location. Change `PrivateKey` to the private key you just obtained; change `AdminUID` to the UID you just obtained.
@@ -70,7 +78,7 @@ Note: the user database is persistent as it's in-disk. You don't need to add the
 **Android client is available here: https://github.com/cbeuw/Cloak-android**
 
 0. Install and configure the proxy client based on the server
-1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo. If you wish to build it, make sure you fetch the dependencies using `go get github.com/boltdb/bolt`, `go get github.com/juju/ratelimit` and `go get github.com/gorilla/mux`
+1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo. 
 2. Obtain the public key and your UID from the administrator of your server
 3. Copy example_config/ckclient.json into a location of your choice. Enter the `UID` and `PublicKey` you have obtained. Set `ProxyMethod` to match exactly the corresponding entry in `ProxyBook` on the server end
 4. [Configure the proxy program.](https://github.com/cbeuw/Cloak/wiki/Underlying-proxy-configuration-guides) Run `ck-client -c <path to ckclient.json> -s <ip of your server>`
