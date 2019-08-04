@@ -38,6 +38,8 @@ Then run `make client` or `make server`. Output binary will be in `build` folder
 
 `AdminUID` is the UID of the admin user in base64.
 
+`BypassUID` is a list of UIDs that are authorised without any bandwidth or credit limit restrictions
+
 `DatabasePath` is the path to userinfo.db. If userinfo.db doesn't exist in this directory, Cloak will create one automatically. **If Cloak is started as a Shadowsocks plugin and Shadowsocks is started with its working directory as / (e.g. starting ss-server with systemctl), you need to set this field as an absolute path to a desired folder. If you leave it as default then Cloak will attempt to create userinfo.db under /, which it doesn't have the permission to do so and will raise an error. See Issue #13.**
 
 ### Client
