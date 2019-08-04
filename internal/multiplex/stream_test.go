@@ -92,16 +92,18 @@ func TestStream_Read(t *testing.T) {
 
 	var streamID uint32
 	buf := make([]byte, 10)
+
+	obfsBuf := make([]byte, 512)
 	t.Run("Plain read", func(t *testing.T) {
 		f.StreamID = streamID
-		obfsed, _ := sesh.Obfs(f)
+		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsed
+		ch <- obfsBuf[:i]
 		stream, err := sesh.Accept()
 		if err != nil {
 			t.Error("failed to accept stream", err)
 		}
-		i, err := stream.Read(buf)
+		i, err = stream.Read(buf)
 		if err != nil {
 			t.Error("failed to read", err)
 		}
@@ -115,9 +117,9 @@ func TestStream_Read(t *testing.T) {
 	})
 	t.Run("Nil buf", func(t *testing.T) {
 		f.StreamID = streamID
-		obfsed, _ := sesh.Obfs(f)
+		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsed
+		ch <- obfsBuf[:i]
 		stream, _ := sesh.Accept()
 		i, err := stream.Read(nil)
 		if i != 0 || err != nil {
@@ -135,9 +137,9 @@ func TestStream_Read(t *testing.T) {
 	})
 	t.Run("Read after stream close", func(t *testing.T) {
 		f.StreamID = streamID
-		obfsed, _ := sesh.Obfs(f)
+		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsed
+		ch <- obfsBuf[:i]
 		stream, _ := sesh.Accept()
 		stream.Close()
 		i, err := stream.Read(buf)
@@ -159,9 +161,9 @@ func TestStream_Read(t *testing.T) {
 	})
 	t.Run("Read after session close", func(t *testing.T) {
 		f.StreamID = streamID
-		obfsed, _ := sesh.Obfs(f)
+		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsed
+		ch <- obfsBuf[:i]
 		stream, _ := sesh.Accept()
 		sesh.Close()
 		i, err := stream.Read(buf)

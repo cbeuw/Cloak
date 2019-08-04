@@ -15,21 +15,22 @@ func TestOobfs(t *testing.T) {
 	sessionKey := make([]byte, 32)
 	rand.Read(sessionKey)
 
-	run := func(obfuscator *Obfuscator) {
+	run := func(obfuscator *Obfuscator, ct *testing.T) {
+		obfsBuf := make([]byte, 512)
 		f := &Frame{}
 		_testFrame, _ := quick.Value(reflect.TypeOf(f), rand.New(rand.NewSource(42)))
 		testFrame := _testFrame.Interface().(*Frame)
-		obfsed, err := obfuscator.Obfs(testFrame)
+		i, err := obfuscator.Obfs(testFrame, obfsBuf)
 		if err != nil {
-			t.Error("failed to obfs ", err)
+			ct.Error("failed to obfs ", err)
 		}
 
-		resultFrame, err := obfuscator.Deobfs(obfsed)
+		resultFrame, err := obfuscator.Deobfs(obfsBuf[:i])
 		if err != nil {
-			t.Error("failed to deobfs ", err)
+			ct.Error("failed to deobfs ", err)
 		}
 		if !bytes.Equal(testFrame.Payload, resultFrame.Payload) || testFrame.StreamID != resultFrame.StreamID {
-			t.Error("expecting", testFrame,
+			ct.Error("expecting", testFrame,
 				"got", resultFrame)
 		}
 	}
@@ -39,21 +40,21 @@ func TestOobfs(t *testing.T) {
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		}
-		run(obfuscator)
+		run(obfuscator, t)
 	})
 	t.Run("aes-gcm", func(t *testing.T) {
 		obfuscator, err := GenerateObfs(0x01, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		}
-		run(obfuscator)
+		run(obfuscator, t)
 	})
 	t.Run("chacha20-poly1305", func(t *testing.T) {
 		obfuscator, err := GenerateObfs(0x01, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		}
-		run(obfuscator)
+		run(obfuscator, t)
 	})
 
 }
@@ -68,6 +69,8 @@ func BenchmarkObfs(b *testing.B) {
 		testPayload,
 	}
 
+	obfsBuf := make([]byte, 512)
+
 	var key [32]byte
 	rand.Read(key[:])
 	b.Run("AES256GCM", func(b *testing.B) {
@@ -77,7 +80,7 @@ func BenchmarkObfs(b *testing.B) {
 		obfs := MakeObfs(key, payloadCipher)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			obfs(testFrame)
+			obfs(testFrame, obfsBuf)
 		}
 	})
 	b.Run("AES128GCM", func(b *testing.B) {
@@ -87,14 +90,14 @@ func BenchmarkObfs(b *testing.B) {
 		obfs := MakeObfs(key, payloadCipher)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			obfs(testFrame)
+			obfs(testFrame, obfsBuf)
 		}
 	})
 	b.Run("plain", func(b *testing.B) {
 		obfs := MakeObfs(key, nil)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			obfs(testFrame)
+			obfs(testFrame, obfsBuf)
 		}
 	})
 	b.Run("chacha20Poly1305", func(b *testing.B) {
@@ -103,7 +106,7 @@ func BenchmarkObfs(b *testing.B) {
 		obfs := MakeObfs(key, payloadCipher)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			obfs(testFrame)
+			obfs(testFrame, obfsBuf)
 		}
 	})
 }

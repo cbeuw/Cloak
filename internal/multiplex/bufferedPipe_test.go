@@ -2,6 +2,7 @@ package multiplex
 
 import (
 	"bytes"
+	"math/rand"
 	"testing"
 	"time"
 )
@@ -162,5 +163,31 @@ func TestReadAfterClose(t *testing.T) {
 			"expecting", b,
 			"got", b2,
 		)
+	}
+}
+
+func BenchmarkBufferedPipe_RW(b *testing.B) {
+	const PAYLOAD_LEN = 1300
+	testData := make([]byte, PAYLOAD_LEN)
+	rand.Read(testData)
+
+	pipe := NewBufferedPipe()
+
+	smallBuf := make([]byte, PAYLOAD_LEN-10)
+	go func() {
+		for {
+			pipe.Read(smallBuf)
+		}
+	}()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := pipe.Write(testData)
+		if err != nil {
+			b.Error(
+				"For", "pipe write",
+				"got", err,
+			)
+		}
+		b.SetBytes(PAYLOAD_LEN)
 	}
 }

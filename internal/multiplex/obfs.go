@@ -8,9 +8,11 @@ import (
 	"errors"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/salsa20"
+
+	prand "math/rand"
 )
 
-type Obfser func(*Frame) ([]byte, error)
+type Obfser func(*Frame, []byte) (int, error)
 type Deobfser func([]byte) (*Frame, error)
 
 var u32 = binary.BigEndian.Uint32
@@ -19,27 +21,37 @@ var putU32 = binary.BigEndian.PutUint32
 const HEADER_LEN = 12
 
 func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
-	var tagLen int
-	if payloadCipher == nil {
-		tagLen = 8 //nonce
-	} else {
-		tagLen = payloadCipher.Overhead()
-	}
-	obfs := func(f *Frame) ([]byte, error) {
-		ret := make([]byte, 5+HEADER_LEN+len(f.Payload)+tagLen)
-		recordLayer := ret[0:5]
-		header := ret[5 : 5+HEADER_LEN]
-		encryptedPayload := ret[5+HEADER_LEN:]
+	obfs := func(f *Frame, buf []byte) (int, error) {
+		var extraLen uint8
+		if payloadCipher == nil {
+			if len(f.Payload) < 8 {
+				extraLen = uint8(8 - len(f.Payload))
+			}
+		} else {
+			extraLen = uint8(payloadCipher.Overhead())
+		}
 
-		// header: [StreamID 4 bytes][Seq 4 bytes][Closing 1 byte][random 3 bytes]
+		usefulLen := 5 + HEADER_LEN + len(f.Payload) + int(extraLen)
+		if len(buf) < usefulLen {
+			return 0, errors.New("buffer is too small")
+		}
+		used := buf[:usefulLen]
+		recordLayer := used[0:5]
+		header := used[5 : 5+HEADER_LEN]
+		encryptedPayload := used[5+HEADER_LEN:]
+
+		// header: [StreamID 4 bytes][Seq 4 bytes][Closing 1 byte][extraLen 1 bytes][random 2 bytes]
 		putU32(header[0:4], f.StreamID)
 		putU32(header[4:8], f.Seq)
 		header[8] = f.Closing
-		rand.Read(header[9:12])
+		header[9] = extraLen
+		prand.Read(header[10:12])
 
 		if payloadCipher == nil {
 			copy(encryptedPayload, f.Payload)
-			rand.Read(encryptedPayload[len(encryptedPayload)-tagLen:])
+			if extraLen != 0 {
+				rand.Read(encryptedPayload[len(encryptedPayload)-int(extraLen):])
+			}
 		} else {
 			ciphertext := payloadCipher.Seal(nil, header, f.Payload, nil)
 			copy(encryptedPayload, ciphertext)
@@ -54,20 +66,14 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 		recordLayer[1] = 0x03
 		recordLayer[2] = 0x03
 		binary.BigEndian.PutUint16(recordLayer[3:5], uint16(HEADER_LEN+len(encryptedPayload)))
-		return ret, nil
+		return usefulLen, nil
 	}
 	return obfs
 }
 
 func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
-	var tagLen int
-	if payloadCipher == nil {
-		tagLen = 8 // nonce
-	} else {
-		tagLen = payloadCipher.Overhead()
-	}
 	deobfs := func(in []byte) (*Frame, error) {
-		if len(in) < 5+HEADER_LEN+tagLen {
+		if len(in) < 5+HEADER_LEN+8 {
 			return nil, errors.New("Input cannot be shorter than 33 bytes")
 		}
 		peeled := in[5:]
@@ -81,8 +87,9 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 		streamID := u32(header[0:4])
 		seq := u32(header[4:8])
 		closing := header[8]
+		extraLen := header[9]
 
-		outputPayload := make([]byte, len(payload)-tagLen)
+		outputPayload := make([]byte, len(payload)-int(extraLen))
 
 		if payloadCipher == nil {
 			copy(outputPayload, payload)

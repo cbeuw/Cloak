@@ -37,6 +37,8 @@ type Stream struct {
 
 	// close(die) is used to notify different goroutines that this stream is closing
 	closed uint32
+
+	obfsBuf []byte
 }
 
 func makeStream(id uint32, sesh *Session) *Stream {
@@ -46,6 +48,7 @@ func makeStream(id uint32, sesh *Session) *Stream {
 		sh:         []*frameNode{},
 		newFrameCh: make(chan *Frame, 1024),
 		sortedBuf:  NewBufferedPipe(),
+		obfsBuf:    make([]byte, 17000),
 	}
 	go stream.recvNewFrame()
 	log.Tracef("stream %v opened", id)
@@ -93,11 +96,11 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 		Payload:  in,
 	}
 
-	tlsRecord, err := s.session.Obfs(f)
+	i, err := s.session.Obfs(f, s.obfsBuf)
 	if err != nil {
-		return 0, err
+		return i, err
 	}
-	n, err = s.session.sb.send(tlsRecord)
+	n, err = s.session.sb.send(s.obfsBuf[:i])
 	return
 
 }
@@ -136,8 +139,14 @@ func (s *Stream) Close() error {
 		Closing:  1,
 		Payload:  pad,
 	}
-	tlsRecord, _ := s.session.Obfs(f)
-	s.session.sb.send(tlsRecord)
+	i, err := s.session.Obfs(f, s.obfsBuf)
+	if err != nil {
+		return err
+	}
+	_, err = s.session.sb.send(s.obfsBuf[:i])
+	if err != nil {
+		return err
+	}
 
 	s._close()
 	s.session.delStream(s.id)
