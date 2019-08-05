@@ -79,7 +79,11 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 	}
 	id := atomic.AddUint32(&sesh.nextStreamID, 1) - 1
 	// Because atomic.AddUint32 returns the value after incrementation
-	stream := makeStream(id, sesh)
+	connId, err := sesh.sb.assignRandomConn()
+	if err != nil {
+		return nil, err
+	}
+	stream := makeStream(sesh, id, connId)
 	sesh.streamsM.Lock()
 	sesh.streams[id] = stream
 	sesh.streamsM.Unlock()
@@ -123,7 +127,13 @@ func (sesh *Session) recvDataFromRemote(data []byte) {
 			// If the stream has been closed and the current frame is a closing frame, we do noop
 			return
 		} else {
-			stream = makeStream(frame.StreamID, sesh)
+			// it may be tempting to use the connId from which the frame was received. However it doesn't make
+			// any difference because we only care to send the data from the same stream through the same
+			// TCP connection. The remote may use a different connection to send the same stream than the one the client
+			// use to send.
+			connId, _ := sesh.sb.assignRandomConn()
+			// we ignore the error here. If the switchboard is broken, it will be reflected upon stream.Write
+			stream = makeStream(sesh, frame.StreamID, connId)
 			sesh.streams[frame.StreamID] = stream
 			sesh.acceptCh <- stream
 			stream.writeFrame(frame)

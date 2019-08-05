@@ -28,26 +28,33 @@ type Stream struct {
 
 	writingM sync.RWMutex
 
-	// close(die) is used to notify different goroutines that this stream is closing
 	closed uint32
 
 	obfsBuf []byte
+
+	// we assign each stream a fixed underlying TCP connection to utilise order guarantee provided by TCP itself
+	// so that frameSorter should have few to none ooo frames to deal with
+	// overall the streams in a session should be uniformly distributed across all connections
+	assignedConnId uint32
 }
 
-func makeStream(id uint32, sesh *Session) *Stream {
+func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
 	buf := NewBufferedPipe()
 
 	stream := &Stream{
-		id:        id,
-		session:   sesh,
-		sortedBuf: buf,
-		obfsBuf:   make([]byte, 17000),
-		sorter:    NewFrameSorter(buf),
+		id:             id,
+		session:        sesh,
+		sortedBuf:      buf,
+		obfsBuf:        make([]byte, 17000),
+		sorter:         NewFrameSorter(buf),
+		assignedConnId: assignedConnId,
 	}
 
 	log.Tracef("stream %v opened", id)
 	return stream
 }
+
+//func (s *Stream) reassignConnId(connId uint32) { atomic.StoreUint32(&s.assignedConnId,connId)}
 
 func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
 
@@ -96,7 +103,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	if err != nil {
 		return i, err
 	}
-	n, err = s.session.sb.Write(s.obfsBuf[:i])
+	n, err = s.session.sb.send(s.obfsBuf[:i], &s.assignedConnId)
 	return
 
 }
@@ -139,7 +146,7 @@ func (s *Stream) Close() error {
 	if err != nil {
 		return err
 	}
-	_, err = s.session.sb.Write(s.obfsBuf[:i])
+	_, err = s.session.sb.send(s.obfsBuf[:i], &s.assignedConnId)
 	if err != nil {
 		return err
 	}

@@ -99,6 +99,7 @@ func TestStream_Read(t *testing.T) {
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
 		ch <- obfsBuf[:i]
+		time.Sleep(100 * time.Microsecond)
 		stream, err := sesh.Accept()
 		if err != nil {
 			t.Error("failed to accept stream", err)
@@ -120,6 +121,7 @@ func TestStream_Read(t *testing.T) {
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
 		ch <- obfsBuf[:i]
+		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		i, err := stream.Read(nil)
 		if i != 0 || err != nil {
@@ -140,6 +142,7 @@ func TestStream_Read(t *testing.T) {
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
 		ch <- obfsBuf[:i]
+		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		stream.Close()
 		i, err := stream.Read(buf)
@@ -164,6 +167,7 @@ func TestStream_Read(t *testing.T) {
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
 		ch <- obfsBuf[:i]
+		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		sesh.Close()
 		i, err := stream.Read(buf)

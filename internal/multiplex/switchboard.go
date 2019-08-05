@@ -3,6 +3,7 @@ package multiplex
 import (
 	"errors"
 	log "github.com/sirupsen/logrus"
+	"math/rand"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -14,29 +15,11 @@ type switchboard struct {
 
 	*Valve
 
-	// optimum is the connEnclave with the smallest sendQueue
-	optimum atomic.Value // *connEnclave
-	cesM    sync.RWMutex
-	ces     []*connEnclave
+	connsM     sync.RWMutex
+	conns      map[uint32]net.Conn
+	nextConnId uint32
 
 	broken uint32
-}
-
-func (sb *switchboard) getOptimum() *connEnclave {
-	if i := sb.optimum.Load(); i == nil {
-		return nil
-	} else {
-		return i.(*connEnclave)
-	}
-}
-
-// Some data comes from a Stream to be sent through one of the many
-// remoteConn, but which remoteConn should we use to send the data?
-//
-// In this case, we pick the remoteConn that has about the smallest sendQueue.
-type connEnclave struct {
-	remoteConn net.Conn
-	sendQueue  uint32
 }
 
 func makeSwitchboard(sesh *Session, valve *Valve) *switchboard {
@@ -45,7 +28,7 @@ func makeSwitchboard(sesh *Session, valve *Valve) *switchboard {
 	sb := &switchboard{
 		session: sesh,
 		Valve:   valve,
-		ces:     []*connEnclave{},
+		conns:   make(map[uint32]net.Conn),
 	}
 	return sb
 }
@@ -53,65 +36,19 @@ func makeSwitchboard(sesh *Session, valve *Valve) *switchboard {
 var errNilOptimum = errors.New("The optimal connection is nil")
 var errBrokenSwitchboard = errors.New("the switchboard is broken")
 
-func (sb *switchboard) Write(data []byte) (int, error) {
-	if atomic.LoadUint32(&sb.broken) == 1 {
-		return 0, errBrokenSwitchboard
-	}
-	ce := sb.getOptimum()
-	if ce == nil {
-		return 0, errNilOptimum
-	}
-	atomic.AddUint32(&ce.sendQueue, uint32(len(data)))
-	go sb.updateOptimum()
-	n, err := ce.remoteConn.Write(data)
-	if err != nil {
-		return n, err
-	}
-	sb.txWait(n)
-	sb.Valve.AddTx(int64(n))
-	atomic.AddUint32(&ce.sendQueue, ^uint32(n-1))
-	go sb.updateOptimum()
-	return n, nil
-}
-
-func (sb *switchboard) updateOptimum() {
-	currentOpti := sb.getOptimum()
-	currentOptiQ := atomic.LoadUint32(&currentOpti.sendQueue)
-	sb.cesM.RLock()
-	for _, ce := range sb.ces {
-		ceQ := atomic.LoadUint32(&ce.sendQueue)
-		if ceQ < currentOptiQ {
-			currentOpti = ce
-			currentOptiQ = ceQ
-		}
-	}
-	sb.cesM.RUnlock()
-	sb.optimum.Store(currentOpti)
-}
-
 func (sb *switchboard) addConn(conn net.Conn) {
-	var sendQueue uint32
-	newCe := &connEnclave{
-		remoteConn: conn,
-		sendQueue:  sendQueue,
-	}
-	sb.cesM.Lock()
-	sb.ces = append(sb.ces, newCe)
-	sb.cesM.Unlock()
-	sb.optimum.Store(newCe)
-	go sb.deplex(newCe)
+	connId := atomic.AddUint32(&sb.nextConnId, 1) - 1
+	sb.connsM.Lock()
+	sb.conns[connId] = conn
+	sb.connsM.Unlock()
+	go sb.deplex(connId, conn)
 }
 
-func (sb *switchboard) removeConn(closing *connEnclave) {
-	sb.cesM.Lock()
-	for i, ce := range sb.ces {
-		if closing == ce {
-			sb.ces = append(sb.ces[:i], sb.ces[i+1:]...)
-			break
-		}
-	}
-	remaining := len(sb.ces)
-	sb.cesM.Unlock()
+func (sb *switchboard) removeConn(connId uint32) {
+	sb.connsM.Lock()
+	delete(sb.conns, connId)
+	remaining := len(sb.conns)
+	sb.connsM.Unlock()
 	if remaining == 0 {
 		atomic.StoreUint32(&sb.broken, 1)
 		sb.session.SetTerminalMsg("no underlying connection left")
@@ -119,29 +56,67 @@ func (sb *switchboard) removeConn(closing *connEnclave) {
 	}
 }
 
+// a pointer to connId is passed here so that the switchboard can reassign it
+func (sb *switchboard) send(data []byte, connId *uint32) (int, error) {
+	var conn net.Conn
+	sb.connsM.RLock()
+	conn, ok := sb.conns[*connId]
+	sb.connsM.RUnlock()
+	if ok {
+		return conn.Write(data)
+	} else {
+		// do not call assignRandomConn() here.
+		// we'll have to do connsM.RLock() after we get a new connId from assignRandomConn, in order to
+		// get the new conn through conns[newConnId]
+		// however between connsM.RUnlock() in assignRandomConn and our call to connsM.RLock(), things may happen.
+		// in particular if newConnId is removed between the RUnlock and RLock, conns[newConnId] will return
+		// a nil pointer. To prevent this we must get newConnId and the reference to conn itself in one single mutex
+		// protection
+		if atomic.LoadUint32(&sb.broken) == 1 {
+			return 0, errBrokenSwitchboard
+		}
+		sb.connsM.RLock()
+		newConnId := rand.Intn(len(sb.conns))
+		conn = sb.conns[uint32(newConnId)]
+		sb.connsM.RUnlock()
+		return conn.Write(data)
+	}
+
+}
+
+func (sb *switchboard) assignRandomConn() (uint32, error) {
+	if atomic.LoadUint32(&sb.broken) == 1 {
+		return 0, errBrokenSwitchboard
+	}
+	sb.connsM.RLock()
+	connId := rand.Intn(len(sb.conns))
+	sb.connsM.RUnlock()
+	return uint32(connId), nil
+}
+
 // actively triggered by session.Close()
 func (sb *switchboard) closeAll() {
 	if atomic.SwapUint32(&sb.broken, 1) == 1 {
 		return
 	}
-	sb.cesM.RLock()
-	for _, ce := range sb.ces {
-		ce.remoteConn.Close()
+	sb.connsM.RLock()
+	for _, conn := range sb.conns {
+		conn.Close()
 	}
-	sb.cesM.RUnlock()
+	sb.connsM.RUnlock()
 }
 
 // deplex function costantly reads from a TCP connection
-func (sb *switchboard) deplex(ce *connEnclave) {
+func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 	buf := make([]byte, 20480)
 	for {
-		n, err := sb.session.unitRead(ce.remoteConn, buf)
+		n, err := sb.session.unitRead(conn, buf)
 		sb.rxWait(n)
 		sb.Valve.AddRx(int64(n))
 		if err != nil {
 			log.Tracef("a connection for session %v has closed: %v", sb.session.id, err)
-			go ce.remoteConn.Close()
-			sb.removeConn(ce)
+			go conn.Close()
+			sb.removeConn(connId)
 			return
 		}
 
