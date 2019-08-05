@@ -2,7 +2,9 @@ package multiplex
 
 import (
 	"container/heap"
-	//"log"
+	"io"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // The data is multiplexed through several TCP connections, therefore the
@@ -50,73 +52,101 @@ func (sh *sorterHeap) Pop() interface{} {
 	return x
 }
 
-func (s *Stream) writeNewFrame(f *Frame) {
-	s.newFrameCh <- f
+type frameSorter struct {
+	nextRecvSeq uint32
+	rev         int
+	sh          sorterHeap
+	wrapMode    bool
+
+	// New frames are received through newFrameCh by frameSorter
+	newFrameCh chan *Frame
+
+	output io.WriteCloser
+}
+
+func NewFrameSorter(output io.WriteCloser) *frameSorter {
+	fs := &frameSorter{
+		sh:         []*frameNode{},
+		newFrameCh: make(chan *Frame, 1024),
+		rev:        0,
+		output:     output,
+	}
+	go fs.recvNewFrame()
+	return fs
+}
+
+func (fs *frameSorter) writeNewFrame(f *Frame) {
+	fs.newFrameCh <- f
+}
+func (fs *frameSorter) Close() error {
+	fs.newFrameCh <- nil
+	return nil
 }
 
 // recvNewFrame is a forever running loop which receives frames unordered,
 // cache and order them and send them into sortedBufCh
-func (s *Stream) recvNewFrame() {
+func (fs *frameSorter) recvNewFrame() {
+	defer log.Tracef("a recvNewFrame has returned gracefully")
 	for {
-		f := <-s.newFrameCh
+		f := <-fs.newFrameCh
 		if f == nil {
 			return
 		}
 
-		// when there's no ooo packages in heap and we receive the next package in order
-		if len(s.sh) == 0 && f.Seq == s.nextRecvSeq {
+		// when there'fs no ooo packages in heap and we receive the next package in order
+		if len(fs.sh) == 0 && f.Seq == fs.nextRecvSeq {
 			if f.Closing == 1 {
 				// empty data indicates closing signal
-				s.passiveClose()
+				fs.output.Close()
 				return
 			} else {
-				s.sortedBuf.Write(f.Payload)
-				s.nextRecvSeq += 1
-				if s.nextRecvSeq == 0 { // getting wrapped
-					s.rev += 1
-					s.wrapMode = false
+				fs.output.Write(f.Payload)
+				fs.nextRecvSeq += 1
+				if fs.nextRecvSeq == 0 { // getting wrapped
+					fs.rev += 1
+					fs.wrapMode = false
 				}
 			}
 			continue
 		}
 
-		fs := &frameNode{
+		node := &frameNode{
 			trueSeq: 0,
 			frame:   f,
 		}
 
-		if f.Seq < s.nextRecvSeq {
+		if f.Seq < fs.nextRecvSeq {
 			// For the ease of demonstration, assume seq is uint8, i.e. it wraps around after 255
 			// e.g. we are on rev=0 (wrap has not happened yet)
 			// and we get the order of recv as 253 254 0 1
 			// after 254, nextN should be 255, but 0 is received and 0 < 255
 			// now 0 should have a trueSeq of 256
-			if !s.wrapMode {
+			if !fs.wrapMode {
 				// wrapMode is true when the latest seq is wrapped but nextN is not
-				s.wrapMode = true
+				fs.wrapMode = true
 			}
-			fs.trueSeq = uint64(1<<32)*uint64(s.rev+1) + uint64(f.Seq) + 1
+			node.trueSeq = uint64(1<<32)*uint64(fs.rev+1) + uint64(f.Seq) + 1
 			// +1 because wrapped 0 should have trueSeq of 256 instead of 255
 			// when this bit was run on 1, the trueSeq of 1 would become 256
 		} else {
-			fs.trueSeq = uint64(1<<32)*uint64(s.rev) + uint64(f.Seq)
+			node.trueSeq = uint64(1<<32)*uint64(fs.rev) + uint64(f.Seq)
 			// when this bit was run on 255, the trueSeq of 255 would be 255
 		}
 
-		heap.Push(&s.sh, fs)
+		heap.Push(&fs.sh, node)
 		// Keep popping from the heap until empty or to the point that the wanted seq was not received
-		for len(s.sh) > 0 && s.sh[0].frame.Seq == s.nextRecvSeq {
-			f = heap.Pop(&s.sh).(*frameNode).frame
+		for len(fs.sh) > 0 && fs.sh[0].frame.Seq == fs.nextRecvSeq {
+			f = heap.Pop(&fs.sh).(*frameNode).frame
 			if f.Closing == 1 {
 				// empty data indicates closing signal
-				s.passiveClose()
+				fs.output.Close()
 				return
 			} else {
-				s.sortedBuf.Write(f.Payload)
-				s.nextRecvSeq += 1
-				if s.nextRecvSeq == 0 { // getting wrapped
-					s.rev += 1
-					s.wrapMode = false
+				fs.output.Write(f.Payload)
+				fs.nextRecvSeq += 1
+				if fs.nextRecvSeq == 0 { // getting wrapped
+					fs.rev += 1
+					fs.wrapMode = false
 				}
 			}
 		}

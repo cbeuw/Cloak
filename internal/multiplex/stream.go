@@ -19,16 +19,9 @@ type Stream struct {
 
 	session *Session
 
-	// Explanations of the following 4 fields can be found in frameSorter.go
-	nextRecvSeq uint32
-	rev         int
-	sh          sorterHeap
-	wrapMode    bool
-
-	// New frames are received through newFrameCh by frameSorter
-	newFrameCh chan *Frame
-
 	sortedBuf *bufferedPipe
+
+	sorter *frameSorter
 
 	// atomic
 	nextSendSeq uint32
@@ -42,15 +35,16 @@ type Stream struct {
 }
 
 func makeStream(id uint32, sesh *Session) *Stream {
+	buf := NewBufferedPipe()
+
 	stream := &Stream{
-		id:         id,
-		session:    sesh,
-		sh:         []*frameNode{},
-		newFrameCh: make(chan *Frame, 1024),
-		sortedBuf:  NewBufferedPipe(),
-		obfsBuf:    make([]byte, 17000),
+		id:        id,
+		session:   sesh,
+		sortedBuf: buf,
+		obfsBuf:   make([]byte, 17000),
+		sorter:    NewFrameSorter(buf),
 	}
-	go stream.recvNewFrame()
+
 	log.Tracef("stream %v opened", id)
 	return stream
 }
@@ -108,7 +102,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 // the necessary steps to mark the stream as closed and to release resources
 func (s *Stream) _close() {
 	atomic.StoreUint32(&s.closed, 1)
-	s.newFrameCh <- nil // this will trigger frameSorter to return
+	s.sorter.Close() // this will trigger frameSorter to return
 	s.sortedBuf.Close()
 }
 

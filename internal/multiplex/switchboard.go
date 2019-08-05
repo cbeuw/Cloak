@@ -148,7 +148,7 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 		// (this happens when ss-server and ss-local closes the stream
 		// simutaneously), we don't do anything
 		if stream != nil {
-			stream.writeNewFrame(frame)
+			stream.sorter.writeNewFrame(frame)
 		}
 	}
 }
