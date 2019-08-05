@@ -51,6 +51,8 @@ func makeStream(id uint32, sesh *Session) *Stream {
 
 func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
 
+func (s *Stream) writeFrame(frame *Frame) { s.sorter.writeNewFrame(frame) }
+
 func (s *Stream) Read(buf []byte) (n int, err error) {
 	if len(buf) == 0 {
 		if s.isClosed() {
@@ -94,7 +96,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	if err != nil {
 		return i, err
 	}
-	n, err = s.session.sb.send(s.obfsBuf[:i])
+	n, err = s.session.sb.Write(s.obfsBuf[:i])
 	return
 
 }
@@ -137,7 +139,7 @@ func (s *Stream) Close() error {
 	if err != nil {
 		return err
 	}
-	_, err = s.session.sb.send(s.obfsBuf[:i])
+	_, err = s.session.sb.Write(s.obfsBuf[:i])
 	if err != nil {
 		return err
 	}

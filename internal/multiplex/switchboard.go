@@ -18,6 +18,8 @@ type switchboard struct {
 	optimum atomic.Value // *connEnclave
 	cesM    sync.RWMutex
 	ces     []*connEnclave
+
+	broken uint32
 }
 
 func (sb *switchboard) getOptimum() *connEnclave {
@@ -48,9 +50,13 @@ func makeSwitchboard(sesh *Session, valve *Valve) *switchboard {
 	return sb
 }
 
-var errNilOptimum error = errors.New("The optimal connection is nil")
+var errNilOptimum = errors.New("The optimal connection is nil")
+var errBrokenSwitchboard = errors.New("the switchboard is broken")
 
-func (sb *switchboard) send(data []byte) (int, error) {
+func (sb *switchboard) Write(data []byte) (int, error) {
+	if atomic.LoadUint32(&sb.broken) == 1 {
+		return 0, errBrokenSwitchboard
+	}
 	ce := sb.getOptimum()
 	if ce == nil {
 		return 0, errNilOptimum
@@ -104,17 +110,20 @@ func (sb *switchboard) removeConn(closing *connEnclave) {
 			break
 		}
 	}
-	if len(sb.ces) == 0 {
-		sb.session.SetTerminalMsg("no underlying connection left")
-		sb.cesM.Unlock()
-		sb.session.Close()
-		return
-	}
+	remaining := len(sb.ces)
 	sb.cesM.Unlock()
+	if remaining == 0 {
+		atomic.StoreUint32(&sb.broken, 1)
+		sb.session.SetTerminalMsg("no underlying connection left")
+		sb.session.Close()
+	}
 }
 
 // actively triggered by session.Close()
 func (sb *switchboard) closeAll() {
+	if atomic.SwapUint32(&sb.broken, 1) == 1 {
+		return
+	}
 	sb.cesM.RLock()
 	for _, ce := range sb.ces {
 		ce.remoteConn.Close()
@@ -122,8 +131,7 @@ func (sb *switchboard) closeAll() {
 	sb.cesM.RUnlock()
 }
 
-// deplex function costantly reads from a TCP connection, call Deobfs and distribute it
-// to the corresponding stream
+// deplex function costantly reads from a TCP connection
 func (sb *switchboard) deplex(ce *connEnclave) {
 	buf := make([]byte, 20480)
 	for {
@@ -137,18 +145,6 @@ func (sb *switchboard) deplex(ce *connEnclave) {
 			return
 		}
 
-		frame, err := sb.session.Deobfs(buf[:n])
-		if err != nil {
-			log.Debugf("Failed to decrypt a frame for session %v: %v", sb.session.id, err)
-			continue
-		}
-
-		stream := sb.session.getStream(frame.StreamID, frame.Closing == 1)
-		// if the frame is telling us to close a closed stream
-		// (this happens when ss-server and ss-local closes the stream
-		// simutaneously), we don't do anything
-		if stream != nil {
-			stream.sorter.writeNewFrame(frame)
-		}
+		sb.session.recvDataFromRemote(buf[:n])
 	}
 }

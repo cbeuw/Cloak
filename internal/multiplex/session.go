@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -105,27 +107,30 @@ func (sesh *Session) delStream(id uint32) {
 	sesh.streamsM.Unlock()
 }
 
-// either fetch an existing stream or instantiate a new stream and put it in the dict, and return it
-func (sesh *Session) getStream(id uint32, closingFrame bool) *Stream {
-	// it would have been neater to use defer Unlock(), however it gives
-	// non-negligable overhead and this function is performance critical
+func (sesh *Session) recvDataFromRemote(data []byte) {
+	frame, err := sesh.Deobfs(data)
+	if err != nil {
+		log.Debugf("Failed to decrypt a frame for session %v: %v", sesh.id, err)
+	}
+
 	sesh.streamsM.Lock()
 	defer sesh.streamsM.Unlock()
-	stream := sesh.streams[id]
-	if stream != nil {
-		return stream
+	stream, existing := sesh.streams[frame.StreamID]
+	if existing {
+		stream.writeFrame(frame)
 	} else {
-		if closingFrame {
-			// If the stream has been closed and the current frame is a closing frame,
-			// we return nil
-			return nil
+		if frame.Closing == 1 {
+			// If the stream has been closed and the current frame is a closing frame, we do noop
+			return
 		} else {
-			stream = makeStream(id, sesh)
-			sesh.streams[id] = stream
+			stream = makeStream(frame.StreamID, sesh)
+			sesh.streams[frame.StreamID] = stream
 			sesh.acceptCh <- stream
-			return stream
+			stream.writeFrame(frame)
+			return
 		}
 	}
+
 }
 
 func (sesh *Session) SetTerminalMsg(msg string) {
@@ -156,6 +161,7 @@ func (sesh *Session) Close() error {
 	sesh.streamsM.Unlock()
 
 	sesh.sb.closeAll()
+	log.Debugf("session %v closed gracefully", sesh.id)
 	return nil
 
 }
