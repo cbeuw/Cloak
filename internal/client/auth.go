@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 )
 
-func MakeHiddenData(sta *State) (random, TLSsessionID, keyShare, sharedSecret []byte) {
+func makeHiddenData(sta *State) (random, TLSsessionID, keyShare, sharedSecret []byte) {
 	// random is marshalled ephemeral pub key 32 bytes
 	// TLSsessionID || keyShare is [encrypted UID 16 bytes, proxy method 12 bytes, encryption method 1 byte, timestamp 8 bytes, sessionID 4 bytes] [unused data] [16 bytes authentication tag]
 	ephPv, ephPub, _ := ecdh.GenerateKey(rand.Reader)
@@ -35,7 +35,7 @@ func xor(a []byte, b []byte) {
 	}
 }
 
-func DecryptSessionKey(serverRandom []byte, sharedSecret []byte) []byte {
+func decryptSessionKey(serverRandom []byte, sharedSecret []byte) []byte {
 	xor(serverRandom, sharedSecret)
 	return serverRandom
 }

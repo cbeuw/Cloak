@@ -27,10 +27,6 @@ var version string
 func dispatchConnection(conn net.Conn, sta *server.State) {
 	remoteAddr := conn.RemoteAddr()
 	var err error
-	rejectLogger := log.WithFields(log.Fields{
-		"remoteAddr": remoteAddr,
-		"error":      err,
-	})
 	buf := make([]byte, 1500)
 
 	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
@@ -56,37 +52,15 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		go util.Pipe(conn, webConn)
 	}
 
-	ch, err := server.ParseClientHello(data)
+	UID, sessionID, proxyMethod, encryptionMethod, finishHandshake, err := server.PrepareConnection(data, sta, conn)
 	if err != nil {
-		rejectLogger.Warn("+1 non Cloak non (or malformed) TLS traffic")
-		goWeb()
-		return
-	}
-
-	UID, sessionID, proxyMethod, encryptionMethod, sharedSecret, err := server.TouchStone(ch, sta)
-	if err != nil {
-		rejectLogger.Warn("+1 non Cloak TLS traffic")
-		goWeb()
-		return
-	}
-	if _, ok := sta.ProxyBook[proxyMethod]; !ok {
 		log.WithFields(log.Fields{
-			"UID":         UID,
-			"proxyMethod": proxyMethod,
-		}).Warn("+1 Cloak TLS traffic with invalid proxy method")
-		goWeb()
-		return
-	}
-
-	finishHandshake := func(sessionKey []byte) error {
-		reply := server.ComposeReply(ch, sharedSecret, sessionKey)
-		_, err = conn.Write(reply)
-		if err != nil {
-			go conn.Close()
-			return err
-		}
-		log.Trace("finished handshake")
-		return nil
+			"remoteAddr":       remoteAddr,
+			"UID":              UID,
+			"sessionId":        sessionID,
+			"proxyMethod":      proxyMethod,
+			"encryptionMethod": encryptionMethod,
+		}).Warn(err)
 	}
 
 	sessionKey := make([]byte, 32)
@@ -106,6 +80,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			log.Error(err)
 			return
 		}
+		log.Trace("finished handshake")
 		sesh := mux.MakeSession(0, mux.UNLIMITED_VALVE, obfuscator, util.ReadTLS)
 		sesh.AddConnection(conn)
 		//TODO: Router could be nil in cnc mode
@@ -146,6 +121,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			log.Error(err)
 			return
 		}
+		log.Trace("finished handshake")
 		sesh.AddConnection(conn)
 		return
 	}
@@ -155,6 +131,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		log.Error(err)
 		return
 	}
+	log.Trace("finished handshake")
 
 	log.WithFields(log.Fields{
 		"UID":       b64(UID),

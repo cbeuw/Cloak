@@ -51,7 +51,7 @@ func (f *Firefox) composeExtensions(serverName string, keyShare []byte) []byte {
 }
 
 func (f *Firefox) composeClientHello(sta *State) (ch []byte, sharedSecret []byte) {
-	random, sessionID, keyShare, sharedSecret := MakeHiddenData(sta)
+	random, sessionID, keyShare, sharedSecret := makeHiddenData(sta)
 
 	var clientHello [12][]byte
 	clientHello[0] = []byte{0x01}             // handshake type

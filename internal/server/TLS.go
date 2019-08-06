@@ -7,6 +7,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // ClientHello contains every field in a ClientHello message
@@ -79,8 +82,8 @@ func parseKeyShare(input []byte) (ret []byte, err error) {
 	return nil, errors.New("x25519 does not exist")
 }
 
-// AddRecordLayer adds record layer to data
-func AddRecordLayer(input []byte, typ []byte, ver []byte) []byte {
+// addRecordLayer adds record layer to data
+func addRecordLayer(input []byte, typ []byte, ver []byte) []byte {
 	length := make([]byte, 2)
 	binary.BigEndian.PutUint16(length, uint16(len(input)))
 	ret := make([]byte, 5+len(input))
@@ -91,9 +94,9 @@ func AddRecordLayer(input []byte, typ []byte, ver []byte) []byte {
 	return ret
 }
 
-// ParseClientHello parses everything on top of the TLS layer
+// parseClientHello parses everything on top of the TLS layer
 // (including the record layer) into ClientHello type
-func ParseClientHello(data []byte) (ret *ClientHello, err error) {
+func parseClientHello(data []byte) (ret *ClientHello, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.New("Malformed ClientHello")
@@ -189,13 +192,49 @@ func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte
 	return ret
 }
 
-// ComposeReply composes the ServerHello, ChangeCipherSpec and Finished messages
+// composeReply composes the ServerHello, ChangeCipherSpec and Finished messages
 // together with their respective record layers into one byte slice. The content
 // of these messages are random and useless for this plugin
-func ComposeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) []byte {
+func composeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) []byte {
 	TLS12 := []byte{0x03, 0x03}
-	shBytes := AddRecordLayer(composeServerHello(ch.sessionId, sharedSecret, sessionKey), []byte{0x16}, TLS12)
-	ccsBytes := AddRecordLayer([]byte{0x01}, []byte{0x14}, TLS12)
+	shBytes := addRecordLayer(composeServerHello(ch.sessionId, sharedSecret, sessionKey), []byte{0x16}, TLS12)
+	ccsBytes := addRecordLayer([]byte{0x01}, []byte{0x14}, TLS12)
 	ret := append(shBytes, ccsBytes...)
 	return ret
+}
+
+var ErrBadClientHello = errors.New("non (or malformed) ClientHello")
+var ErrNotCloak = errors.New("TLS but non-Cloak ClientHello")
+var ErrBadProxyMethod = errors.New("invalid proxy method")
+
+func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (UID []byte, sessionID uint32, proxyMethod string, encryptionMethod byte, finisher func([]byte) error, err error) {
+	ch, err := parseClientHello(firstPacket)
+	if err != nil {
+		log.Debug(err)
+		err = ErrBadClientHello
+		return
+	}
+
+	var sharedSecret []byte
+	UID, sessionID, proxyMethod, encryptionMethod, sharedSecret, err = TouchStone(ch, sta)
+	if err != nil {
+		log.Debug(err)
+		err = ErrNotCloak
+		return
+	}
+	if _, ok := sta.ProxyBook[proxyMethod]; !ok {
+		err = ErrBadProxyMethod
+		return
+	}
+
+	finisher = func(sessionKey []byte) error {
+		reply := composeReply(ch, sharedSecret, sessionKey)
+		_, err = conn.Write(reply)
+		if err != nil {
+			go conn.Close()
+			return err
+		}
+		return nil
+	}
+	return
 }

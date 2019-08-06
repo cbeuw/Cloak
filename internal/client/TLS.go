@@ -3,6 +3,9 @@ package client
 import (
 	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/util"
+	"net"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Browser interface {
@@ -34,8 +37,34 @@ func addExtRec(typ []byte, data []byte) []byte {
 	return ret
 }
 
-// ComposeClientHello composes ClientHello with record layer
-func ComposeClientHello(sta *State) ([]byte, []byte) {
+// composeClientHello composes ClientHello with record layer
+func composeClientHello(sta *State) ([]byte, []byte) {
 	ch, sharedSecret := sta.Browser.composeClientHello(sta)
 	return util.AddRecordLayer(ch, []byte{0x16}, []byte{0x03, 0x01}), sharedSecret
+}
+
+func PrepareConnection(sta *State, conn net.Conn) (sessionKey []byte, err error) {
+
+	clientHello, sharedSecret := composeClientHello(sta)
+	_, err = conn.Write(clientHello)
+	if err != nil {
+		return
+	}
+	log.Trace("client hello sent successfully")
+
+	buf := make([]byte, 1024)
+	log.Trace("waiting for ServerHello")
+	_, err = util.ReadTLS(conn, buf)
+	if err != nil {
+		return
+	}
+	serverRandom := buf[11:43]
+	sessionKey = decryptSessionKey(serverRandom, sharedSecret)
+	_, err = util.ReadTLS(conn, buf)
+	if err != nil {
+		return
+	}
+
+	return sessionKey, nil
+
 }

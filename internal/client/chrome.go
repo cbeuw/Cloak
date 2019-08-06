@@ -80,7 +80,7 @@ func (c *Chrome) composeExtensions(serverName string, keyShare []byte) []byte {
 }
 
 func (c *Chrome) composeClientHello(sta *State) (ch []byte, sharedSecret []byte) {
-	random, sessionID, keyShare, sharedSecret := MakeHiddenData(sta)
+	random, sessionID, keyShare, sharedSecret := makeHiddenData(sta)
 	var clientHello [12][]byte
 	clientHello[0] = []byte{0x01}             // handshake type
 	clientHello[1] = []byte{0x00, 0x01, 0xfc} // length 508

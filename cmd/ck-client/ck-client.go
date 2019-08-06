@@ -23,48 +23,6 @@ import (
 
 var version string
 
-// This establishes a connection with ckserver and performs a handshake
-func makeRemoteConn(sta *client.State) (net.Conn, []byte, error) {
-
-	// For android
-	d := net.Dialer{Control: protector}
-
-	clientHello, sharedSecret := client.ComposeClientHello(sta)
-	connectingIP := sta.RemoteHost
-	if net.ParseIP(connectingIP).To4() == nil {
-		// IPv6 needs square brackets
-		connectingIP = "[" + connectingIP + "]"
-	}
-	remoteConn, err := d.Dial("tcp", connectingIP+":"+sta.RemotePort)
-	if err != nil {
-		log.WithField("error", err).Error("Failed to connect to remote")
-		return nil, nil, err
-	}
-	_, err = remoteConn.Write(clientHello)
-	if err != nil {
-		log.WithField("error", err).Error("Failed to send ClientHello")
-		return nil, nil, err
-	}
-	log.Trace("client hello sent successfully")
-
-	buf := make([]byte, 1024)
-	log.Trace("waiting for ServerHello")
-	_, err = util.ReadTLS(remoteConn, buf)
-	if err != nil {
-		log.WithField("error", err).Error("Failed to read ServerHello")
-	}
-	serverRandom := buf[11:43]
-	sessionKey := client.DecryptSessionKey(serverRandom, sharedSecret)
-	_, err = util.ReadTLS(remoteConn, buf)
-	if err != nil {
-		log.WithField("error", err).Error("Failed to read ChangeCipherSpec")
-		return nil, nil, err
-	}
-
-	return remoteConn, sessionKey, nil
-
-}
-
 func makeSession(sta *client.State) *mux.Session {
 	log.Info("Attemtping to start a new session")
 	if !sta.IsAdmin {
@@ -75,6 +33,7 @@ func makeSession(sta *client.State) *mux.Session {
 		atomic.StoreUint32(&sta.SessionID, binary.BigEndian.Uint32(quad))
 	}
 
+	d := net.Dialer{Control: protector}
 	connsCh := make(chan net.Conn, sta.NumConn)
 	var _sessionKey atomic.Value
 	var wg sync.WaitGroup
@@ -82,7 +41,17 @@ func makeSession(sta *client.State) *mux.Session {
 		wg.Add(1)
 		go func() {
 		makeconn:
-			conn, sk, err := makeRemoteConn(sta)
+			connectingIP := sta.RemoteHost
+			if net.ParseIP(connectingIP).To4() == nil {
+				// IPv6 needs square brackets
+				connectingIP = "[" + connectingIP + "]"
+			}
+			remoteConn, err := d.Dial("tcp", connectingIP+":"+sta.RemotePort)
+
+			if err != nil {
+				log.WithField("error", err).Error("Failed to connect to remote")
+			}
+			sk, err := client.PrepareConnection(sta, remoteConn)
 			_sessionKey.Store(sk)
 			if err != nil {
 				log.Errorf("Failed to establish new connections to remote: %v", err)
@@ -90,7 +59,7 @@ func makeSession(sta *client.State) *mux.Session {
 				time.Sleep(time.Second * 3)
 				goto makeconn
 			}
-			connsCh <- conn
+			connsCh <- remoteConn
 			wg.Done()
 		}()
 	}
