@@ -44,7 +44,6 @@ func composeClientHello(sta *State) ([]byte, []byte) {
 }
 
 func PrepareConnection(sta *State, conn net.Conn) (sessionKey []byte, err error) {
-
 	clientHello, sharedSecret := composeClientHello(sta)
 	_, err = conn.Write(clientHello)
 	if err != nil {
@@ -58,8 +57,15 @@ func PrepareConnection(sta *State, conn net.Conn) (sessionKey []byte, err error)
 	if err != nil {
 		return
 	}
-	serverRandom := buf[11:43]
-	sessionKey = decryptSessionKey(serverRandom, sharedSecret)
+
+	encrypted := append(buf[11:43], buf[89:121]...)
+	nonce := encrypted[0:12]
+	ciphertext := encrypted[12:60]
+	sessionKey, err = util.AESGCMDecrypt(nonce, sharedSecret, ciphertext)
+	if err != nil {
+		return
+	}
+
 	_, err = util.ReadTLS(conn, buf)
 	if err != nil {
 		return

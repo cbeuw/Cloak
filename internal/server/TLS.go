@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/util"
 	"net"
 
 	log "github.com/sirupsen/logrus"
@@ -166,22 +167,30 @@ func xor(a []byte, b []byte) {
 	}
 }
 
-func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte) []byte {
+func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte) ([]byte, error) {
+	nonce := make([]byte, 12)
+	rand.Read(nonce)
+
+	encryptedKey, err := util.AESGCMEncrypt(nonce, sharedSecret, sessionKey) // 32 + 16 = 48 bytes
+	if err != nil {
+		return nil, err
+	}
+
 	var serverHello [11][]byte
-	serverHello[0] = []byte{0x02}             // handshake type
-	serverHello[1] = []byte{0x00, 0x00, 0x76} // length 77
-	serverHello[2] = []byte{0x03, 0x03}       // server version
-	xor(sharedSecret, sessionKey)
-	serverHello[3] = sharedSecret       // random
-	serverHello[4] = []byte{0x20}       // session id length 32
-	serverHello[5] = sessionId          // session id
-	serverHello[6] = []byte{0xc0, 0x30} // cipher suite TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	serverHello[7] = []byte{0x00}       // compression method null
-	serverHello[8] = []byte{0x00, 0x2e} // extensions length 46
+	serverHello[0] = []byte{0x02}                               // handshake type
+	serverHello[1] = []byte{0x00, 0x00, 0x76}                   // length 77
+	serverHello[2] = []byte{0x03, 0x03}                         // server version
+	serverHello[3] = append(nonce[0:12], encryptedKey[0:20]...) // random 32 bytes
+	serverHello[4] = []byte{0x20}                               // session id length 32
+	serverHello[5] = sessionId                                  // session id
+	serverHello[6] = []byte{0xc0, 0x30}                         // cipher suite TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+	serverHello[7] = []byte{0x00}                               // compression method null
+	serverHello[8] = []byte{0x00, 0x2e}                         // extensions length 46
 
 	keyShare, _ := hex.DecodeString("00330024001d0020")
 	keyExchange := make([]byte, 32)
-	rand.Read(keyExchange)
+	copy(keyExchange, encryptedKey[20:48])
+	rand.Read(keyExchange[28:32])
 	serverHello[9] = append(keyShare, keyExchange...)
 
 	serverHello[10], _ = hex.DecodeString("002b00020304")
@@ -189,18 +198,22 @@ func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte
 	for _, s := range serverHello {
 		ret = append(ret, s...)
 	}
-	return ret
+	return ret, nil
 }
 
 // composeReply composes the ServerHello, ChangeCipherSpec and Finished messages
 // together with their respective record layers into one byte slice. The content
 // of these messages are random and useless for this plugin
-func composeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) []byte {
+func composeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) ([]byte, error) {
 	TLS12 := []byte{0x03, 0x03}
-	shBytes := addRecordLayer(composeServerHello(ch.sessionId, sharedSecret, sessionKey), []byte{0x16}, TLS12)
+	sh, err := composeServerHello(ch.sessionId, sharedSecret, sessionKey)
+	if err != nil {
+		return nil, err
+	}
+	shBytes := addRecordLayer(sh, []byte{0x16}, TLS12)
 	ccsBytes := addRecordLayer([]byte{0x01}, []byte{0x14}, TLS12)
 	ret := append(shBytes, ccsBytes...)
-	return ret
+	return ret, nil
 }
 
 var ErrBadClientHello = errors.New("non (or malformed) ClientHello")
@@ -228,7 +241,10 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (UID []byt
 	}
 
 	finisher = func(sessionKey []byte) error {
-		reply := composeReply(ch, sharedSecret, sessionKey)
+		reply, err := composeReply(ch, sharedSecret, sessionKey)
+		if err != nil {
+			return err
+		}
 		_, err = conn.Write(reply)
 		if err != nil {
 			go conn.Close()

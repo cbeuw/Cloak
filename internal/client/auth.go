@@ -28,14 +28,3 @@ func makeHiddenData(sta *State) (random, TLSsessionID, keyShare, sharedSecret []
 	keyShare = ciphertext[32:64]
 	return
 }
-
-func xor(a []byte, b []byte) {
-	for i := range a {
-		a[i] ^= b[i]
-	}
-}
-
-func decryptSessionKey(serverRandom []byte, sharedSecret []byte) []byte {
-	xor(serverRandom, sharedSecret)
-	return serverRandom
-}
