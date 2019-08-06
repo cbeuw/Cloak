@@ -66,9 +66,12 @@ func PrepareConnection(sta *State, conn net.Conn) (sessionKey []byte, err error)
 		return
 	}
 
-	_, err = util.ReadTLS(conn, buf)
-	if err != nil {
-		return
+	for i := 0; i < 2; i++ {
+		// ChangeCipherSpec and EncryptedCert (in the format of application data)
+		_, err = util.ReadTLS(conn, buf)
+		if err != nil {
+			return
+		}
 	}
 
 	return sessionKey, nil
