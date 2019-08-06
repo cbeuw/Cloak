@@ -47,18 +47,19 @@ func makeSession(sta *client.State) *mux.Session {
 				connectingIP = "[" + connectingIP + "]"
 			}
 			remoteConn, err := d.Dial("tcp", connectingIP+":"+sta.RemotePort)
-
-			if err != nil {
-				log.WithField("error", err).Error("Failed to connect to remote")
-			}
-			sk, err := client.PrepareConnection(sta, remoteConn)
-			_sessionKey.Store(sk)
 			if err != nil {
 				log.Errorf("Failed to establish new connections to remote: %v", err)
 				// TODO increase the interval if failed multiple times
 				time.Sleep(time.Second * 3)
 				goto makeconn
 			}
+			sk, err := client.PrepareConnection(sta, remoteConn)
+			if err != nil {
+				log.Errorf("Failed to prepare connection to remote: %v", err)
+				time.Sleep(time.Second * 3)
+				goto makeconn
+			}
+			_sessionKey.Store(sk)
 			connsCh <- remoteConn
 			wg.Done()
 		}()
