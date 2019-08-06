@@ -39,24 +39,38 @@ func TestGenerateObfs(t *testing.T) {
 		obfuscator, err := GenerateObfs(0x00, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
+		} else {
+			run(obfuscator, t)
 		}
-		run(obfuscator, t)
 	})
 	t.Run("aes-gcm", func(t *testing.T) {
 		obfuscator, err := GenerateObfs(0x01, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
+		} else {
+			run(obfuscator, t)
 		}
-		run(obfuscator, t)
 	})
 	t.Run("chacha20-poly1305", func(t *testing.T) {
 		obfuscator, err := GenerateObfs(0x02, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
+		} else {
+			run(obfuscator, t)
 		}
-		run(obfuscator, t)
 	})
-
+	t.Run("unknown encryption method", func(t *testing.T) {
+		_, err := GenerateObfs(0xff, sessionKey)
+		if err == nil {
+			t.Errorf("unknown encryption mehtod error expected")
+		}
+	})
+	t.Run("bad key length", func(t *testing.T) {
+		_, err := GenerateObfs(0xff, sessionKey[:31])
+		if err == nil {
+			t.Errorf("bad key length error expected")
+		}
+	})
 }
 
 func BenchmarkObfs(b *testing.B) {
