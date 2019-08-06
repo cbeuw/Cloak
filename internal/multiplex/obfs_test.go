@@ -11,7 +11,7 @@ import (
 	"testing/quick"
 )
 
-func TestOobfs(t *testing.T) {
+func TestGenerateObfs(t *testing.T) {
 	sessionKey := make([]byte, 32)
 	rand.Read(sessionKey)
 
@@ -36,7 +36,7 @@ func TestOobfs(t *testing.T) {
 	}
 
 	t.Run("plain", func(t *testing.T) {
-		obfuscator, err := GenerateObfs(0x01, sessionKey)
+		obfuscator, err := GenerateObfs(0x00, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		}
@@ -50,7 +50,7 @@ func TestOobfs(t *testing.T) {
 		run(obfuscator, t)
 	})
 	t.Run("chacha20-poly1305", func(t *testing.T) {
-		obfuscator, err := GenerateObfs(0x01, sessionKey)
+		obfuscator, err := GenerateObfs(0x02, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		}
