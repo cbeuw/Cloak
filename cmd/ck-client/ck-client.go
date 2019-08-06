@@ -3,12 +3,12 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"os"
 	"sync"
