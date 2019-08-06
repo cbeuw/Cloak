@@ -85,6 +85,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			go conn.Close()
 			return err
 		}
+		log.Trace("finished handshake")
 		return nil
 	}
 

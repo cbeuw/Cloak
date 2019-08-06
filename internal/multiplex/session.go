@@ -87,7 +87,7 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 	sesh.streamsM.Lock()
 	sesh.streams[id] = stream
 	sesh.streamsM.Unlock()
-	//log.Printf("Opening stream %v\n", id)
+	log.Tracef("stream %v of session %v opened", id, sesh.id)
 	return stream, nil
 }
 
@@ -99,6 +99,7 @@ func (sesh *Session) Accept() (net.Conn, error) {
 	if stream == nil {
 		return nil, ErrBrokenSession
 	}
+	log.Tracef("stream %v of session %v accepted", stream.id, sesh.id)
 	return stream, nil
 }
 
@@ -106,6 +107,7 @@ func (sesh *Session) delStream(id uint32) {
 	sesh.streamsM.Lock()
 	delete(sesh.streams, id)
 	if len(sesh.streams) == 0 {
+		log.Tracef("session %v has no active stream left", sesh.id)
 		go sesh.timeoutAfter(30 * time.Second)
 	}
 	sesh.streamsM.Unlock()
@@ -157,6 +159,7 @@ func (sesh *Session) TerminalMsg() string {
 }
 
 func (sesh *Session) Close() error {
+	log.Debugf("attempting to close session %v", sesh.id)
 	atomic.StoreUint32(&sesh.closed, 1)
 	sesh.streamsM.Lock()
 	sesh.acceptCh <- nil

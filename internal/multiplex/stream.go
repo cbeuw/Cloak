@@ -50,7 +50,6 @@ func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
 		assignedConnId: assignedConnId,
 	}
 
-	log.Tracef("stream %v opened", id)
 	return stream
 }
 
@@ -61,6 +60,7 @@ func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
 func (s *Stream) writeFrame(frame *Frame) { s.sorter.writeNewFrame(frame) }
 
 func (s *Stream) Read(buf []byte) (n int, err error) {
+	//log.Tracef("attempting to read from stream %v", s.id)
 	if len(buf) == 0 {
 		if s.isClosed() {
 			return 0, ErrBrokenStream
@@ -72,10 +72,14 @@ func (s *Stream) Read(buf []byte) (n int, err error) {
 		if s.sortedBuf.Len() == 0 {
 			return 0, ErrBrokenStream
 		} else {
-			return s.sortedBuf.Read(buf)
+			n, err = s.sortedBuf.Read(buf)
+			//log.Tracef("%v read from stream %v with err %v",n, s.id,err)
+			return
 		}
 	} else {
-		return s.sortedBuf.Read(buf)
+		n, err = s.sortedBuf.Read(buf)
+		//log.Tracef("%v read from stream %v with err %v",n, s.id,err)
+		return
 	}
 
 }
@@ -86,6 +90,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	// The use of RWMutex is so that the stream will not actively close
 	// in the middle of the execution of Write. This may cause the closing frame
 	// to be sent before the data frame and cause loss of packet.
+	//log.Tracef("attempting to write %v bytes to stream %v",len(in),s.id)
 	s.writingM.RLock()
 	defer s.writingM.RUnlock()
 	if s.isClosed() {
@@ -104,6 +109,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 		return i, err
 	}
 	n, err = s.session.sb.send(s.obfsBuf[:i], &s.assignedConnId)
+	//log.Tracef("%v sent to remote through stream %v with err %v",n, s.id,err)
 	return
 
 }
@@ -119,7 +125,7 @@ func (s *Stream) _close() {
 func (s *Stream) passiveClose() {
 	s._close()
 	s.session.delStream(s.id)
-	log.WithField("streamId", s.id).Trace("stream passively closed")
+	log.Tracef("stream %v passively closed", s.id)
 }
 
 // active close. Close locally and tell the remote that this stream is being closed
@@ -153,7 +159,7 @@ func (s *Stream) Close() error {
 
 	s._close()
 	s.session.delStream(s.id)
-	log.WithField("streamId", s.id).Trace("stream actively closed")
+	log.Tracef("stream %v actively closed", s.id)
 	return nil
 }
 
@@ -162,7 +168,7 @@ func (s *Stream) Close() error {
 // We don't notify the remote because session.Close() is always
 // called when the session is passively closed
 func (s *Stream) closeNoDelMap() {
-	log.WithField("streamId", s.id).Trace("stream closed by session")
+	log.Tracef("stream %v closed by session", s.id)
 	s._close()
 }
 

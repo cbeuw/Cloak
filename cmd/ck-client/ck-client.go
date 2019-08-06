@@ -45,8 +45,10 @@ func makeRemoteConn(sta *client.State) (net.Conn, []byte, error) {
 		log.WithField("error", err).Error("Failed to send ClientHello")
 		return nil, nil, err
 	}
+	log.Trace("client hello sent successfully")
 
 	buf := make([]byte, 1024)
+	log.Trace("waiting for ServerHello")
 	_, err = util.ReadTLS(remoteConn, buf)
 	if err != nil {
 		log.WithField("error", err).Error("Failed to read ServerHello")
@@ -93,6 +95,7 @@ func makeSession(sta *client.State) *mux.Session {
 		}()
 	}
 	wg.Wait()
+	log.Debug("All underlying connections established")
 
 	sessionKey := _sessionKey.Load().([]byte)
 	obfuscator, err := mux.GenerateObfs(sta.EncryptionMethod, sessionKey)
