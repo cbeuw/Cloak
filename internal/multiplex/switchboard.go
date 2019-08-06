@@ -72,10 +72,10 @@ func (sb *switchboard) send(data []byte, connId *uint32) (int, error) {
 		// in particular if newConnId is removed between the RUnlock and RLock, conns[newConnId] will return
 		// a nil pointer. To prevent this we must get newConnId and the reference to conn itself in one single mutex
 		// protection
-		if atomic.LoadUint32(&sb.broken) == 1 {
+		sb.connsM.RLock()
+		if atomic.LoadUint32(&sb.broken) == 1 || len(sb.conns) == 0 {
 			return 0, errBrokenSwitchboard
 		}
-		sb.connsM.RLock()
 		newConnId := rand.Intn(len(sb.conns))
 		conn = sb.conns[uint32(newConnId)]
 		sb.connsM.RUnlock()
@@ -85,10 +85,10 @@ func (sb *switchboard) send(data []byte, connId *uint32) (int, error) {
 }
 
 func (sb *switchboard) assignRandomConn() (uint32, error) {
-	if atomic.LoadUint32(&sb.broken) == 1 {
+	sb.connsM.RLock()
+	if atomic.LoadUint32(&sb.broken) == 1 || len(sb.conns) == 0 {
 		return 0, errBrokenSwitchboard
 	}
-	sb.connsM.RLock()
 	connId := rand.Intn(len(sb.conns))
 	sb.connsM.RUnlock()
 	return uint32(connId), nil
