@@ -117,7 +117,6 @@ func GenerateObfs(encryptionMethod byte, sessionKey []byte) (obfuscator *Obfusca
 		err = errors.New("sessionKey size must be 32 bytes")
 	}
 
-	blockKey := sessionKey[:16]
 	var salsaKey [32]byte
 	copy(salsaKey[:], sessionKey)
 
@@ -127,7 +126,7 @@ func GenerateObfs(encryptionMethod byte, sessionKey []byte) (obfuscator *Obfusca
 		payloadCipher = nil
 	case 0x01:
 		var c cipher.Block
-		c, err = aes.NewCipher(blockKey)
+		c, err = aes.NewCipher(sessionKey)
 		if err != nil {
 			return
 		}
@@ -136,7 +135,7 @@ func GenerateObfs(encryptionMethod byte, sessionKey []byte) (obfuscator *Obfusca
 			return
 		}
 	case 0x02:
-		payloadCipher, err = chacha20poly1305.New(blockKey)
+		payloadCipher, err = chacha20poly1305.New(sessionKey)
 		if err != nil {
 			return
 		}
