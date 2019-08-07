@@ -25,14 +25,10 @@ func BenchmarkRecvDataFromRemote(b *testing.B) {
 		sesh := MakeSession(0, UNLIMITED_VALVE, obfuscator, util.ReadTLS)
 		n, _ := sesh.Obfs(f, obfsBuf)
 
-		originalHeader := make([]byte, 12)
-		copy(originalHeader, obfsBuf[5:17])
-
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			sesh.recvDataFromRemote(obfsBuf[:n])
 			b.SetBytes(int64(n))
-			copy(obfsBuf[5:17], originalHeader)
 		}
 	})
 
@@ -41,15 +37,10 @@ func BenchmarkRecvDataFromRemote(b *testing.B) {
 		sesh := MakeSession(0, UNLIMITED_VALVE, obfuscator, util.ReadTLS)
 		n, _ := sesh.Obfs(f, obfsBuf)
 
-		// because deobfs decrypts the header in-place, which alters the input
-		originalHeader := make([]byte, 12)
-		copy(originalHeader, obfsBuf[5:17])
-
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			sesh.recvDataFromRemote(obfsBuf[:n])
 			b.SetBytes(int64(n))
-			copy(obfsBuf[5:17], originalHeader)
 		}
 	})
 
@@ -58,14 +49,10 @@ func BenchmarkRecvDataFromRemote(b *testing.B) {
 		sesh := MakeSession(0, UNLIMITED_VALVE, obfuscator, util.ReadTLS)
 		n, _ := sesh.Obfs(f, obfsBuf)
 
-		originalHeader := make([]byte, 12)
-		copy(originalHeader, obfsBuf[5:17])
-
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			sesh.recvDataFromRemote(obfsBuf[:n])
 			b.SetBytes(int64(n))
-			copy(obfsBuf[5:17], originalHeader)
 		}
 	})
 

@@ -35,10 +35,10 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 		if len(buf) < usefulLen {
 			return 0, errors.New("buffer is too small")
 		}
-		used := buf[:usefulLen]
-		recordLayer := used[0:5]
-		header := used[5 : 5+HEADER_LEN]
-		encryptedPayload := used[5+HEADER_LEN:]
+		useful := buf[:usefulLen] // tls header + payload + potential overhead
+		recordLayer := useful[0:5]
+		header := useful[5 : 5+HEADER_LEN]
+		encryptedPayload := useful[5+HEADER_LEN:]
 
 		// header: [StreamID 4 bytes][Seq 4 bytes][Closing 1 byte][extraLen 1 bytes][random 2 bytes]
 		putU32(header[0:4], f.StreamID)
