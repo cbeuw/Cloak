@@ -161,12 +161,6 @@ func parseClientHello(data []byte) (ret *ClientHello, err error) {
 	return
 }
 
-func xor(a []byte, b []byte) {
-	for i := range a {
-		a[i] ^= b[i]
-	}
-}
-
 func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte) ([]byte, error) {
 	nonce := make([]byte, 12)
 	rand.Read(nonce)
