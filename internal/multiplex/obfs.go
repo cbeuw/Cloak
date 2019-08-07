@@ -74,12 +74,14 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 	deobfs := func(in []byte) (*Frame, error) {
 		if len(in) < 5+HEADER_LEN+8 {
-			return nil, errors.New("Input cannot be shorter than 33 bytes")
+			return nil, errors.New("Input cannot be shorter than 25 bytes")
 		}
-		peeled := in[5:]
 
-		header := peeled[0:12]
-		payload := peeled[12:]
+		peeled := make([]byte, len(in)-5)
+		copy(peeled, in[5:])
+
+		header := peeled[:12]
+		pldWithOverHead := peeled[12:] // plaintext + potential overhead
 
 		nonce := peeled[len(peeled)-8:]
 		salsa20.XORKeyStream(header, header, nonce, &salsaKey)
@@ -89,20 +91,25 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 		closing := header[8]
 		extraLen := header[9]
 
-		outputLen := len(payload) - int(extraLen)
-		if outputLen < 0 {
-			return nil, errors.New("extra length is greater than total payload length")
+		usefulPayloadLen := len(pldWithOverHead) - int(extraLen)
+		if usefulPayloadLen < 0 {
+			return nil, errors.New("extra length is greater than total pldWithOverHead length")
 		}
-		outputPayload := make([]byte, outputLen)
+
+		var outputPayload []byte
 
 		if payloadCipher == nil {
-			copy(outputPayload, payload)
+			if extraLen == 0 {
+				outputPayload = pldWithOverHead
+			} else {
+				outputPayload = pldWithOverHead[:usefulPayloadLen]
+			}
 		} else {
-			plaintext, err := payloadCipher.Open(nil, header, payload, nil)
+			_, err := payloadCipher.Open(pldWithOverHead[:0], header, pldWithOverHead, nil)
 			if err != nil {
 				return nil, err
 			}
-			copy(outputPayload, plaintext)
+			outputPayload = pldWithOverHead[:usefulPayloadLen]
 		}
 
 		ret := &Frame{
