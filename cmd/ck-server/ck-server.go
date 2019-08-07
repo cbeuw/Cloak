@@ -61,6 +61,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			"proxyMethod":      proxyMethod,
 			"encryptionMethod": encryptionMethod,
 		}).Warn(err)
+		goWeb()
+		return
 	}
 
 	sessionKey := make([]byte, 32)
@@ -69,6 +71,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	if err != nil {
 		log.Error(err)
 		goWeb()
+		return
 	}
 
 	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
