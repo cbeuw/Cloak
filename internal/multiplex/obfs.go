@@ -89,7 +89,11 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 		closing := header[8]
 		extraLen := header[9]
 
-		outputPayload := make([]byte, len(payload)-int(extraLen))
+		outputLen := len(payload) - int(extraLen)
+		if outputLen < 0 {
+			return nil, errors.New("extra length is greater than total payload length")
+		}
+		outputPayload := make([]byte, outputLen)
 
 		if payloadCipher == nil {
 			copy(outputPayload, payload)
