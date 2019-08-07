@@ -12,7 +12,7 @@ type ActiveUser struct {
 
 	arrUID [16]byte
 
-	valve *mux.Valve
+	valve mux.Valve
 
 	bypass bool
 

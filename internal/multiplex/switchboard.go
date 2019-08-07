@@ -13,7 +13,7 @@ import (
 type switchboard struct {
 	session *Session
 
-	*Valve
+	Valve
 
 	connsM     sync.RWMutex
 	conns      map[uint32]net.Conn
@@ -22,7 +22,7 @@ type switchboard struct {
 	broken uint32
 }
 
-func makeSwitchboard(sesh *Session, valve *Valve) *switchboard {
+func makeSwitchboard(sesh *Session, valve Valve) *switchboard {
 	// rates are uint64 because in the usermanager we want the bandwidth to be atomically
 	// operated (so that the bandwidth can change on the fly).
 	sb := &switchboard{

@@ -27,18 +27,12 @@ func TestUserPanel_BypassUser(t *testing.T) {
 	})
 	t.Run("updateUsageQueue", func(t *testing.T) {
 		panel.updateUsageQueue()
-		if user.valve.GetRx() != 10 || user.valve.GetTx() != 10 {
-			t.Error("user rx or tx info altered")
-		}
 		if _, inQ := panel.usageUpdateQueue[user.arrUID]; inQ {
 			t.Error("user in update queue")
 		}
 	})
 	t.Run("updateUsageQueueForOne", func(t *testing.T) {
 		panel.updateUsageQueueForOne(user)
-		if user.valve.GetRx() != 10 || user.valve.GetTx() != 10 {
-			t.Error("user rx or tx info altered")
-		}
 		if _, inQ := panel.usageUpdateQueue[user.arrUID]; inQ {
 			t.Error("user in update queue")
 		}

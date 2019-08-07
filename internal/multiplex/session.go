@@ -52,7 +52,7 @@ type Session struct {
 	terminalMsg atomic.Value
 }
 
-func MakeSession(id uint32, valve *Valve, obfuscator *Obfuscator, unitReader func(net.Conn, []byte) (int, error)) *Session {
+func MakeSession(id uint32, valve Valve, obfuscator *Obfuscator, unitReader func(net.Conn, []byte) (int, error)) *Session {
 	sesh := &Session{
 		id:           id,
 		unitRead:     unitReader,
