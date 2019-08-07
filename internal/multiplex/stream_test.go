@@ -42,7 +42,7 @@ func (b *blackhole) SetReadDeadline(t time.Time) error  { return nil }
 func (b *blackhole) SetWriteDeadline(t time.Time) error { return nil }
 
 func BenchmarkStream_Write(b *testing.B) {
-	const PAYLOAD_LEN = 1 << 20 * 100
+	const PAYLOAD_LEN = 1000
 	hole := newBlackHole()
 	sesh := setupSesh()
 	sesh.AddConnection(hole)
