@@ -117,6 +117,7 @@ func (sesh *Session) recvDataFromRemote(data []byte) {
 	frame, err := sesh.Deobfs(data)
 	if err != nil {
 		log.Debugf("Failed to decrypt a frame for session %v: %v", sesh.id, err)
+		return
 	}
 
 	sesh.streamsM.Lock()
