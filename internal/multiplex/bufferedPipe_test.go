@@ -17,6 +17,7 @@ func TestPipeRW(t *testing.T) {
 			"expecting", len(b),
 			"got", n,
 		)
+		return
 	}
 	if err != nil {
 		t.Error(
@@ -24,6 +25,7 @@ func TestPipeRW(t *testing.T) {
 			"expecting", "nil error",
 			"got", err,
 		)
+		return
 	}
 
 	b2 := make([]byte, len(b))
@@ -34,6 +36,7 @@ func TestPipeRW(t *testing.T) {
 			"expecting", len(b),
 			"got", n,
 		)
+		return
 	}
 	if err != nil {
 		t.Error(
@@ -41,6 +44,7 @@ func TestPipeRW(t *testing.T) {
 			"expecting", "nil error",
 			"got", err,
 		)
+		return
 	}
 	if !bytes.Equal(b, b2) {
 		t.Error(
@@ -67,6 +71,7 @@ func TestReadBlock(t *testing.T) {
 			"expecting", len(b),
 			"got", n,
 		)
+		return
 	}
 	if err != nil {
 		t.Error(
@@ -74,6 +79,7 @@ func TestReadBlock(t *testing.T) {
 			"expecting", "nil error",
 			"got", err,
 		)
+		return
 	}
 	if !bytes.Equal(b, b2) {
 		t.Error(
@@ -81,6 +87,7 @@ func TestReadBlock(t *testing.T) {
 			"expecting", b,
 			"got", b2,
 		)
+		return
 	}
 }
 
@@ -96,6 +103,7 @@ func TestPartialRead(t *testing.T) {
 			"expecting", len(b1),
 			"got", n,
 		)
+		return
 	}
 	if err != nil {
 		t.Error(
@@ -103,6 +111,7 @@ func TestPartialRead(t *testing.T) {
 			"expecting", "nil error",
 			"got", err,
 		)
+		return
 	}
 	if b1[0] != b[0] {
 		t.Error(
@@ -126,6 +135,7 @@ func TestPartialRead(t *testing.T) {
 			"expecting", "nil error",
 			"got", err,
 		)
+		return
 	}
 	if !bytes.Equal(b[1:], b2) {
 		t.Error(
@@ -133,6 +143,7 @@ func TestPartialRead(t *testing.T) {
 			"expecting", b[1:],
 			"got", b2,
 		)
+		return
 	}
 }
 
@@ -156,6 +167,7 @@ func TestReadAfterClose(t *testing.T) {
 			"expecting", "nil error",
 			"got", err,
 		)
+		return
 	}
 	if !bytes.Equal(b, b2) {
 		t.Error(
@@ -163,11 +175,12 @@ func TestReadAfterClose(t *testing.T) {
 			"expecting", b,
 			"got", b2,
 		)
+		return
 	}
 }
 
 func BenchmarkBufferedPipe_RW(b *testing.B) {
-	const PAYLOAD_LEN = 1300
+	const PAYLOAD_LEN = 1000
 	testData := make([]byte, PAYLOAD_LEN)
 	rand.Read(testData)
 
@@ -187,6 +200,7 @@ func BenchmarkBufferedPipe_RW(b *testing.B) {
 				"For", "pipe write",
 				"got", err,
 			)
+			return
 		}
 		b.SetBytes(PAYLOAD_LEN)
 	}

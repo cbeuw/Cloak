@@ -76,7 +76,7 @@ func TestStream_Read(t *testing.T) {
 	}
 
 	ch := make(chan []byte)
-	l, _ := net.Listen("tcp", ":0")
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	go func() {
 		conn, _ := net.Dial("tcp", l.Addr().String())
 		for {

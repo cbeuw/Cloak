@@ -23,15 +23,18 @@ func TestGenerateObfs(t *testing.T) {
 		i, err := obfuscator.Obfs(testFrame, obfsBuf)
 		if err != nil {
 			ct.Error("failed to obfs ", err)
+			return
 		}
 
 		resultFrame, err := obfuscator.Deobfs(obfsBuf[:i])
 		if err != nil {
 			ct.Error("failed to deobfs ", err)
+			return
 		}
 		if !bytes.Equal(testFrame.Payload, resultFrame.Payload) || testFrame.StreamID != resultFrame.StreamID {
 			ct.Error("expecting", testFrame,
 				"got", resultFrame)
+			return
 		}
 	}
 
@@ -97,6 +100,7 @@ func BenchmarkObfs(b *testing.B) {
 			n, err := obfs(testFrame, obfsBuf)
 			if err != nil {
 				b.Error(err)
+				return
 			}
 			b.SetBytes(int64(n))
 		}
@@ -111,6 +115,7 @@ func BenchmarkObfs(b *testing.B) {
 			n, err := obfs(testFrame, obfsBuf)
 			if err != nil {
 				b.Error(err)
+				return
 			}
 			b.SetBytes(int64(n))
 		}
@@ -122,6 +127,7 @@ func BenchmarkObfs(b *testing.B) {
 			n, err := obfs(testFrame, obfsBuf)
 			if err != nil {
 				b.Error(err)
+				return
 			}
 			b.SetBytes(int64(n))
 		}
@@ -135,6 +141,7 @@ func BenchmarkObfs(b *testing.B) {
 			n, err := obfs(testFrame, obfsBuf)
 			if err != nil {
 				b.Error(err)
+				return
 			}
 			b.SetBytes(int64(n))
 		}
@@ -168,6 +175,7 @@ func BenchmarkDeobfs(b *testing.B) {
 			_, err := deobfs(obfsBuf[:n])
 			if err != nil {
 				b.Error(err)
+				return
 			}
 			b.SetBytes(int64(n))
 		}
@@ -185,6 +193,7 @@ func BenchmarkDeobfs(b *testing.B) {
 			_, err := deobfs(obfsBuf[:n])
 			if err != nil {
 				b.Error(err)
+				return
 			}
 			b.SetBytes(int64(n))
 		}
@@ -199,6 +208,7 @@ func BenchmarkDeobfs(b *testing.B) {
 			_, err := deobfs(obfsBuf[:n])
 			if err != nil {
 				b.Error(err)
+				return
 			}
 			b.SetBytes(int64(n))
 		}
@@ -215,6 +225,7 @@ func BenchmarkDeobfs(b *testing.B) {
 			_, err := deobfs(obfsBuf[:n])
 			if err != nil {
 				b.Error(err)
+				return
 			}
 			b.SetBytes(int64(n))
 		}

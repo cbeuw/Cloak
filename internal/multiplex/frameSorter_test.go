@@ -37,7 +37,7 @@ func TestRecvNewFrame(t *testing.T) {
 			fs.writeNewFrame(frame)
 		}
 
-		time.Sleep(100 * time.Microsecond)
+		time.Sleep(100 * time.Millisecond)
 
 		var sortedResult []uint64
 		for x := 0; x < len(set); x++ {
@@ -45,6 +45,7 @@ func TestRecvNewFrame(t *testing.T) {
 			n, err := sortedBuf.Read(oct)
 			if n != 8 || err != nil {
 				ct.Error("failed to read from sorted Buf", n, err)
+				return
 			}
 			//log.Print(p)
 			sortedResult = append(sortedResult, binary.BigEndian.Uint64(oct))
