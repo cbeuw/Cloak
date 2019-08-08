@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
+	"time"
 )
 
 var ErrReplay = errors.New("duplicate random")
@@ -50,7 +51,9 @@ func TouchStone(ch *ClientHello, sta *State) (UID []byte, sessionID uint32, prox
 	proxyMethod = string(bytes.Trim(plaintext[16:28], "\x00"))
 	encryptionMethod = plaintext[28]
 	timestamp := int64(binary.BigEndian.Uint64(plaintext[29:37]))
-	if timestamp/int64(TIMESTAMP_WINDOW.Seconds()) != sta.Now().Unix()/int64(TIMESTAMP_WINDOW.Seconds()) {
+	clientTime := time.Unix(timestamp, 0)
+	serverTime := sta.Now()
+	if !(clientTime.After(serverTime.Truncate(TIMESTAMP_TOLERANCE)) && clientTime.Before(serverTime.Add(TIMESTAMP_TOLERANCE))) {
 		err = fmt.Errorf("%v: received timestamp %v", ErrTimestampOutOfWindow, timestamp)
 		return
 	}

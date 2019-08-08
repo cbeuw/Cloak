@@ -121,20 +121,18 @@ func (sta *State) IsBypass(UID []byte) bool {
 	return exist
 }
 
-// This is the accepting window of the encrypted timestamp from client
-// we reject the client if the timestamp is outside of this window.
-// This is for replay prevention so that we don't have to save unlimited amount of
-// random
-const TIMESTAMP_WINDOW = 12 * time.Hour
+const TIMESTAMP_TOLERANCE = 180 * time.Second
+
+const CACHE_CLEAN_INTERVAL = 12 * time.Hour
 
 // UsedRandomCleaner clears the cache of used random fields every 12 hours
 func (sta *State) UsedRandomCleaner() {
 	for {
-		time.Sleep(TIMESTAMP_WINDOW)
-		now := sta.Now().Unix()
+		time.Sleep(CACHE_CLEAN_INTERVAL)
+		now := sta.Now()
 		sta.usedRandomM.Lock()
 		for key, t := range sta.usedRandom {
-			if now-t > int64(TIMESTAMP_WINDOW.Seconds()) {
+			if time.Unix(t, 0).Before(now.Add(TIMESTAMP_TOLERANCE)) {
 				delete(sta.usedRandom, key)
 			}
 		}
