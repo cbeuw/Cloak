@@ -81,7 +81,6 @@ func (s *Stream) Read(buf []byte) (n int, err error) {
 		//log.Tracef("%v read from stream %v with err %v",n, s.id,err)
 		return
 	}
-
 }
 
 func (s *Stream) Write(in []byte) (n int, err error) {
@@ -110,7 +109,10 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	}
 	n, err = s.session.sb.send(s.obfsBuf[:i], &s.assignedConnId)
 	//log.Tracef("%v sent to remote through stream %v with err %v",n, s.id,err)
-	return
+	if err != nil {
+		return
+	}
+	return len(in), nil
 
 }
 
