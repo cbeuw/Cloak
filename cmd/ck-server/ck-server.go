@@ -56,7 +56,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"remoteAddr":       remoteAddr,
-			"UID":              UID,
+			"UID":              b64(UID),
 			"sessionId":        sessionID,
 			"proxyMethod":      proxyMethod,
 			"encryptionMethod": encryptionMethod,
@@ -160,7 +160,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		localConn, err := net.Dial("tcp", sta.ProxyBook[proxyMethod])
 		if err != nil {
 			log.Errorf("Failed to connect to %v: %v", proxyMethod, err)
-			sesh.Close()
+			user.DeleteSession(sessionID, "Failed to connect to proxy server")
 			continue
 		}
 		go util.Pipe(localConn, newStream)
