@@ -176,8 +176,6 @@ func main() {
 	var bindPort string
 	var config string
 
-	log.SetLevel(log.DebugLevel)
-
 	if os.Getenv("SS_LOCAL_HOST") != "" {
 		bindHost = os.Getenv("SS_REMOTE_HOST")
 		bindPort = os.Getenv("SS_REMOTE_PORT")
@@ -193,6 +191,7 @@ func main() {
 		genKeyPair := flag.Bool("k", false, "Generate a pair of public and private key, output in the format of pubkey,pvkey")
 
 		pprofAddr := flag.String("d", "", "debug use: ip:port to be listened by pprof profiler")
+		verbosity := flag.String("verbosity", "info", "verbosity level")
 
 		flag.Parse()
 
@@ -222,6 +221,12 @@ func main() {
 			log.Infof("pprof listening on %v", *pprofAddr)
 
 		}
+
+		lvl, err := log.ParseLevel(*verbosity)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.SetLevel(lvl)
 
 		log.Infof("Starting standalone mode, listening on %v:%v", bindHost, bindPort)
 	}

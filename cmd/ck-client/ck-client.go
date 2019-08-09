@@ -55,6 +55,7 @@ func makeSession(sta *client.State) *mux.Session {
 			}
 			sk, err := client.PrepareConnection(sta, remoteConn)
 			if err != nil {
+				remoteConn.Close()
 				log.Errorf("Failed to prepare connection to remote: %v", err)
 				time.Sleep(time.Second * 3)
 				goto makeconn
@@ -105,7 +106,7 @@ func main() {
 		remotePort = os.Getenv("SS_REMOTE_PORT")
 		config = os.Getenv("SS_PLUGIN_OPTIONS")
 	} else {
-		localHost = "127.0.0.1"
+		flag.StringVar(&localHost, "i", "127.0.0.1", "localHost: Cloak listens to proxy clients on this ip")
 		flag.StringVar(&localPort, "l", "1984", "localPort: Cloak listens to proxy clients on this port")
 		flag.StringVar(&remoteHost, "s", "", "remoteHost: IP of your proxy server")
 		flag.StringVar(&remotePort, "p", "443", "remotePort: proxy port, should be 443")
@@ -113,6 +114,7 @@ func main() {
 		flag.StringVar(&b64AdminUID, "a", "", "adminUID: enter the adminUID to serve the admin api")
 		askVersion := flag.Bool("v", false, "Print the version number")
 		printUsage := flag.Bool("h", false, "Print this message")
+		verbosity := flag.String("verbosity", "info", "verbosity level")
 		flag.Parse()
 
 		if *askVersion {
@@ -124,6 +126,12 @@ func main() {
 			flag.Usage()
 			return
 		}
+
+		lvl, err := log.ParseLevel(*verbosity)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.SetLevel(lvl)
 
 		log.Info("Starting standalone mode")
 	}
