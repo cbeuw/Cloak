@@ -25,13 +25,19 @@ type Obfuscator struct {
 	SessionKey []byte
 }
 
+type SessionConfig struct {
+	*Obfuscator
+
+	Valve
+
+	// This is supposed to read one TLS message, the same as GoQuiet's ReadTillDrain
+	UnitRead func(net.Conn, []byte) (int, error)
+}
+
 type Session struct {
 	id uint32
 
-	*Obfuscator
-
-	// This is supposed to read one TLS message, the same as GoQuiet's ReadTillDrain
-	unitRead func(net.Conn, []byte) (int, error)
+	*SessionConfig
 
 	// atomic
 	nextStreamID uint32
@@ -52,17 +58,20 @@ type Session struct {
 	terminalMsg atomic.Value
 }
 
-func MakeSession(id uint32, valve Valve, obfuscator *Obfuscator, unitReader func(net.Conn, []byte) (int, error)) *Session {
+func MakeSession(id uint32, config *SessionConfig) *Session {
 	sesh := &Session{
-		id:           id,
-		unitRead:     unitReader,
-		nextStreamID: 1,
-		Obfuscator:   obfuscator,
-		streams:      make(map[uint32]*Stream),
-		acceptCh:     make(chan *Stream, acceptBacklog),
+		id:            id,
+		SessionConfig: config,
+		nextStreamID:  1,
+		streams:       make(map[uint32]*Stream),
+		acceptCh:      make(chan *Stream, acceptBacklog),
 	}
 	sesh.addrs.Store([]net.Addr{nil, nil})
-	sesh.sb = makeSwitchboard(sesh, valve)
+
+	if config.Valve == nil {
+		config.Valve = UNLIMITED_VALVE
+	}
+	sesh.sb = makeSwitchboard(sesh, config.Valve)
 	go sesh.timeoutAfter(30 * time.Second)
 	return sesh
 }

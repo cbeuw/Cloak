@@ -1,13 +1,17 @@
 package multiplex
 
 import (
-	"github.com/cbeuw/Cloak/internal/util"
 	"math/rand"
 	"testing"
 )
 
 func BenchmarkSwitchboard_Send(b *testing.B) {
-	sesh := MakeSession(0, UNLIMITED_VALVE, nil, util.ReadTLS)
+	seshConfig := &SessionConfig{
+		Obfuscator: nil,
+		Valve:      nil,
+		UnitRead:   nil,
+	}
+	sesh := MakeSession(0, seshConfig)
 	sb := makeSwitchboard(sesh, UNLIMITED_VALVE)
 	hole := newBlackHole()
 	sb.addConn(hole)

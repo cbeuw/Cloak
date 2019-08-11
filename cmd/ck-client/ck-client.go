@@ -73,7 +73,13 @@ func makeSession(sta *client.State) *mux.Session {
 	if err != nil {
 		log.Fatal(err)
 	}
-	sesh := mux.MakeSession(sta.SessionID, mux.UNLIMITED_VALVE, obfuscator, util.ReadTLS)
+
+	seshConfig := &mux.SessionConfig{
+		Obfuscator: obfuscator,
+		Valve:      nil,
+		UnitRead:   util.ReadTLS,
+	}
+	sesh := mux.MakeSession(sta.SessionID, seshConfig)
 
 	for i := 0; i < sta.NumConn; i++ {
 		conn := <-connsCh

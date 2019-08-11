@@ -16,16 +16,11 @@ func TestActiveUser_Bypass(t *testing.T) {
 	panel := MakeUserPanel(manager)
 	UID, _ := base64.StdEncoding.DecodeString("u97xvcc5YoQA8obCyt9q/w==")
 	user, _ := panel.GetBypassUser(UID)
-	obfuscator := &mux.Obfuscator{
-		nil,
-		nil,
-		nil,
-	}
 	var sesh0 *mux.Session
 	var existing bool
 	var sesh1 *mux.Session
 	t.Run("get first session", func(t *testing.T) {
-		sesh0, existing, err = user.GetSession(0, obfuscator, nil)
+		sesh0, existing, err = user.GetSession(0, &mux.SessionConfig{})
 		if err != nil {
 			t.Error(err)
 		}
@@ -37,7 +32,7 @@ func TestActiveUser_Bypass(t *testing.T) {
 		}
 	})
 	t.Run("get first session again", func(t *testing.T) {
-		seshx, existing, err := user.GetSession(0, obfuscator, nil)
+		seshx, existing, err := user.GetSession(0, &mux.SessionConfig{})
 		if err != nil {
 			t.Error(err)
 		}
@@ -52,7 +47,7 @@ func TestActiveUser_Bypass(t *testing.T) {
 		}
 	})
 	t.Run("get second session", func(t *testing.T) {
-		sesh1, existing, err = user.GetSession(1, obfuscator, nil)
+		sesh1, existing, err = user.GetSession(1, &mux.SessionConfig{})
 		if err != nil {
 			t.Error(err)
 		}
@@ -87,7 +82,7 @@ func TestActiveUser_Bypass(t *testing.T) {
 		}
 	})
 	t.Run("get session again after termination", func(t *testing.T) {
-		seshx, existing, err := user.GetSession(0, obfuscator, nil)
+		seshx, existing, err := user.GetSession(0, &mux.SessionConfig{})
 		if err != nil {
 			t.Error(err)
 		}

@@ -6,6 +6,12 @@ import (
 	"testing"
 )
 
+var seshConfig = &SessionConfig{
+	Obfuscator: nil,
+	Valve:      nil,
+	UnitRead:   util.ReadTLS,
+}
+
 func BenchmarkRecvDataFromRemote(b *testing.B) {
 	testPayload := make([]byte, 1024)
 	rand.Read(testPayload)
@@ -22,7 +28,8 @@ func BenchmarkRecvDataFromRemote(b *testing.B) {
 
 	b.Run("plain", func(b *testing.B) {
 		obfuscator, _ := GenerateObfs(0x00, sessionKey)
-		sesh := MakeSession(0, UNLIMITED_VALVE, obfuscator, util.ReadTLS)
+		seshConfig.Obfuscator = obfuscator
+		sesh := MakeSession(0, seshConfig)
 		n, _ := sesh.Obfs(f, obfsBuf)
 
 		b.ResetTimer()
@@ -34,7 +41,8 @@ func BenchmarkRecvDataFromRemote(b *testing.B) {
 
 	b.Run("aes-gcm", func(b *testing.B) {
 		obfuscator, _ := GenerateObfs(0x01, sessionKey)
-		sesh := MakeSession(0, UNLIMITED_VALVE, obfuscator, util.ReadTLS)
+		seshConfig.Obfuscator = obfuscator
+		sesh := MakeSession(0, seshConfig)
 		n, _ := sesh.Obfs(f, obfsBuf)
 
 		b.ResetTimer()
@@ -46,7 +54,8 @@ func BenchmarkRecvDataFromRemote(b *testing.B) {
 
 	b.Run("chacha20-poly1305", func(b *testing.B) {
 		obfuscator, _ := GenerateObfs(0x02, sessionKey)
-		sesh := MakeSession(0, UNLIMITED_VALVE, obfuscator, util.ReadTLS)
+		seshConfig.Obfuscator = obfuscator
+		sesh := MakeSession(0, seshConfig)
 		n, _ := sesh.Obfs(f, obfsBuf)
 
 		b.ResetTimer()

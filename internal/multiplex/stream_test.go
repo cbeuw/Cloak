@@ -15,7 +15,13 @@ func setupSesh() *Session {
 	sessionKey := make([]byte, 32)
 	rand.Read(sessionKey)
 	obfuscator, _ := GenerateObfs(0x00, sessionKey)
-	return MakeSession(0, UNLIMITED_VALVE, obfuscator, util.ReadTLS)
+
+	seshConfig := &SessionConfig{
+		Obfuscator: obfuscator,
+		Valve:      nil,
+		UnitRead:   util.ReadTLS,
+	}
+	return MakeSession(0, seshConfig)
 }
 
 type blackhole struct {
@@ -61,6 +67,59 @@ func BenchmarkStream_Write(b *testing.B) {
 		}
 		b.SetBytes(PAYLOAD_LEN)
 	}
+}
+
+func BenchmarkStream_Read(b *testing.B) {
+	sesh := setupSesh()
+	const PAYLOAD_LEN = 1000
+	testPayload := make([]byte, PAYLOAD_LEN)
+	rand.Read(testPayload)
+
+	f := &Frame{
+		1,
+		0,
+		0,
+		testPayload,
+	}
+
+	obfsBuf := make([]byte, 17000)
+
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
+	go func() {
+		// potentially bottlenecked here rather than the actual stream read throughput
+		conn, _ := net.Dial("tcp", l.Addr().String())
+		for {
+			i, _ := sesh.Obfs(f, obfsBuf)
+			f.Seq += 1
+			_, err := conn.Write(obfsBuf[:i])
+			if err != nil {
+				b.Error("cannot write to connection", err)
+			}
+		}
+	}()
+	conn, _ := l.Accept()
+
+	sesh.AddConnection(conn)
+	stream, err := sesh.Accept()
+	if err != nil {
+		b.Error("failed to accept stream", err)
+	}
+
+	//time.Sleep(5*time.Second) // wait for buffer to fill up
+
+	readBuf := make([]byte, PAYLOAD_LEN)
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		n, err := stream.Read(readBuf)
+		if !bytes.Equal(readBuf, testPayload) {
+			b.Error("paylod not equal")
+		}
+		b.SetBytes(int64(n))
+		if err != nil {
+			b.Error(err)
+		}
+	}
+
 }
 
 func TestStream_Read(t *testing.T) {

@@ -84,7 +84,12 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			return
 		}
 		log.Trace("finished handshake")
-		sesh := mux.MakeSession(0, mux.UNLIMITED_VALVE, obfuscator, util.ReadTLS)
+		seshConfig := &mux.SessionConfig{
+			Obfuscator: obfuscator,
+			Valve:      nil,
+			UnitRead:   util.ReadTLS,
+		}
+		sesh := mux.MakeSession(0, seshConfig)
 		sesh.AddConnection(conn)
 		//TODO: Router could be nil in cnc mode
 		log.WithField("remoteAddr", conn.RemoteAddr()).Info("New admin session")
@@ -111,7 +116,12 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	sesh, existing, err := user.GetSession(sessionID, obfuscator, util.ReadTLS)
+	seshConfig := &mux.SessionConfig{
+		Obfuscator: obfuscator,
+		Valve:      nil,
+		UnitRead:   util.ReadTLS,
+	}
+	sesh, existing, err := user.GetSession(sessionID, seshConfig)
 	if err != nil {
 		user.DeleteSession(sessionID, "")
 		log.Error(err)

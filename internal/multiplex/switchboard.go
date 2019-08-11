@@ -112,7 +112,7 @@ func (sb *switchboard) closeAll() {
 func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 	buf := make([]byte, 20480)
 	for {
-		n, err := sb.session.unitRead(conn, buf)
+		n, err := sb.session.UnitRead(conn, buf)
 		sb.rxWait(n)
 		sb.Valve.AddRx(int64(n))
 		if err != nil {

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"net"
 	"sync"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
@@ -34,7 +33,7 @@ func (u *ActiveUser) DeleteSession(sessionID uint32, reason string) {
 	u.sessionsM.Unlock()
 }
 
-func (u *ActiveUser) GetSession(sessionID uint32, obfuscator *mux.Obfuscator, unitReader func(net.Conn, []byte) (int, error)) (sesh *mux.Session, existing bool, err error) {
+func (u *ActiveUser) GetSession(sessionID uint32, config *mux.SessionConfig) (sesh *mux.Session, existing bool, err error) {
 	u.sessionsM.Lock()
 	defer u.sessionsM.Unlock()
 	if sesh = u.sessions[sessionID]; sesh != nil {
@@ -46,7 +45,8 @@ func (u *ActiveUser) GetSession(sessionID uint32, obfuscator *mux.Obfuscator, un
 				return nil, false, err
 			}
 		}
-		sesh = mux.MakeSession(sessionID, u.valve, obfuscator, unitReader)
+		config.Valve = u.valve
+		sesh = mux.MakeSession(sessionID, config)
 		u.sessions[sessionID] = sesh
 		return sesh, false, nil
 	}
