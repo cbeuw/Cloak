@@ -9,11 +9,17 @@ import (
 	"sync/atomic"
 )
 
+type switchboardConfig struct {
+	Valve
+	unordered bool
+	strategy  SwitchboardStrategy
+}
+
 // switchboard is responsible for keeping the reference of TLS connections between client and server
 type switchboard struct {
 	session *Session
 
-	Valve
+	*switchboardConfig
 
 	connsM     sync.RWMutex
 	conns      map[uint32]net.Conn
@@ -22,13 +28,13 @@ type switchboard struct {
 	broken uint32
 }
 
-func makeSwitchboard(sesh *Session, valve Valve) *switchboard {
+func makeSwitchboard(sesh *Session, config *switchboardConfig) *switchboard {
 	// rates are uint64 because in the usermanager we want the bandwidth to be atomically
 	// operated (so that the bandwidth can change on the fly).
 	sb := &switchboard{
-		session: sesh,
-		Valve:   valve,
-		conns:   make(map[uint32]net.Conn),
+		session:           sesh,
+		switchboardConfig: config,
+		conns:             make(map[uint32]net.Conn),
 	}
 	return sb
 }

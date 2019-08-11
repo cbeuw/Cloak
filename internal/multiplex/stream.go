@@ -57,7 +57,13 @@ func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
 
 func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
 
-func (s *Stream) writeFrame(frame *Frame) { s.sorter.writeNewFrame(frame) }
+func (s *Stream) writeFrame(frame *Frame) {
+	if s.session.Unordered {
+		s.sortedBuf.Write(frame.Payload)
+	} else {
+		s.sorter.writeNewFrame(frame)
+	}
+}
 
 func (s *Stream) Read(buf []byte) (n int, err error) {
 	//log.Tracef("attempting to read from stream %v", s.id)

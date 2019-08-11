@@ -25,6 +25,13 @@ type Obfuscator struct {
 	SessionKey []byte
 }
 
+type SwitchboardStrategy int
+
+const (
+	FixedConnMapping SwitchboardStrategy = iota
+	Uniform
+)
+
 type SessionConfig struct {
 	*Obfuscator
 
@@ -32,6 +39,10 @@ type SessionConfig struct {
 
 	// This is supposed to read one TLS message, the same as GoQuiet's ReadTillDrain
 	UnitRead func(net.Conn, []byte) (int, error)
+
+	Unordered bool
+
+	SwitchboardStrategy SwitchboardStrategy
 }
 
 type Session struct {
@@ -71,7 +82,13 @@ func MakeSession(id uint32, config *SessionConfig) *Session {
 	if config.Valve == nil {
 		config.Valve = UNLIMITED_VALVE
 	}
-	sesh.sb = makeSwitchboard(sesh, config.Valve)
+
+	sbConfig := &switchboardConfig{
+		Valve:     config.Valve,
+		unordered: config.Unordered,
+		strategy:  config.SwitchboardStrategy,
+	}
+	sesh.sb = makeSwitchboard(sesh, sbConfig)
 	go sesh.timeoutAfter(30 * time.Second)
 	return sesh
 }

@@ -12,7 +12,12 @@ func BenchmarkSwitchboard_Send(b *testing.B) {
 		UnitRead:   nil,
 	}
 	sesh := MakeSession(0, seshConfig)
-	sb := makeSwitchboard(sesh, UNLIMITED_VALVE)
+	sbConfig := &switchboardConfig{
+		Valve:     UNLIMITED_VALVE,
+		unordered: false,
+		strategy:  0,
+	}
+	sb := makeSwitchboard(sesh, sbConfig)
 	hole := newBlackHole()
 	sb.addConn(hole)
 	connId, err := sb.assignRandomConn()
