@@ -25,12 +25,7 @@ type Obfuscator struct {
 	SessionKey []byte
 }
 
-type SwitchboardStrategy int
-
-const (
-	FixedConnMapping SwitchboardStrategy = iota
-	Uniform
-)
+type switchboardStrategy int
 
 type SessionConfig struct {
 	*Obfuscator
@@ -41,8 +36,6 @@ type SessionConfig struct {
 	UnitRead func(net.Conn, []byte) (int, error)
 
 	Unordered bool
-
-	SwitchboardStrategy SwitchboardStrategy
 }
 
 type Session struct {
@@ -84,9 +77,12 @@ func MakeSession(id uint32, config *SessionConfig) *Session {
 	}
 
 	sbConfig := &switchboardConfig{
-		Valve:     config.Valve,
-		unordered: config.Unordered,
-		strategy:  config.SwitchboardStrategy,
+		Valve: config.Valve,
+	}
+	if config.Unordered {
+		sbConfig.strategy = UNIFORM_SPREAD
+	} else {
+		sbConfig.strategy = FIXED_CONN_MAPPING
 	}
 	sesh.sb = makeSwitchboard(sesh, sbConfig)
 	go sesh.timeoutAfter(30 * time.Second)

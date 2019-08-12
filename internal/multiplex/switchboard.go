@@ -9,10 +9,14 @@ import (
 	"sync/atomic"
 )
 
+const (
+	FIXED_CONN_MAPPING switchboardStrategy = iota
+	UNIFORM_SPREAD
+)
+
 type switchboardConfig struct {
 	Valve
-	unordered bool
-	strategy  SwitchboardStrategy
+	strategy switchboardStrategy
 }
 
 // switchboard is responsible for keeping the reference of TLS connections between client and server
@@ -64,34 +68,39 @@ func (sb *switchboard) removeConn(connId uint32) {
 
 // a pointer to connId is passed here so that the switchboard can reassign it
 func (sb *switchboard) send(data []byte, connId *uint32) (int, error) {
-	sb.Valve.rxWait(len(data))
 	sb.connsM.RLock()
 	defer sb.connsM.RUnlock()
-	var conn net.Conn
-	conn, ok := sb.conns[*connId]
-	if ok {
-		n, err := conn.Write(data)
-		sb.Valve.AddTx(int64(n))
-		return n, err
-	} else {
-		// do not call assignRandomConn() here.
-		// we'll have to do connsM.RLock() after we get a new connId from assignRandomConn, in order to
-		// get the new conn through conns[newConnId]
-		// however between connsM.RUnlock() in assignRandomConn and our call to connsM.RLock(), things may happen.
-		// in particular if newConnId is removed between the RUnlock and RLock, conns[newConnId] will return
-		// a nil pointer. To prevent this we must get newConnId and the reference to conn itself in one single mutex
-		// protection
-		if atomic.LoadUint32(&sb.broken) == 1 || len(sb.conns) == 0 {
-			return 0, errBrokenSwitchboard
-		}
-		newConnId := rand.Intn(len(sb.conns))
-		conn, ok = sb.conns[uint32(newConnId)]
+	if sb.strategy == UNIFORM_SPREAD {
+		randConnId := rand.Intn(len(sb.conns))
+		conn, ok := sb.conns[uint32(randConnId)]
 		if !ok {
 			return 0, errBrokenSwitchboard
 		} else {
-			n, err := conn.Write(data)
-			sb.Valve.AddTx(int64(n))
-			return n, err
+			return conn.Write(data)
+		}
+	} else {
+		var conn net.Conn
+		conn, ok := sb.conns[*connId]
+		if ok {
+			return conn.Write(data)
+		} else {
+			// do not call assignRandomConn() here.
+			// we'll have to do connsM.RLock() after we get a new connId from assignRandomConn, in order to
+			// get the new conn through conns[newConnId]
+			// however between connsM.RUnlock() in assignRandomConn and our call to connsM.RLock(), things may happen.
+			// in particular if newConnId is removed between the RUnlock and RLock, conns[newConnId] will return
+			// a nil pointer. To prevent this we must get newConnId and the reference to conn itself in one single mutex
+			// protection
+			if atomic.LoadUint32(&sb.broken) == 1 || len(sb.conns) == 0 {
+				return 0, errBrokenSwitchboard
+			}
+			newConnId := rand.Intn(len(sb.conns))
+			conn, ok = sb.conns[uint32(newConnId)]
+			if !ok {
+				return 0, errBrokenSwitchboard
+			} else {
+				return conn.Write(data)
+			}
 		}
 	}
 

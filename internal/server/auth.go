@@ -15,7 +15,12 @@ type ClientInfo struct {
 	SessionId        uint32
 	ProxyMethod      string
 	EncryptionMethod byte
+	Unordered        bool
 }
+
+const (
+	UNORDERED_FLAG = 0x01 // 0000 0001
+)
 
 var ErrReplay = errors.New("duplicate random")
 var ErrInvalidPubKey = errors.New("public key has invalid format")
@@ -59,6 +64,7 @@ func TouchStone(ch *ClientHello, sta *State) (info ClientInfo, sharedSecret []by
 		SessionId:        0,
 		ProxyMethod:      string(bytes.Trim(plaintext[16:28], "\x00")),
 		EncryptionMethod: plaintext[28],
+		Unordered:        plaintext[41]&UNORDERED_FLAG != 0,
 	}
 
 	timestamp := int64(binary.BigEndian.Uint64(plaintext[29:37]))
