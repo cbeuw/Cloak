@@ -25,7 +25,7 @@ var version string
 
 func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 	log.Info("Attemtping to start a new session")
-	if isAdmin {
+	if !isAdmin {
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 		// sessionID is limited to its UID.
 		quad := make([]byte, 4)
