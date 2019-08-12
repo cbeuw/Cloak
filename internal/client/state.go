@@ -19,7 +19,9 @@ type rawConfig struct {
 	UID              string
 	PublicKey        string
 	BrowserSig       string
-	NumConn          int
+	Unordered        bool
+
+	NumConn int
 }
 
 // State stores global variables
@@ -33,7 +35,6 @@ type State struct {
 	SessionID uint32
 	UID       []byte
 	staticPub crypto.PublicKey
-	IsAdmin   bool
 
 	Browser Browser
 

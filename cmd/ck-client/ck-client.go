@@ -23,9 +23,9 @@ import (
 
 var version string
 
-func makeSession(sta *client.State) *mux.Session {
+func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 	log.Info("Attemtping to start a new session")
-	if !sta.IsAdmin {
+	if isAdmin {
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 		// sessionID is limited to its UID.
 		quad := make([]byte, 4)
@@ -179,7 +179,6 @@ func main() {
 
 	if adminUID != nil {
 		log.Infof("API base is %v:%v", listeningIP, sta.LocalPort)
-		sta.IsAdmin = true
 		sta.SessionID = 0
 		sta.UID = adminUID
 		sta.NumConn = 1
@@ -196,7 +195,7 @@ func main() {
 			continue
 		}
 		if sesh == nil || sesh.IsClosed() {
-			sesh = makeSession(sta)
+			sesh = makeSession(sta, adminUID != nil)
 		}
 		go func() {
 			data := make([]byte, 10240)
