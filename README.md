@@ -16,6 +16,9 @@ Cloak provides multi-user support, allowing multiple clients to connect to the p
 
 This project is based on [GoQuiet](https://github.com/cbeuw/GoQuiet). Through multiplexing, Cloak provides a siginifcant reduction in webpage loading time compared to GoQuiet (from 10% to 50%+, depending on the amount of content on the webpage, see [benchmarks](https://github.com/cbeuw/Cloak/wiki/Web-page-loading-benchmarks)).
 
+## Quick Start
+To quickly deploy Cloak with Shadowsocks on a server, you can run this [script](https://github.com/HirbodBehnam/Shadowsocks-Cloak-Installer/blob/master/Cloak2-Installer.sh) written by @HirbodBehnam 
+
 ## Build
 If you are not using the experimental go mod support, make sure you `go get` the following dependencies:
 ```
