@@ -167,7 +167,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 				continue
 			}
 		}
-		localConn, err := net.Dial("tcp", sta.ProxyBook[ci.ProxyMethod])
+		proxyAddr := sta.ProxyBook[ci.ProxyMethod]
+		localConn, err := net.Dial(proxyAddr.Network(), proxyAddr.String())
 		if err != nil {
 			log.Errorf("Failed to connect to %v: %v", ci.ProxyMethod, err)
 			user.DeleteSession(ci.SessionId, "Failed to connect to proxy server")
@@ -254,7 +255,10 @@ func main() {
 		if net.ParseIP(ssLocalHost).To4() == nil {
 			ssLocalHost = "[" + ssLocalHost + "]"
 		}
-		sta.ProxyBook["shadowsocks"] = ssLocalHost + ":" + ssLocalPort
+		sta.ProxyBook["shadowsocks"], err = net.ResolveTCPAddr("tcp", ssLocalHost+":"+ssLocalPort)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	listen := func(addr, port string) {

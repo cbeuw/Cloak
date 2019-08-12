@@ -80,6 +80,7 @@ func MakeSession(id uint32, config *SessionConfig) *Session {
 		Valve: config.Valve,
 	}
 	if config.Unordered {
+		log.Debug("Connection is unordered")
 		sbConfig.strategy = UNIFORM_SPREAD
 	} else {
 		sbConfig.strategy = FIXED_CONN_MAPPING

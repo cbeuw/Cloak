@@ -5,8 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"io/ioutil"
+	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,7 +17,7 @@ import (
 )
 
 type rawConfig struct {
-	ProxyBook    map[string]string
+	ProxyBook    map[string][]string
 	BypassUID    [][]byte
 	RedirAddr    string
 	PrivateKey   string
@@ -25,7 +28,7 @@ type rawConfig struct {
 
 // State type stores the global state of the program
 type State struct {
-	ProxyBook map[string]string
+	ProxyBook map[string]net.Addr
 
 	BindHost string
 	BindPort string
@@ -47,12 +50,13 @@ type State struct {
 
 func InitState(bindHost, bindPort string, nowFunc func() time.Time) (*State, error) {
 	ret := &State{
-		BindHost:  bindHost,
-		BindPort:  bindPort,
-		Now:       nowFunc,
-		BypassUID: make(map[[16]byte]struct{}),
+		BindHost:   bindHost,
+		BindPort:   bindPort,
+		Now:        nowFunc,
+		BypassUID:  make(map[[16]byte]struct{}),
+		ProxyBook:  map[string]net.Addr{},
+		usedRandom: map[[32]byte]int64{},
 	}
-	ret.usedRandom = make(map[[32]byte]int64)
 	go ret.UsedRandomCleaner()
 	return ret, nil
 }
@@ -88,7 +92,29 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	}
 
 	sta.RedirAddr = preParse.RedirAddr
-	sta.ProxyBook = preParse.ProxyBook
+
+	for name, pair := range preParse.ProxyBook {
+		if len(pair) != 2 {
+			return fmt.Errorf("invalid protocol and address pair for %v: %v", name, pair)
+		}
+		network := strings.ToLower(pair[0])
+		switch network {
+		case "tcp":
+			addr, err := net.ResolveTCPAddr("tcp", pair[1])
+			if err != nil {
+				return err
+			}
+			sta.ProxyBook[name] = addr
+			continue
+		case "udp":
+			addr, err := net.ResolveUDPAddr("udp", pair[1])
+			if err != nil {
+				return err
+			}
+			sta.ProxyBook[name] = addr
+			continue
+		}
+	}
 
 	pvBytes, err := base64.StdEncoding.DecodeString(preParse.PrivateKey)
 	if err != nil {
