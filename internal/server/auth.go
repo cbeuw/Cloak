@@ -10,12 +10,19 @@ import (
 	"time"
 )
 
+type ClientInfo struct {
+	UID              []byte
+	SessionId        uint32
+	ProxyMethod      string
+	EncryptionMethod byte
+}
+
 var ErrReplay = errors.New("duplicate random")
 var ErrInvalidPubKey = errors.New("public key has invalid format")
 var ErrCiphertextLength = errors.New("ciphertext has the wrong length")
 var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
 
-func TouchStone(ch *ClientHello, sta *State) (UID []byte, sessionID uint32, proxyMethod string, encryptionMethod byte, sharedSecret []byte, err error) {
+func TouchStone(ch *ClientHello, sta *State) (info *ClientInfo, sharedSecret []byte, err error) {
 
 	if sta.registerRandom(ch.random) {
 		err = ErrReplay
@@ -47,9 +54,13 @@ func TouchStone(ch *ClientHello, sta *State) (UID []byte, sessionID uint32, prox
 		return
 	}
 
-	UID = plaintext[0:16]
-	proxyMethod = string(bytes.Trim(plaintext[16:28], "\x00"))
-	encryptionMethod = plaintext[28]
+	info = &ClientInfo{
+		UID:              plaintext[0:16],
+		SessionId:        0,
+		ProxyMethod:      string(bytes.Trim(plaintext[16:28], "\x00")),
+		EncryptionMethod: plaintext[28],
+	}
+
 	timestamp := int64(binary.BigEndian.Uint64(plaintext[29:37]))
 	clientTime := time.Unix(timestamp, 0)
 	serverTime := sta.Now()
@@ -57,6 +68,6 @@ func TouchStone(ch *ClientHello, sta *State) (UID []byte, sessionID uint32, prox
 		err = fmt.Errorf("%v: received timestamp %v", ErrTimestampOutOfWindow, timestamp)
 		return
 	}
-	sessionID = binary.BigEndian.Uint32(plaintext[37:41])
+	info.SessionId = binary.BigEndian.Uint32(plaintext[37:41])
 	return
 }

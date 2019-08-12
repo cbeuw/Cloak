@@ -52,14 +52,14 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		go util.Pipe(conn, webConn)
 	}
 
-	UID, sessionID, proxyMethod, encryptionMethod, finishHandshake, err := server.PrepareConnection(data, sta, conn)
+	ci, finishHandshake, err := server.PrepareConnection(data, sta, conn)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"remoteAddr":       remoteAddr,
-			"UID":              b64(UID),
-			"sessionId":        sessionID,
-			"proxyMethod":      proxyMethod,
-			"encryptionMethod": encryptionMethod,
+			"UID":              b64(ci.UID),
+			"sessionId":        ci.SessionId,
+			"proxyMethod":      ci.ProxyMethod,
+			"encryptionMethod": ci.EncryptionMethod,
 		}).Warn(err)
 		goWeb()
 		return
@@ -67,7 +67,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 
 	sessionKey := make([]byte, 32)
 	rand.Read(sessionKey)
-	obfuscator, err := mux.GenerateObfs(encryptionMethod, sessionKey)
+	obfuscator, err := mux.GenerateObfs(ci.EncryptionMethod, sessionKey)
 	if err != nil {
 		log.Error(err)
 		goWeb()
@@ -77,7 +77,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
 	// added to the userinfo database. The distinction between going into the admin mode
 	// and normal proxy mode is that sessionID needs == 0 for admin mode
-	if bytes.Equal(UID, sta.AdminUID) && sessionID == 0 {
+	if bytes.Equal(ci.UID, sta.AdminUID) && ci.SessionId == 0 {
 		err = finishHandshake(sessionKey)
 		if err != nil {
 			log.Error(err)
@@ -101,14 +101,14 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	}
 
 	var user *server.ActiveUser
-	if sta.IsBypass(UID) {
-		user, err = sta.Panel.GetBypassUser(UID)
+	if sta.IsBypass(ci.UID) {
+		user, err = sta.Panel.GetBypassUser(ci.UID)
 	} else {
-		user, err = sta.Panel.GetUser(UID)
+		user, err = sta.Panel.GetUser(ci.UID)
 	}
 	if err != nil {
 		log.WithFields(log.Fields{
-			"UID":        b64(UID),
+			"UID":        b64(ci.UID),
 			"remoteAddr": remoteAddr,
 			"error":      err,
 		}).Warn("+1 unauthorised UID")
@@ -121,9 +121,9 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		Valve:      nil,
 		UnitRead:   util.ReadTLS,
 	}
-	sesh, existing, err := user.GetSession(sessionID, seshConfig)
+	sesh, existing, err := user.GetSession(ci.SessionId, seshConfig)
 	if err != nil {
-		user.DeleteSession(sessionID, "")
+		user.DeleteSession(ci.SessionId, "")
 		log.Error(err)
 		return
 	}
@@ -147,8 +147,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	log.Trace("finished handshake")
 
 	log.WithFields(log.Fields{
-		"UID":       b64(UID),
-		"sessionID": sessionID,
+		"UID":       b64(ci.UID),
+		"sessionID": ci.SessionId,
 	}).Info("New session")
 	sesh.AddConnection(conn)
 
@@ -157,20 +157,20 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		if err != nil {
 			if err == mux.ErrBrokenSession {
 				log.WithFields(log.Fields{
-					"UID":       b64(UID),
-					"sessionID": sessionID,
+					"UID":       b64(ci.UID),
+					"sessionID": ci.SessionId,
 					"reason":    sesh.TerminalMsg(),
 				}).Info("Session closed")
-				user.DeleteSession(sessionID, "")
+				user.DeleteSession(ci.SessionId, "")
 				return
 			} else {
 				continue
 			}
 		}
-		localConn, err := net.Dial("tcp", sta.ProxyBook[proxyMethod])
+		localConn, err := net.Dial("tcp", sta.ProxyBook[ci.ProxyMethod])
 		if err != nil {
-			log.Errorf("Failed to connect to %v: %v", proxyMethod, err)
-			user.DeleteSession(sessionID, "Failed to connect to proxy server")
+			log.Errorf("Failed to connect to %v: %v", ci.ProxyMethod, err)
+			user.DeleteSession(ci.SessionId, "Failed to connect to proxy server")
 			continue
 		}
 		go util.Pipe(localConn, newStream)
