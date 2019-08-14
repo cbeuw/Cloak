@@ -64,12 +64,15 @@ func (sb *switchboard) removeConn(connId uint32) {
 
 // a pointer to connId is passed here so that the switchboard can reassign it
 func (sb *switchboard) send(data []byte, connId *uint32) (int, error) {
+	sb.Valve.rxWait(len(data))
 	sb.connsM.RLock()
 	defer sb.connsM.RUnlock()
 	var conn net.Conn
 	conn, ok := sb.conns[*connId]
 	if ok {
-		return conn.Write(data)
+		n, err := conn.Write(data)
+		sb.Valve.AddTx(int64(n))
+		return n, err
 	} else {
 		// do not call assignRandomConn() here.
 		// we'll have to do connsM.RLock() after we get a new connId from assignRandomConn, in order to
@@ -86,7 +89,9 @@ func (sb *switchboard) send(data []byte, connId *uint32) (int, error) {
 		if !ok {
 			return 0, errBrokenSwitchboard
 		} else {
-			return conn.Write(data)
+			n, err := conn.Write(data)
+			sb.Valve.AddTx(int64(n))
+			return n, err
 		}
 	}
 
