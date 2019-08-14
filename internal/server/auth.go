@@ -22,7 +22,7 @@ var ErrInvalidPubKey = errors.New("public key has invalid format")
 var ErrCiphertextLength = errors.New("ciphertext has the wrong length")
 var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
 
-func TouchStone(ch *ClientHello, sta *State) (info *ClientInfo, sharedSecret []byte, err error) {
+func TouchStone(ch *ClientHello, sta *State) (info ClientInfo, sharedSecret []byte, err error) {
 
 	if sta.registerRandom(ch.random) {
 		err = ErrReplay
@@ -54,7 +54,7 @@ func TouchStone(ch *ClientHello, sta *State) (info *ClientInfo, sharedSecret []b
 		return
 	}
 
-	info = &ClientInfo{
+	info = ClientInfo{
 		UID:              plaintext[0:16],
 		SessionId:        0,
 		ProxyMethod:      string(bytes.Trim(plaintext[16:28], "\x00")),
