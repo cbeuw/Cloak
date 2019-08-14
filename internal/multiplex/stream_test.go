@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func setupSesh() *Session {
+func setupSesh(unordered bool) *Session {
 	sessionKey := make([]byte, 32)
 	rand.Read(sessionKey)
 	obfuscator, _ := GenerateObfs(0x00, sessionKey)
@@ -20,6 +20,7 @@ func setupSesh() *Session {
 		Obfuscator: obfuscator,
 		Valve:      nil,
 		UnitRead:   util.ReadTLS,
+		Unordered:  unordered,
 	}
 	return MakeSession(0, seshConfig)
 }
@@ -50,7 +51,7 @@ func (b *blackhole) SetWriteDeadline(t time.Time) error { return nil }
 func BenchmarkStream_Write(b *testing.B) {
 	const PAYLOAD_LEN = 1000
 	hole := newBlackHole()
-	sesh := setupSesh()
+	sesh := setupSesh(false)
 	sesh.AddConnection(hole)
 	testData := make([]byte, PAYLOAD_LEN)
 	rand.Read(testData)
@@ -70,7 +71,7 @@ func BenchmarkStream_Write(b *testing.B) {
 }
 
 func BenchmarkStream_Read(b *testing.B) {
-	sesh := setupSesh()
+	sesh := setupSesh(false)
 	const PAYLOAD_LEN = 1000
 	testPayload := make([]byte, PAYLOAD_LEN)
 	rand.Read(testPayload)
@@ -123,7 +124,134 @@ func BenchmarkStream_Read(b *testing.B) {
 }
 
 func TestStream_Read(t *testing.T) {
-	sesh := setupSesh()
+	sesh := setupSesh(false)
+	testPayload := []byte{42, 42, 42}
+	const PAYLOAD_LEN = 3
+
+	f := &Frame{
+		1,
+		0,
+		0,
+		testPayload,
+	}
+
+	ch := make(chan []byte)
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
+	go func() {
+		conn, _ := net.Dial("tcp", l.Addr().String())
+		for {
+			data := <-ch
+			_, err := conn.Write(data)
+			if err != nil {
+				t.Error("cannot write to connection", err)
+			}
+		}
+	}()
+	conn, _ := l.Accept()
+	sesh.AddConnection(conn)
+
+	var streamID uint32
+	buf := make([]byte, 10)
+
+	obfsBuf := make([]byte, 512)
+	t.Run("Plain read", func(t *testing.T) {
+		f.StreamID = streamID
+		i, _ := sesh.Obfs(f, obfsBuf)
+		streamID++
+		ch <- obfsBuf[:i]
+		time.Sleep(100 * time.Microsecond)
+		stream, err := sesh.Accept()
+		if err != nil {
+			t.Error("failed to accept stream", err)
+		}
+		i, err = stream.Read(buf)
+		if err != nil {
+			t.Error("failed to read", err)
+		}
+		if i != PAYLOAD_LEN {
+			t.Errorf("expected read %v, got %v", PAYLOAD_LEN, i)
+		}
+		if !bytes.Equal(buf[:i], testPayload) {
+			t.Error("expected", testPayload,
+				"got", buf[:i])
+		}
+	})
+	t.Run("Nil buf", func(t *testing.T) {
+		f.StreamID = streamID
+		i, _ := sesh.Obfs(f, obfsBuf)
+		streamID++
+		ch <- obfsBuf[:i]
+		time.Sleep(100 * time.Microsecond)
+		stream, _ := sesh.Accept()
+		i, err := stream.Read(nil)
+		if i != 0 || err != nil {
+			t.Error("expecting", 0, nil,
+				"got", i, err)
+		}
+
+		stream.Close()
+		i, err = stream.Read(nil)
+		if i != 0 || err != ErrBrokenStream {
+			t.Error("expecting", 0, ErrBrokenStream,
+				"got", i, err)
+		}
+
+	})
+	t.Run("Read after stream close", func(t *testing.T) {
+		f.StreamID = streamID
+		i, _ := sesh.Obfs(f, obfsBuf)
+		streamID++
+		ch <- obfsBuf[:i]
+		time.Sleep(100 * time.Microsecond)
+		stream, _ := sesh.Accept()
+		stream.Close()
+		i, err := stream.Read(buf)
+		if err != nil {
+			t.Error("failed to read", err)
+		}
+		if i != PAYLOAD_LEN {
+			t.Errorf("expected read %v, got %v", PAYLOAD_LEN, i)
+		}
+		if !bytes.Equal(buf[:i], testPayload) {
+			t.Error("expected", testPayload,
+				"got", buf[:i])
+		}
+		_, err = stream.Read(buf)
+		if err == nil {
+			t.Error("expecting error", ErrBrokenStream,
+				"got nil error")
+		}
+	})
+	t.Run("Read after session close", func(t *testing.T) {
+		f.StreamID = streamID
+		i, _ := sesh.Obfs(f, obfsBuf)
+		streamID++
+		ch <- obfsBuf[:i]
+		time.Sleep(100 * time.Microsecond)
+		stream, _ := sesh.Accept()
+		sesh.Close()
+		i, err := stream.Read(buf)
+		if err != nil {
+			t.Error("failed to read", err)
+		}
+		if i != PAYLOAD_LEN {
+			t.Errorf("expected read %v, got %v", PAYLOAD_LEN, i)
+		}
+		if !bytes.Equal(buf[:i], testPayload) {
+			t.Error("expected", testPayload,
+				"got", buf[:i])
+		}
+		_, err = stream.Read(buf)
+		if err == nil {
+			t.Error("expecting error", ErrBrokenStream,
+				"got nil error")
+		}
+	})
+
+}
+
+func TestStream_UnorderedRead(t *testing.T) {
+	sesh := setupSesh(true)
 	testPayload := []byte{42, 42, 42}
 	const PAYLOAD_LEN = 3
 

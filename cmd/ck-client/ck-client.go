@@ -23,7 +23,7 @@ import (
 
 var version string
 
-func makeSession(sta *client.State, isAdmin bool) *mux.Session {
+func makeSession(sta *client.State, isAdmin bool, unordered bool) *mux.Session {
 	log.Info("Attemtping to start a new session")
 	if !isAdmin {
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
@@ -78,6 +78,7 @@ func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 		Obfuscator: obfuscator,
 		Valve:      nil,
 		UnitRead:   util.ReadTLS,
+		Unordered:  unordered,
 	}
 	sesh := mux.MakeSession(sta.SessionID, seshConfig)
 
@@ -99,6 +100,7 @@ func main() {
 	var remoteHost string
 	// The proxy port,should be 443
 	var remotePort string
+	var udp bool
 	var config string
 	var b64AdminUID string
 
@@ -116,6 +118,7 @@ func main() {
 		flag.StringVar(&localPort, "l", "1984", "localPort: Cloak listens to proxy clients on this port")
 		flag.StringVar(&remoteHost, "s", "", "remoteHost: IP of your proxy server")
 		flag.StringVar(&remotePort, "p", "443", "remotePort: proxy port, should be 443")
+		flag.BoolVar(&udp, "u", false, "udp: set this flag if the underlying proxy is using UDP protocol")
 		flag.StringVar(&config, "c", "ckclient.json", "config: path to the configuration file or options seperated with semicolons")
 		flag.StringVar(&b64AdminUID, "a", "", "adminUID: enter the adminUID to serve the admin api")
 		askVersion := flag.Bool("v", false, "Print the version number")
@@ -164,14 +167,23 @@ func main() {
 		// IPv6 needs square brackets
 		listeningIP = "[" + listeningIP + "]"
 	}
-	listener, err := net.Listen("tcp", listeningIP+":"+sta.LocalPort)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	var adminUID []byte
 	if b64AdminUID != "" {
 		adminUID, err = base64.StdEncoding.DecodeString(b64AdminUID)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	var tcpListener net.Listener
+	var network string
+	if udp {
+		network = "udp"
+	} else {
+		network = "tcp"
+		// TODO use the local variable instead fo sta.LocalPort
+		tcpListener, err = net.Listen("tcp", listeningIP+":"+sta.LocalPort)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -183,44 +195,125 @@ func main() {
 		sta.UID = adminUID
 		sta.NumConn = 1
 	} else {
-		log.Infof("Listening on %v:%v for proxy clients", listeningIP, sta.LocalPort)
+		log.Infof("Listening on %v %v:%v for proxy clients", network, listeningIP, sta.LocalPort)
 	}
 
 	var sesh *mux.Session
 
-	for {
-		localConn, err := listener.Accept()
+	if udp {
+		localUDPAddr, err := net.ResolveUDPAddr("udp", listeningIP+":"+localPort)
 		if err != nil {
-			log.Error(err)
-			continue
+			log.Fatal(err)
 		}
-		if sesh == nil || sesh.IsClosed() {
-			sesh = makeSession(sta, adminUID != nil)
+		localConn, err := net.ListenUDP("udp", localUDPAddr)
+		if err != nil {
+			log.Fatal(err)
 		}
-		go func() {
+		for {
+			var otherEnd atomic.Value
 			data := make([]byte, 10240)
-			i, err := io.ReadAtLeast(localConn, data, 1)
+			i, oe, err := localConn.ReadFromUDP(data)
 			if err != nil {
 				log.Errorf("Failed to read first packet from proxy client: %v", err)
 				localConn.Close()
 				return
 			}
+			otherEnd.Store(oe)
+
+			if sesh == nil || sesh.IsClosed() {
+				sesh = makeSession(sta, adminUID != nil, true)
+			}
+			log.Debugf("proxy local address %v", otherEnd.Load().(*net.UDPAddr).String())
 			stream, err := sesh.OpenStream()
 			if err != nil {
 				log.Errorf("Failed to open stream: %v", err)
 				localConn.Close()
+				//localConnWrite.Close()
 				return
 			}
 			_, err = stream.Write(data[:i])
 			if err != nil {
 				log.Errorf("Failed to write to stream: %v", err)
 				localConn.Close()
+				//localConnWrite.Close()
 				stream.Close()
 				return
 			}
-			go util.Pipe(localConn, stream)
-			util.Pipe(stream, localConn)
-		}()
+
+			go func() {
+				buf := make([]byte, 16380)
+				for {
+					i, err := io.ReadAtLeast(stream, buf, 1)
+					if err != nil {
+						log.Print(err)
+						go localConn.Close()
+						go stream.Close()
+						return
+					}
+					i, err = localConn.WriteToUDP(buf[:i], otherEnd.Load().(*net.UDPAddr))
+					if err != nil {
+						log.Print(err)
+						go localConn.Close()
+						go stream.Close()
+						return
+					}
+				}
+			}()
+
+			buf := make([]byte, 16380)
+			for {
+				i, oe, err := localConn.ReadFromUDP(buf)
+				if err != nil {
+					log.Print(err)
+					go localConn.Close()
+					go stream.Close()
+					return
+				}
+				otherEnd.Store(oe)
+				i, err = stream.Write(buf[:i])
+				if err != nil {
+					log.Print(err)
+					go localConn.Close()
+					go stream.Close()
+					return
+				}
+			}
+		}
+	} else {
+		for {
+			localConn, err := tcpListener.Accept()
+			if err != nil {
+				log.Fatal(err)
+				continue
+			}
+			if sesh == nil || sesh.IsClosed() {
+				sesh = makeSession(sta, adminUID != nil, false)
+			}
+			go func() {
+				data := make([]byte, 10240)
+				i, err := io.ReadAtLeast(localConn, data, 1)
+				if err != nil {
+					log.Errorf("Failed to read first packet from proxy client: %v", err)
+					localConn.Close()
+					return
+				}
+				stream, err := sesh.OpenStream()
+				if err != nil {
+					log.Errorf("Failed to open stream: %v", err)
+					localConn.Close()
+					return
+				}
+				_, err = stream.Write(data[:i])
+				if err != nil {
+					log.Errorf("Failed to write to stream: %v", err)
+					localConn.Close()
+					stream.Close()
+					return
+				}
+				go util.Pipe(localConn, stream)
+				util.Pipe(stream, localConn)
+			}()
+		}
 	}
 
 }

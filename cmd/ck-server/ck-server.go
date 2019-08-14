@@ -120,6 +120,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		Obfuscator: obfuscator,
 		Valve:      nil,
 		UnitRead:   util.ReadTLS,
+		Unordered:  ci.Unordered,
 	}
 	sesh, existing, err := user.GetSession(ci.SessionId, seshConfig)
 	if err != nil {
@@ -174,8 +175,11 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			user.DeleteSession(ci.SessionId, "Failed to connect to proxy server")
 			continue
 		}
+		log.Debugf("%v endpoint has been successfully connected", ci.ProxyMethod)
+
 		go util.Pipe(localConn, newStream)
 		go util.Pipe(newStream, localConn)
+
 	}
 
 }

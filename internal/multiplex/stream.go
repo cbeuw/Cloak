@@ -2,6 +2,7 @@ package multiplex
 
 import (
 	"errors"
+	"io"
 	"net"
 	"time"
 
@@ -14,12 +15,17 @@ import (
 
 var ErrBrokenStream = errors.New("broken stream")
 
+type ReadWriteCloseLener interface {
+	io.ReadWriteCloser
+	Len() int
+}
+
 type Stream struct {
 	id uint32
 
 	session *Session
 
-	sortedBuf *bufferedPipe
+	buf ReadWriteCloseLener
 
 	sorter *frameSorter
 
@@ -39,12 +45,17 @@ type Stream struct {
 }
 
 func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
-	buf := NewBufferedPipe()
+	var buf ReadWriteCloseLener
+	if sesh.Unordered {
+		buf = NewDatagramBuffer()
+	} else {
+		buf = NewBufferedPipe()
+	}
 
 	stream := &Stream{
 		id:             id,
 		session:        sesh,
-		sortedBuf:      buf,
+		buf:            buf,
 		obfsBuf:        make([]byte, 17000),
 		sorter:         NewFrameSorter(buf),
 		assignedConnId: assignedConnId,
@@ -59,7 +70,7 @@ func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
 
 func (s *Stream) writeFrame(frame *Frame) {
 	if s.session.Unordered {
-		s.sortedBuf.Write(frame.Payload)
+		s.buf.Write(frame.Payload)
 	} else {
 		s.sorter.writeNewFrame(frame)
 	}
@@ -74,17 +85,19 @@ func (s *Stream) Read(buf []byte) (n int, err error) {
 			return 0, nil
 		}
 	}
+
 	if s.isClosed() {
-		if s.sortedBuf.Len() == 0 {
+		// TODO: Len check may not be necessary as this can be offloaded to buffer implementation
+		if s.buf.Len() == 0 {
 			return 0, ErrBrokenStream
 		} else {
-			n, err = s.sortedBuf.Read(buf)
-			//log.Tracef("%v read from stream %v with err %v",n, s.id,err)
+			n, err = s.buf.Read(buf)
+			log.Tracef("%v read from stream %v with err %v", n, s.id, err)
 			return
 		}
 	} else {
-		n, err = s.sortedBuf.Read(buf)
-		//log.Tracef("%v read from stream %v with err %v",n, s.id,err)
+		n, err = s.buf.Read(buf)
+		log.Tracef("%v read from stream %v with err %v", n, s.id, err)
 		return
 	}
 }
@@ -114,7 +127,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 		return i, err
 	}
 	n, err = s.session.sb.send(s.obfsBuf[:i], &s.assignedConnId)
-	//log.Tracef("%v sent to remote through stream %v with err %v",n, s.id,err)
+	log.Tracef("%v sent to remote through stream %v with err %v", len(in), s.id, err)
 	if err != nil {
 		return
 	}
@@ -126,7 +139,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 func (s *Stream) _close() {
 	atomic.StoreUint32(&s.closed, 1)
 	s.sorter.Close() // this will trigger frameSorter to return
-	s.sortedBuf.Close()
+	s.buf.Close()
 }
 
 // only close locally. Used when the stream close is notified by the remote
