@@ -86,6 +86,7 @@ func (fs *frameSorter) Close() error {
 // recvNewFrame is a forever running loop which receives frames unordered,
 // cache and order them and send them into sortedBufCh
 func (fs *frameSorter) recvNewFrame() {
+	// TODO: add timeout
 	defer log.Tracef("a recvNewFrame has returned gracefully")
 	for {
 		f := <-fs.newFrameCh
