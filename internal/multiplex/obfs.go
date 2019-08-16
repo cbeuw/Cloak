@@ -20,6 +20,12 @@ var putU32 = binary.BigEndian.PutUint32
 
 const HEADER_LEN = 12
 
+const (
+	E_METHOD_PLAIN = iota
+	E_METHOD_AES_GCM
+	E_METHOD_CHACHA20_POLY1305
+)
+
 func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 	obfs := func(f *Frame, buf []byte) (int, error) {
 		var extraLen uint8
@@ -133,9 +139,9 @@ func GenerateObfs(encryptionMethod byte, sessionKey []byte) (obfuscator *Obfusca
 
 	var payloadCipher cipher.AEAD
 	switch encryptionMethod {
-	case 0x00:
+	case E_METHOD_PLAIN:
 		payloadCipher = nil
-	case 0x01:
+	case E_METHOD_AES_GCM:
 		var c cipher.Block
 		c, err = aes.NewCipher(sessionKey)
 		if err != nil {
@@ -145,7 +151,7 @@ func GenerateObfs(encryptionMethod byte, sessionKey []byte) (obfuscator *Obfusca
 		if err != nil {
 			return
 		}
-	case 0x02:
+	case E_METHOD_CHACHA20_POLY1305:
 		payloadCipher, err = chacha20poly1305.New(sessionKey)
 		if err != nil {
 			return
