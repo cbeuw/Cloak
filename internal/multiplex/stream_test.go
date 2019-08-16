@@ -48,7 +48,7 @@ func (b *blackhole) SetDeadline(t time.Time) error      { return nil }
 func (b *blackhole) SetReadDeadline(t time.Time) error  { return nil }
 func (b *blackhole) SetWriteDeadline(t time.Time) error { return nil }
 
-func BenchmarkStream_Write(b *testing.B) {
+func BenchmarkStream_Write_Ordered(b *testing.B) {
 	const PAYLOAD_LEN = 1000
 	hole := newBlackHole()
 	sesh := setupSesh(false)
@@ -70,7 +70,7 @@ func BenchmarkStream_Write(b *testing.B) {
 	}
 }
 
-func BenchmarkStream_Read(b *testing.B) {
+func BenchmarkStream_Read_Ordered(b *testing.B) {
 	sesh := setupSesh(false)
 	const PAYLOAD_LEN = 1000
 	testPayload := make([]byte, PAYLOAD_LEN)

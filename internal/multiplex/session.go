@@ -139,6 +139,7 @@ func (sesh *Session) delStream(id uint32) {
 func (sesh *Session) recvDataFromRemote(data []byte) {
 	frame, err := sesh.Deobfs(data)
 	if err != nil {
+		// TODO: return this error
 		log.Debugf("Failed to decrypt a frame for session %v: %v", sesh.id, err)
 		return
 	}
