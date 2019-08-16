@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"crypto"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -22,25 +23,18 @@ const (
 	UNORDERED_FLAG = 0x01 // 0000 0001
 )
 
-var ErrReplay = errors.New("duplicate random")
 var ErrInvalidPubKey = errors.New("public key has invalid format")
 var ErrCiphertextLength = errors.New("ciphertext has the wrong length")
 var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
 
-func TouchStone(ch *ClientHello, sta *State) (info ClientInfo, sharedSecret []byte, err error) {
-
-	if sta.registerRandom(ch.random) {
-		err = ErrReplay
-		return
-	}
-
+func touchStone(ch *ClientHello, staticPv crypto.PrivateKey, now func() time.Time) (info ClientInfo, sharedSecret []byte, err error) {
 	ephPub, ok := ecdh.Unmarshal(ch.random)
 	if !ok {
 		err = ErrInvalidPubKey
 		return
 	}
 
-	sharedSecret = ecdh.GenerateSharedSecret(sta.staticPv, ephPub)
+	sharedSecret = ecdh.GenerateSharedSecret(staticPv, ephPub)
 	var keyShare []byte
 	keyShare, err = parseKeyShare(ch.extensions[[2]byte{0x00, 0x33}])
 	if err != nil {
@@ -69,7 +63,7 @@ func TouchStone(ch *ClientHello, sta *State) (info ClientInfo, sharedSecret []by
 
 	timestamp := int64(binary.BigEndian.Uint64(plaintext[29:37]))
 	clientTime := time.Unix(timestamp, 0)
-	serverTime := sta.Now()
+	serverTime := now()
 	if !(clientTime.After(serverTime.Truncate(TIMESTAMP_TOLERANCE)) && clientTime.Before(serverTime.Add(TIMESTAMP_TOLERANCE))) {
 		err = fmt.Errorf("%v: received timestamp %v", ErrTimestampOutOfWindow, timestamp)
 		return

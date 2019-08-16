@@ -216,6 +216,7 @@ func composeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) ([]by
 
 var ErrBadClientHello = errors.New("non (or malformed) ClientHello")
 var ErrNotCloak = errors.New("TLS but non-Cloak ClientHello")
+var ErrReplay = errors.New("duplicate random")
 var ErrBadProxyMethod = errors.New("invalid proxy method")
 
 func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info ClientInfo, finisher func([]byte) error, err error) {
@@ -226,8 +227,13 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 		return
 	}
 
+	if sta.registerRandom(ch.random) {
+		err = ErrReplay
+		return
+	}
+
 	var sharedSecret []byte
-	info, sharedSecret, err = TouchStone(ch, sta)
+	info, sharedSecret, err = touchStone(ch, sta.staticPv, sta.Now)
 	if err != nil {
 		log.Debug(err)
 		err = ErrNotCloak
