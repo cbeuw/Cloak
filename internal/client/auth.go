@@ -29,7 +29,7 @@ func makeHiddenData(sta *State) (ret chHiddenData, sharedSecret []byte) {
 	copy(plaintext, sta.UID)
 	copy(plaintext[16:28], sta.ProxyMethod)
 	plaintext[28] = sta.EncryptionMethod
-	binary.BigEndian.PutUint64(plaintext[29:37], uint64(sta.Now().Unix()))
+	binary.BigEndian.PutUint64(plaintext[29:37], uint64(sta.now().Unix()))
 	binary.BigEndian.PutUint32(plaintext[37:41], atomic.LoadUint32(&sta.SessionID))
 
 	if sta.Unordered {

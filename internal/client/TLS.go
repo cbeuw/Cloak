@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Browser interface {
+type browser interface {
 	composeClientHello(chHiddenData) []byte
 }
 
@@ -39,7 +39,7 @@ func addExtRec(typ []byte, data []byte) []byte {
 
 func PrepareConnection(sta *State, conn net.Conn) (sessionKey []byte, err error) {
 	hd, sharedSecret := makeHiddenData(sta)
-	chOnly := sta.Browser.composeClientHello(hd)
+	chOnly := sta.browser.composeClientHello(hd)
 	chWithRecordLayer := util.AddRecordLayer(chOnly, []byte{0x16}, []byte{0x03, 0x01})
 	_, err = conn.Write(chWithRecordLayer)
 	if err != nil {

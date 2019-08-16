@@ -30,12 +30,12 @@ type State struct {
 	RemotePort string
 	Unordered  bool
 
-	Now       func() time.Time
 	SessionID uint32
 	UID       []byte
-	staticPub crypto.PublicKey
 
-	Browser Browser
+	staticPub crypto.PublicKey
+	now       func() time.Time
+	browser   browser
 
 	ProxyMethod      string
 	EncryptionMethod byte
@@ -49,7 +49,7 @@ func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func
 		LocalPort:  localPort,
 		RemoteHost: remoteHost,
 		RemotePort: remotePort,
-		Now:        nowFunc,
+		now:        nowFunc,
 	}
 	return ret
 }
@@ -114,9 +114,9 @@ func (sta *State) ParseConfig(conf string) (err error) {
 
 	switch strings.ToLower(preParse.BrowserSig) {
 	case "chrome":
-		sta.Browser = &Chrome{}
+		sta.browser = &Chrome{}
 	case "firefox":
-		sta.Browser = &Firefox{}
+		sta.browser = &Firefox{}
 	default:
 		return errors.New("unsupported browser signature")
 	}
