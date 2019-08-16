@@ -149,6 +149,9 @@ func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 			return
 		}
 
-		sb.session.recvDataFromRemote(buf[:n])
+		err = sb.session.recvDataFromRemote(buf[:n])
+		if err != nil {
+			log.Error(err)
+		}
 	}
 }

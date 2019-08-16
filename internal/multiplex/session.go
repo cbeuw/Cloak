@@ -2,6 +2,7 @@ package multiplex
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -136,12 +137,10 @@ func (sesh *Session) delStream(id uint32) {
 	sesh.streamsM.Unlock()
 }
 
-func (sesh *Session) recvDataFromRemote(data []byte) {
+func (sesh *Session) recvDataFromRemote(data []byte) error {
 	frame, err := sesh.Deobfs(data)
 	if err != nil {
-		// TODO: return this error
-		log.Debugf("Failed to decrypt a frame for session %v: %v", sesh.id, err)
-		return
+		return fmt.Errorf("Failed to decrypt a frame for session %v: %v", sesh.id, err)
 	}
 
 	sesh.streamsM.Lock()
@@ -149,10 +148,11 @@ func (sesh *Session) recvDataFromRemote(data []byte) {
 	stream, existing := sesh.streams[frame.StreamID]
 	if existing {
 		stream.writeFrame(frame)
+		return nil
 	} else {
 		if frame.Closing == 1 {
 			// If the stream has been closed and the current frame is a closing frame, we do noop
-			return
+			return nil
 		} else {
 			// it may be tempting to use the connId from which the frame was received. However it doesn't make
 			// any difference because we only care to send the data from the same stream through the same
@@ -164,7 +164,7 @@ func (sesh *Session) recvDataFromRemote(data []byte) {
 			sesh.streams[frame.StreamID] = stream
 			sesh.acceptCh <- stream
 			stream.writeFrame(frame)
-			return
+			return nil
 		}
 	}
 
