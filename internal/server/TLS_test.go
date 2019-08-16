@@ -12,9 +12,11 @@ func TestParseClientHello(t *testing.T) {
 		ch, err := parseClientHello(chBytes)
 		if err != nil {
 			t.Errorf("Expecting no error, got %v", err)
+			return
 		}
 		if !bytes.Equal(ch.clientVersion, []byte{0x03, 0x03}) {
 			t.Errorf("expecting client version 0x0303, got %v", ch.clientVersion)
+			return
 		}
 	})
 	t.Run("Malformed ClientHello", func(t *testing.T) {
@@ -22,6 +24,7 @@ func TestParseClientHello(t *testing.T) {
 		_, err := parseClientHello(chBytes)
 		if err == nil {
 			t.Error("expecting Malformed ClientHello, got no error")
+			return
 		}
 	})
 	t.Run("not Handshake", func(t *testing.T) {
@@ -29,6 +32,7 @@ func TestParseClientHello(t *testing.T) {
 		_, err := parseClientHello(chBytes)
 		if err == nil {
 			t.Error("not a tls handshake, got no error")
+			return
 		}
 	})
 	t.Run("wrong version", func(t *testing.T) {
@@ -36,6 +40,7 @@ func TestParseClientHello(t *testing.T) {
 		_, err := parseClientHello(chBytes)
 		if err == nil {
 			t.Error("wrong version, got no error")
+			return
 		}
 	})
 }

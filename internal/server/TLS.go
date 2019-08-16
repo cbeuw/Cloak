@@ -104,6 +104,10 @@ func parseClientHello(data []byte) (ret *ClientHello, err error) {
 		}
 	}()
 
+	if !bytes.Equal(data[0:3], []byte{0x16, 0x03, 0x01}) {
+		return ret, errors.New("wrong TLS handshake magic bytes")
+	}
+
 	peeled := make([]byte, len(data)-5)
 	copy(peeled, data[5:])
 	pointer := 0
