@@ -206,7 +206,7 @@ func composeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) ([]by
 	}
 	shBytes := addRecordLayer(sh, []byte{0x16}, TLS12)
 	ccsBytes := addRecordLayer([]byte{0x01}, []byte{0x14}, TLS12)
-	cert := make([]byte, 68) // this is always 68 bytes
+	cert := make([]byte, 68) // TODO: add some different lengths maybe?
 	rand.Read(cert)
 	encryptedCertBytes := addRecordLayer(cert, []byte{0x17}, TLS12)
 	ret := append(shBytes, ccsBytes...)

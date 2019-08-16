@@ -19,7 +19,6 @@ type rawConfig struct {
 	UID              string
 	PublicKey        string
 	BrowserSig       string
-	Unordered        bool
 	NumConn          int
 }
 
@@ -29,6 +28,7 @@ type State struct {
 	LocalPort  string
 	RemoteHost string
 	RemotePort string
+	Unordered  bool
 
 	Now       func() time.Time
 	SessionID uint32
@@ -41,7 +41,6 @@ type State struct {
 	EncryptionMethod byte
 	ServerName       string
 	NumConn          int
-	Unordered        bool
 }
 
 func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
@@ -125,7 +124,6 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	sta.ProxyMethod = preParse.ProxyMethod
 	sta.ServerName = preParse.ServerName
 	sta.NumConn = preParse.NumConn
-	sta.Unordered = preParse.Unordered
 
 	uid, err := base64.StdEncoding.DecodeString(preParse.UID)
 	if err != nil {

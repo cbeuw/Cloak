@@ -242,6 +242,7 @@ func main() {
 		remotePort = os.Getenv("SS_REMOTE_PORT")
 		config = os.Getenv("SS_PLUGIN_OPTIONS")
 	} else {
+		// TODO: allow proxy method to be set here as a flag so different cloak instances may share the same config file
 		flag.StringVar(&localHost, "i", "127.0.0.1", "localHost: Cloak listens to proxy clients on this ip")
 		flag.StringVar(&localPort, "l", "1984", "localPort: Cloak listens to proxy clients on this port")
 		flag.StringVar(&remoteHost, "s", "", "remoteHost: IP of your proxy server")
@@ -312,9 +313,11 @@ func main() {
 	} else {
 		var network string
 		if udp {
-			network = "udp"
+			network = "UDP"
+			sta.Unordered = true
 		} else {
-			network = "tcp"
+			network = "TCP"
+			sta.Unordered = false
 		}
 		log.Infof("Listening on %v %v:%v for proxy clients", network, listeningIP, sta.LocalPort)
 	}
