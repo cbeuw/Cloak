@@ -12,11 +12,18 @@ const (
 	UNORDERED_FLAG = 0x01 // 0000 0001
 )
 
-func makeHiddenData(sta *State) (random, TLSsessionID, keyShare, sharedSecret []byte) {
+type chHiddenData struct {
+	chRandom         []byte
+	chSessionId      []byte
+	chX25519KeyShare []byte
+	chExtSNI         []byte
+}
+
+func makeHiddenData(sta *State) (ret chHiddenData, sharedSecret []byte) {
 	// random is marshalled ephemeral pub key 32 bytes
 	// TLSsessionID || keyShare is [encrypted UID 16 bytes, proxy method 12 bytes, encryption method 1 byte, timestamp 8 bytes, sessionID 4 bytes] [1 byte flag] [6 bytes reserved] [16 bytes authentication tag]
 	ephPv, ephPub, _ := ecdh.GenerateKey(rand.Reader)
-	random = ecdh.Marshal(ephPub)
+	ret.chRandom = ecdh.Marshal(ephPub)
 
 	plaintext := make([]byte, 48)
 	copy(plaintext, sta.UID)
@@ -30,9 +37,10 @@ func makeHiddenData(sta *State) (random, TLSsessionID, keyShare, sharedSecret []
 	}
 
 	sharedSecret = ecdh.GenerateSharedSecret(ephPv, sta.staticPub)
-	nonce := random[0:12]
+	nonce := ret.chRandom[0:12]
 	ciphertext, _ := util.AESGCMEncrypt(nonce, sharedSecret, plaintext)
-	TLSsessionID = ciphertext[0:32]
-	keyShare = ciphertext[32:64]
+	ret.chSessionId = ciphertext[0:32]
+	ret.chX25519KeyShare = ciphertext[32:64]
+	ret.chExtSNI = makeServerName(sta.ServerName)
 	return
 }

@@ -11,7 +11,8 @@ func TestComposeExtensions(t *testing.T) {
 
 	serverName := "consent.google.com"
 	keyShare, _ := hex.DecodeString("6075db0a43812b2e4e0f44157f04295b484ccfc6d70e577c1e6113aa18e08827")
-	result := (&Firefox{}).composeExtensions(serverName, keyShare)
+	sni := makeServerName(serverName)
+	result := (&Firefox{}).composeExtensions(sni, keyShare)
 	// skip random secp256r1
 	if !bytes.Equal(result[:137], target[:137]) || !bytes.Equal(result[202:], target[202:]) {
 		t.Errorf("got %x", result)

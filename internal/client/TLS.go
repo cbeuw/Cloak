@@ -9,7 +9,7 @@ import (
 )
 
 type Browser interface {
-	composeClientHello(*State) ([]byte, []byte)
+	composeClientHello(chHiddenData) []byte
 }
 
 func makeServerName(serverName string) []byte {
@@ -37,15 +37,11 @@ func addExtRec(typ []byte, data []byte) []byte {
 	return ret
 }
 
-// composeClientHello composes ClientHello with record layer
-func composeClientHello(sta *State) ([]byte, []byte) {
-	ch, sharedSecret := sta.Browser.composeClientHello(sta)
-	return util.AddRecordLayer(ch, []byte{0x16}, []byte{0x03, 0x01}), sharedSecret
-}
-
 func PrepareConnection(sta *State, conn net.Conn) (sessionKey []byte, err error) {
-	clientHello, sharedSecret := composeClientHello(sta)
-	_, err = conn.Write(clientHello)
+	hd, sharedSecret := makeHiddenData(sta)
+	chOnly := sta.Browser.composeClientHello(hd)
+	chWithRecordLayer := util.AddRecordLayer(chOnly, []byte{0x16}, []byte{0x03, 0x01})
+	_, err = conn.Write(chWithRecordLayer)
 	if err != nil {
 		return
 	}
