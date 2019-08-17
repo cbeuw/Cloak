@@ -1,8 +1,17 @@
 {
   "ProxyBook": {
-    "shadowsocks": "127.0.0.1:8388",
-    "openvpn": "127.0.0.1:8389",
-    "tor": "127.0.0.1:9001"
+    "shadowsocks": [
+      "tcp",
+      "127.0.0.1:8388"
+    ],
+    "openvpn": [
+      "udp",
+      "127.0.0.1:8389"
+    ],
+    "tor": [
+      "tcp",
+      "127.0.0.1:9001"
+    ]
   },
   "BypassUID": [
     "1rmq6Ag1jZJCImLBIL5wzQ=="
