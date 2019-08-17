@@ -69,6 +69,7 @@ func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
 func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
 
 func (s *Stream) writeFrame(frame *Frame) {
+	// TODO: refactor this through an interface
 	if s.session.Unordered {
 		s.buf.Write(frame.Payload)
 	} else {

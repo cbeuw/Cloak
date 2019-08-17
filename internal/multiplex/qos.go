@@ -3,7 +3,7 @@ package multiplex
 import (
 	"sync/atomic"
 
-	"github.com/cbeuw/ratelimit"
+	"github.com/juju/ratelimit"
 )
 
 // Valve needs to be universal, across all sessions that belong to a user
@@ -14,8 +14,8 @@ type LimitedValve struct {
 	// rx is from client to server, tx is from server to client
 	// DO NOT use terms up or down as this is used in usermanager
 	// for bandwidth limiting
-	rxtb ratelimit.Bucket
-	txtb ratelimit.Bucket
+	rxtb *ratelimit.Bucket
+	txtb *ratelimit.Bucket
 
 	rx *int64
 	tx *int64
@@ -26,8 +26,8 @@ type UnlimitedValve struct{}
 func MakeValve(rxRate, txRate int64) *LimitedValve {
 	var rx, tx int64
 	v := &LimitedValve{
-		rxtb: ratelimit.NewLimitedBucketWithRate(float64(rxRate), rxRate),
-		txtb: ratelimit.NewLimitedBucketWithRate(float64(txRate), txRate),
+		rxtb: ratelimit.NewBucketWithRate(float64(rxRate), rxRate),
+		txtb: ratelimit.NewBucketWithRate(float64(txRate), txRate),
 		rx:   &rx,
 		tx:   &tx,
 	}
