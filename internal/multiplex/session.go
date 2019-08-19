@@ -123,6 +123,9 @@ func (sesh *Session) Accept() (net.Conn, error) {
 	if stream == nil {
 		return nil, ErrBrokenSession
 	}
+	sesh.streamsM.Lock()
+	sesh.streams[stream.id] = stream
+	sesh.streamsM.Unlock()
 	log.Tracef("stream %v of session %v accepted", stream.id, sesh.id)
 	return stream, nil
 }
@@ -161,7 +164,6 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 			connId, _ := sesh.sb.assignRandomConn()
 			// we ignore the error here. If the switchboard is broken, it will be reflected upon stream.Write
 			stream = makeStream(sesh, frame.StreamID, connId)
-			sesh.streams[frame.StreamID] = stream
 			sesh.acceptCh <- stream
 			stream.writeFrame(frame)
 			return nil
