@@ -97,82 +97,86 @@ func routeUDP(sta *client.State, adminUID []byte) {
 	if err != nil {
 		log.Fatal(err)
 	}
+start:
 	localConn, err := net.ListenUDP("udp", localUDPAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for {
-		var otherEnd atomic.Value
-		data := make([]byte, 10240)
-		i, oe, err := localConn.ReadFromUDP(data)
-		if err != nil {
-			log.Errorf("Failed to read first packet from proxy client: %v", err)
-			localConn.Close()
-			return
-		}
-		otherEnd.Store(oe)
+	var otherEnd atomic.Value
+	data := make([]byte, 10240)
+	i, oe, err := localConn.ReadFromUDP(data)
+	if err != nil {
+		log.Errorf("Failed to read first packet from proxy client: %v", err)
+		localConn.Close()
+		return
+	}
+	otherEnd.Store(oe)
 
-		if sesh == nil || sesh.IsClosed() {
-			sesh = makeSession(sta, adminUID != nil, true)
-		}
-		log.Debugf("proxy local address %v", otherEnd.Load().(*net.UDPAddr).String())
-		stream, err := sesh.OpenStream()
-		if err != nil {
-			log.Errorf("Failed to open stream: %v", err)
-			localConn.Close()
-			//localConnWrite.Close()
-			return
-		}
-		_, err = stream.Write(data[:i])
-		if err != nil {
-			log.Errorf("Failed to write to stream: %v", err)
-			localConn.Close()
-			//localConnWrite.Close()
-			stream.Close()
-			return
-		}
+	if sesh == nil || sesh.IsClosed() {
+		sesh = makeSession(sta, adminUID != nil, true)
+	}
+	log.Debugf("proxy local address %v", otherEnd.Load().(*net.UDPAddr).String())
+	stream, err := sesh.OpenStream()
+	if err != nil {
+		log.Errorf("Failed to open stream: %v", err)
+		localConn.Close()
+		//localConnWrite.Close()
+		return
+	}
+	_, err = stream.Write(data[:i])
+	if err != nil {
+		log.Errorf("Failed to write to stream: %v", err)
+		localConn.Close()
+		//localConnWrite.Close()
+		stream.Close()
+		return
+	}
 
-		// stream to proxy
-		go func() {
-			buf := make([]byte, 16380)
-			for {
-				i, err := io.ReadAtLeast(stream, buf, 1)
-				if err != nil {
-					log.Print(err)
-					go localConn.Close()
-					go stream.Close()
-					return
-				}
-				i, err = localConn.WriteToUDP(buf[:i], otherEnd.Load().(*net.UDPAddr))
-				if err != nil {
-					log.Print(err)
-					go localConn.Close()
-					go stream.Close()
-					return
-				}
-			}
-		}()
-
-		// proxy to stream
+	// stream to proxy
+	go func() {
 		buf := make([]byte, 16380)
 		for {
-			i, oe, err := localConn.ReadFromUDP(buf)
+			i, err := io.ReadAtLeast(stream, buf, 1)
 			if err != nil {
 				log.Print(err)
-				go localConn.Close()
-				go stream.Close()
-				return
+				localConn.Close()
+				stream.Close()
+				break
 			}
-			otherEnd.Store(oe)
-			i, err = stream.Write(buf[:i])
+			i, err = localConn.WriteToUDP(buf[:i], otherEnd.Load().(*net.UDPAddr))
 			if err != nil {
 				log.Print(err)
-				go localConn.Close()
-				go stream.Close()
-				return
+				localConn.Close()
+				stream.Close()
+				break
 			}
 		}
+	}()
+
+	// proxy to stream
+	buf := make([]byte, 16380)
+	if sta.Timeout != 0 {
+		localConn.SetReadDeadline(time.Now().Add(sta.Timeout))
 	}
+	for {
+		if sta.Timeout != 0 {
+			localConn.SetReadDeadline(time.Now().Add(sta.Timeout))
+		}
+		i, oe, err := localConn.ReadFromUDP(buf)
+		if err != nil {
+			localConn.Close()
+			stream.Close()
+			break
+		}
+		otherEnd.Store(oe)
+		i, err = stream.Write(buf[:i])
+		if err != nil {
+			localConn.Close()
+			stream.Close()
+			break
+		}
+	}
+	goto start
 
 }
 
@@ -212,8 +216,8 @@ func routeTCP(sta *client.State, adminUID []byte) {
 				stream.Close()
 				return
 			}
-			go util.Pipe(localConn, stream)
-			util.Pipe(stream, localConn)
+			go util.Pipe(localConn, stream, 0)
+			util.Pipe(stream, localConn, sta.Timeout)
 		}()
 	}
 

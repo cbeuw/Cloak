@@ -20,6 +20,7 @@ type rawConfig struct {
 	PublicKey        string
 	BrowserSig       string
 	NumConn          int
+	StreamTimeout    int
 }
 
 // State stores global variables
@@ -41,6 +42,7 @@ type State struct {
 	EncryptionMethod byte
 	ServerName       string
 	NumConn          int
+	Timeout          time.Duration
 }
 
 func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
@@ -73,7 +75,7 @@ func ssvToJson(ssv string) (ret []byte) {
 		value := sp[1]
 		// JSON doesn't like quotation marks around int
 		// Yes this is extremely ugly but it's still better than writing a tokeniser
-		if key == "NumConn" || key == "Unordered" {
+		if key == "NumConn" || key == "Unordered" || key == "StreamTimeout" {
 			ret = append(ret, []byte(`"`+key+`":`+value+`,`)...)
 		} else {
 			ret = append(ret, []byte(`"`+key+`":"`+value+`",`)...)
@@ -124,6 +126,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	sta.ProxyMethod = preParse.ProxyMethod
 	sta.ServerName = preParse.ServerName
 	sta.NumConn = preParse.NumConn
+	sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
 
 	uid, err := base64.StdEncoding.DecodeString(preParse.UID)
 	if err != nil {

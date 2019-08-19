@@ -17,13 +17,14 @@ import (
 )
 
 type rawConfig struct {
-	ProxyBook    map[string][]string
-	BypassUID    [][]byte
-	RedirAddr    string
-	PrivateKey   string
-	AdminUID     string
-	DatabasePath string
-	CncMode      bool
+	ProxyBook     map[string][]string
+	BypassUID     [][]byte
+	RedirAddr     string
+	PrivateKey    string
+	AdminUID      string
+	DatabasePath  string
+	StreamTimeout int
+	CncMode       bool
 }
 
 // State type stores the global state of the program
@@ -35,6 +36,7 @@ type State struct {
 
 	Now      func() time.Time
 	AdminUID []byte
+	Timeout  time.Duration
 
 	BypassUID map[[16]byte]struct{}
 	staticPv  crypto.PrivateKey
@@ -92,6 +94,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	}
 
 	sta.RedirAddr = preParse.RedirAddr
+	sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
 
 	for name, pair := range preParse.ProxyBook {
 		if len(pair) != 2 {

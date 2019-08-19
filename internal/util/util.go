@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"time"
 )
 
 func AESGCMEncrypt(nonce []byte, key []byte, plaintext []byte) ([]byte, error) {
@@ -86,22 +87,28 @@ func AddRecordLayer(input []byte, typ []byte, ver []byte) []byte {
 	return ret
 }
 
-func Pipe(dst io.ReadWriteCloser, src io.ReadWriteCloser) {
+func Pipe(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) {
 	// The maximum size of TLS message will be 16380+12+16. 12 because of the stream header and 16
 	// because of the salt/mac
 	// 16408 is the max TLS message size on Firefox
 	buf := make([]byte, 16380)
+	if srcReadTimeout != 0 {
+		src.SetReadDeadline(time.Now().Add(srcReadTimeout))
+	}
 	for {
+		if srcReadTimeout != 0 {
+			src.SetReadDeadline(time.Now().Add(srcReadTimeout))
+		}
 		i, err := io.ReadAtLeast(src, buf, 1)
 		if err != nil {
-			go dst.Close()
-			go src.Close()
+			dst.Close()
+			src.Close()
 			return
 		}
 		i, err = dst.Write(buf[:i])
 		if err != nil {
-			go dst.Close()
-			go src.Close()
+			dst.Close()
+			src.Close()
 			return
 		}
 	}

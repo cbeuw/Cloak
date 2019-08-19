@@ -5,5 +5,6 @@
 	"PublicKey":"IYoUzkle/T/kriE+Ufdm7AHQtIeGnBWbhhlTbmDpUUI=",
 	"ServerName":"www.bing.com",
 	"NumConn":4,
-	"BrowserSig":"chrome"
+	"BrowserSig": "chrome",
+	"StreamTimeout": 300
 }

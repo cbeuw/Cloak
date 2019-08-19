@@ -48,8 +48,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		if err != nil {
 			log.Error("Failed to send first packet to redirection server", err)
 		}
-		go util.Pipe(webConn, conn)
-		go util.Pipe(conn, webConn)
+		go util.Pipe(webConn, conn, 0)
+		go util.Pipe(conn, webConn, 0)
 	}
 
 	ci, finishHandshake, err := server.PrepareConnection(data, sta, conn)
@@ -177,8 +177,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		}
 		log.Debugf("%v endpoint has been successfully connected", ci.ProxyMethod)
 
-		go util.Pipe(localConn, newStream)
-		go util.Pipe(newStream, localConn)
+		go util.Pipe(localConn, newStream, 0)
+		go util.Pipe(newStream, localConn, sta.Timeout)
 
 	}
 

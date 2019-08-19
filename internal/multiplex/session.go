@@ -187,7 +187,10 @@ func (sesh *Session) TerminalMsg() string {
 
 func (sesh *Session) Close() error {
 	log.Debugf("attempting to close session %v", sesh.id)
-	atomic.StoreUint32(&sesh.closed, 1)
+	if atomic.SwapUint32(&sesh.closed, 1) == 1 {
+		log.Debugf("session %v has already been closed", sesh.id)
+		return errRepeatSessionClosing
+	}
 	sesh.streamsM.Lock()
 	sesh.acceptCh <- nil
 	for id, stream := range sesh.streams {
