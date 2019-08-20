@@ -175,7 +175,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			user.DeleteSession(ci.SessionId, "Failed to connect to proxy server")
 			continue
 		}
-		log.Debugf("%v endpoint has been successfully connected", ci.ProxyMethod)
+		log.Tracef("%v endpoint has been successfully connected", ci.ProxyMethod)
 
 		go util.Pipe(localConn, newStream, 0)
 		go util.Pipe(newStream, localConn, sta.Timeout)
