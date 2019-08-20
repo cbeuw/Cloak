@@ -100,14 +100,10 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 				return 0, errBrokenSwitchboard
 			}
 			newConnId := rand.Intn(len(sb.conns))
-			conn, ok = sb.conns[uint32(newConnId)]
-			if !ok {
-				return 0, errBrokenSwitchboard
-			} else {
-				n, err = conn.Write(data)
-				sb.AddTx(int64(n))
-				return
-			}
+			conn, _ = sb.conns[uint32(newConnId)]
+			n, err = conn.Write(data)
+			sb.AddTx(int64(n))
+			return
 		}
 	}
 
@@ -125,14 +121,14 @@ func (sb *switchboard) assignRandomConn() (uint32, error) {
 }
 
 // actively triggered by session.Close()
-// TODO: closeALl needs to clear the conns map
 func (sb *switchboard) closeAll() {
 	if atomic.SwapUint32(&sb.broken, 1) == 1 {
 		return
 	}
 	sb.connsM.RLock()
-	for _, conn := range sb.conns {
+	for key, conn := range sb.conns {
 		conn.Close()
+		delete(sb.conns, key)
 	}
 	sb.connsM.RUnlock()
 }
