@@ -3,6 +3,7 @@
 package multiplex
 
 import (
+	"errors"
 	"io"
 	"sync"
 )
@@ -39,9 +40,11 @@ func (d *datagramBuffer) Read(target []byte) (int, error) {
 		}
 		d.rwCond.Wait()
 	}
-	// TODO: return error if len(target) is smaller than the datagram
-	var data []byte
-	data, d.buf = d.buf[0], d.buf[1:]
+	data := d.buf[0]
+	if len(target) < len(data) {
+		return 0, errors.New("buffer is too small")
+	}
+	d.buf = d.buf[1:]
 	copy(target, data)
 	// err will always be nil because we have already verified that buf.Len() != 0
 	d.rwCond.Broadcast()
