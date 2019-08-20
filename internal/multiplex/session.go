@@ -18,6 +18,7 @@ const (
 var ErrBrokenSession = errors.New("broken session")
 var errRepeatSessionClosing = errors.New("trying to close a closed session")
 
+// Obfuscator is responsible for the obfuscation and deobfuscation of frames
 type Obfuscator struct {
 	// Used in Stream.Write. Add multiplexing headers, encrypt and add TLS header
 	Obfs Obfser
@@ -33,7 +34,7 @@ type SessionConfig struct {
 
 	Valve
 
-	// This is supposed to read one TLS message, the same as GoQuiet's ReadTillDrain
+	// This is supposed to read one TLS message.
 	UnitRead func(net.Conn, []byte) (int, error)
 
 	Unordered bool

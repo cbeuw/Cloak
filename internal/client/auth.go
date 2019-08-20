@@ -19,9 +19,19 @@ type chHiddenData struct {
 	chExtSNI         []byte
 }
 
+// makeHiddenData generates the ephemeral key pair, calculates the shared secret, and then compose and
+// encrypt the Authentication data. It also composes SNI extension.
 func makeHiddenData(sta *State) (ret chHiddenData, sharedSecret []byte) {
 	// random is marshalled ephemeral pub key 32 bytes
-	// TLSsessionID || keyShare is [encrypted UID 16 bytes, proxy method 12 bytes, encryption method 1 byte, timestamp 8 bytes, sessionID 4 bytes] [1 byte flag] [6 bytes reserved] [16 bytes authentication tag]
+	/*
+		Authentication data:
+		+----------+----------------+---------------------+-------------+--------------+--------+------------+
+		|  _UID_   | _Proxy Method_ | _Encryption Method_ | _Timestamp_ | _Session Id_ | _Flag_ | _reserved_ |
+		+----------+----------------+---------------------+-------------+--------------+--------+------------+
+		| 16 bytes | 12 bytes       | 1 byte              | 8 bytes     | 4 bytes      | 1 byte | 6 bytes    |
+		+----------+----------------+---------------------+-------------+--------------+--------+------------+
+	*/
+	// The authentication ciphertext and its tag are then distributed among SessionId and X25519KeyShare
 	ephPv, ephPub, _ := ecdh.GenerateKey(rand.Reader)
 	ret.chRandom = ecdh.Marshal(ephPub)
 
@@ -38,9 +48,9 @@ func makeHiddenData(sta *State) (ret chHiddenData, sharedSecret []byte) {
 
 	sharedSecret = ecdh.GenerateSharedSecret(ephPv, sta.staticPub)
 	nonce := ret.chRandom[0:12]
-	ciphertext, _ := util.AESGCMEncrypt(nonce, sharedSecret, plaintext)
-	ret.chSessionId = ciphertext[0:32]
-	ret.chX25519KeyShare = ciphertext[32:64]
+	ciphertextWithTag, _ := util.AESGCMEncrypt(nonce, sharedSecret, plaintext)
+	ret.chSessionId = ciphertextWithTag[0:32]
+	ret.chX25519KeyShare = ciphertextWithTag[32:64]
 	ret.chExtSNI = makeServerName(sta.ServerName)
 	return
 }

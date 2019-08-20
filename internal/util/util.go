@@ -58,11 +58,14 @@ func ReadTLS(conn net.Conn, buffer []byte) (n int, err error) {
 	left := dataLength
 	readPtr := 5
 
+	// TODO: Deadline here?
 	for left != 0 {
 		// If left > buffer size (i.e. our message got segmented), the entire MTU is read
 		// if left = buffer size, the entire buffer is all there left to read
 		// if left < buffer size (i.e. multiple messages came together),
 		// only the message we want is read
+
+		// TODO: Why ReadFull here? Shouldn't it be just normal read since we adjust left and readPtr according to read amount?
 		i, err = io.ReadFull(conn, buffer[readPtr:readPtr+left])
 		if err != nil {
 			return

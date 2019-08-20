@@ -10,6 +10,7 @@ import (
 
 const BUF_SIZE_LIMIT = 1 << 20 * 500
 
+// The point of a bufferedPipe is that Read() will block until data is available
 type bufferedPipe struct {
 	buf    *bytes.Buffer
 	closed bool

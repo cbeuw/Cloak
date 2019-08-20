@@ -26,6 +26,7 @@ func i32ToB(value int32) []byte {
 	return nib
 }
 
+// localManager is responsible for routing API calls to appropriate handlers and manage the local user database accordingly
 type localManager struct {
 	db     *bolt.DB
 	Router *gmux.Router
@@ -63,6 +64,8 @@ func (manager *localManager) registerMux() *gmux.Router {
 	return r
 }
 
+// Authenticate user returns err==nil along with the users' up and down bandwidths if the UID is allowed to connect
+// More specifically it checks that the user exists, that it has positive credit and that it hasn't expired
 func (manager *localManager) AuthenticateUser(UID []byte) (int64, int64, error) {
 	var upRate, downRate, upCredit, downCredit, expiryTime int64
 	err := manager.db.View(func(tx *bolt.Tx) error {
@@ -93,6 +96,8 @@ func (manager *localManager) AuthenticateUser(UID []byte) (int64, int64, error) 
 	return upRate, downRate, nil
 }
 
+// AuthoriseNewSession returns err==nil when the user is allowed to make a new session
+// More specifically it checks that the user exists, has credit, hasn't expired and hasn't reached sessionsCap
 func (manager *localManager) AuthoriseNewSession(UID []byte, ainfo AuthorisationInfo) error {
 	var arrUID [16]byte
 	copy(arrUID[:], UID)
@@ -128,6 +133,9 @@ func (manager *localManager) AuthoriseNewSession(UID []byte, ainfo Authorisation
 	return nil
 }
 
+// UploadStatus gets StatusUpdates representing the recent status of each user, and update them in the database
+// it returns a slice of StatusResponse, which represents actions need to be taken for specific users.
+// If no action is needed, there won't be a StatusResponse entry for that user
 func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusResponse, error) {
 	var responses []StatusResponse
 	err := manager.db.Update(func(tx *bolt.Tx) error {

@@ -27,6 +27,8 @@ var ErrInvalidPubKey = errors.New("public key has invalid format")
 var ErrCiphertextLength = errors.New("ciphertext has the wrong length")
 var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
 
+// touchStone checks if a ClientHello came from a Cloak client by checking and decrypting the fields Cloak hides data in
+// It returns the ClientInfo, but it doesn't check if the UID is authorised
 func touchStone(ch *ClientHello, staticPv crypto.PrivateKey, now func() time.Time) (info ClientInfo, sharedSecret []byte, err error) {
 	ephPub, ok := ecdh.Unmarshal(ch.random)
 	if !ok {

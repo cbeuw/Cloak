@@ -28,6 +28,9 @@ const (
 
 func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 	obfs := func(f *Frame, buf []byte) (int, error) {
+		// we need the encrypted data to be at least 8 bytes to be used as nonce for salsa20 stream header encryption
+		// this will be the case if the encryption method is an AEAD cipher, however for plain, it's well possible
+		// that the frame payload is smaller than 8 bytes, so we need to add on the difference
 		var extraLen uint8
 		if payloadCipher == nil {
 			if len(f.Payload) < 8 {
@@ -37,14 +40,29 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 			extraLen = uint8(payloadCipher.Overhead())
 		}
 
+		// usefulLen is the amount of bytes that will be eventually sent off
 		usefulLen := 5 + HEADER_LEN + len(f.Payload) + int(extraLen)
 		if len(buf) < usefulLen {
 			return 0, errors.New("buffer is too small")
+
 		}
+		// we do as much in-place as possible to save allocation
 		useful := buf[:usefulLen] // tls header + payload + potential overhead
 		recordLayer := useful[0:5]
 		header := useful[5 : 5+HEADER_LEN]
-		encryptedPayload := useful[5+HEADER_LEN:]
+		encryptedPayloadWithExtra := useful[5+HEADER_LEN:]
+
+		// TODO: Once Seq wraps around, the chance of a nonce reuse will be 1/65536 which is unacceptably low
+		// prohibit Seq wrap around? simple solution : 2^32 messages per stream may be too little
+		//
+		// use uint64 Seq? Vastly reduces the complexity of frameSorter : concern with 64 bit number performance on
+		// embedded systems (frameSorter already has a non-trivial performance impact on RPi2B, can only be worse on
+		// mipsle). HOWEVER since frameSorter already deals with uint64, prehaps changing it totally wouldn't matter much?
+		//
+		// regular rekey? Improves security in general : when to rekey? Not easy to synchronise, also will add a decent
+		// amount of complexity
+		//
+		// LEANING TOWARDS uint64 Seq. Adds extra 2 bytes of overhead but shouldn't really matter that much
 
 		// header: [StreamID 4 bytes][Seq 4 bytes][Closing 1 byte][extraLen 1 bytes][random 2 bytes]
 		putU32(header[0:4], f.StreamID)
@@ -54,16 +72,16 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 		prand.Read(header[10:12])
 
 		if payloadCipher == nil {
-			copy(encryptedPayload, f.Payload)
+			copy(encryptedPayloadWithExtra, f.Payload)
 			if extraLen != 0 {
-				rand.Read(encryptedPayload[len(encryptedPayload)-int(extraLen):])
+				rand.Read(encryptedPayloadWithExtra[len(encryptedPayloadWithExtra)-int(extraLen):])
 			}
 		} else {
 			ciphertext := payloadCipher.Seal(nil, header, f.Payload, nil)
-			copy(encryptedPayload, ciphertext)
+			copy(encryptedPayloadWithExtra, ciphertext)
 		}
 
-		nonce := encryptedPayload[len(encryptedPayload)-8:]
+		nonce := encryptedPayloadWithExtra[len(encryptedPayloadWithExtra)-8:]
 		salsa20.XORKeyStream(header, header, nonce, &salsaKey)
 
 		// Composing final obfsed message
@@ -71,7 +89,7 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 		recordLayer[0] = 0x17
 		recordLayer[1] = 0x03
 		recordLayer[2] = 0x03
-		binary.BigEndian.PutUint16(recordLayer[3:5], uint16(HEADER_LEN+len(encryptedPayload)))
+		binary.BigEndian.PutUint16(recordLayer[3:5], uint16(HEADER_LEN+len(encryptedPayloadWithExtra)))
 		return usefulLen, nil
 	}
 	return obfs
@@ -87,7 +105,7 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 		copy(peeled, in[5:])
 
 		header := peeled[:12]
-		pldWithOverHead := peeled[12:] // plaintext + potential overhead
+		pldWithOverHead := peeled[12:] // payload + potential overhead
 
 		nonce := peeled[len(peeled)-8:]
 		salsa20.XORKeyStream(header, header, nonce, &salsaKey)

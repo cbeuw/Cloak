@@ -37,6 +37,8 @@ func addExtRec(typ []byte, data []byte) []byte {
 	return ret
 }
 
+// PrepareConnection handles the TLS handshake for a given conn and returns the sessionKey
+// if the server proceed with Cloak authentication
 func PrepareConnection(sta *State, conn net.Conn) (sessionKey []byte, err error) {
 	hd, sharedSecret := makeHiddenData(sta)
 	chOnly := sta.browser.composeClientHello(hd)
@@ -56,8 +58,8 @@ func PrepareConnection(sta *State, conn net.Conn) (sessionKey []byte, err error)
 
 	encrypted := append(buf[11:43], buf[89:121]...)
 	nonce := encrypted[0:12]
-	ciphertext := encrypted[12:60]
-	sessionKey, err = util.AESGCMDecrypt(nonce, sharedSecret, ciphertext)
+	ciphertextWithTag := encrypted[12:60]
+	sessionKey, err = util.AESGCMDecrypt(nonce, sharedSecret, ciphertextWithTag)
 	if err != nil {
 		return
 	}

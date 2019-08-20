@@ -20,6 +20,7 @@ type ActiveUser struct {
 	sessions  map[uint32]*mux.Session
 }
 
+// DeleteSession closes a session and removes its reference from the user
 func (u *ActiveUser) DeleteSession(sessionID uint32, reason string) {
 	u.sessionsM.Lock()
 	sesh, existing := u.sessions[sessionID]
@@ -34,6 +35,9 @@ func (u *ActiveUser) DeleteSession(sessionID uint32, reason string) {
 	u.sessionsM.Unlock()
 }
 
+// GetSession returns the reference to an existing session, or if one such session doesn't exist, it queries
+// the UserManager for the authorisation for a new session. If a new session is allowed, it creates this new session
+// and returns its reference
 func (u *ActiveUser) GetSession(sessionID uint32, config *mux.SessionConfig) (sesh *mux.Session, existing bool, err error) {
 	u.sessionsM.Lock()
 	defer u.sessionsM.Unlock()
@@ -54,6 +58,7 @@ func (u *ActiveUser) GetSession(sessionID uint32, config *mux.SessionConfig) (se
 	}
 }
 
+// Terminate closes all sessions of this active user
 func (u *ActiveUser) Terminate(reason string) {
 	u.sessionsM.Lock()
 	for _, sesh := range u.sessions {
@@ -66,6 +71,7 @@ func (u *ActiveUser) Terminate(reason string) {
 	u.panel.DeleteActiveUser(u)
 }
 
+// NumSession returns the number of active sessions
 func (u *ActiveUser) NumSession() int {
 	u.sessionsM.RLock()
 	defer u.sessionsM.RUnlock()

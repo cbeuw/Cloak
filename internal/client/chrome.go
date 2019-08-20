@@ -1,4 +1,4 @@
-// Chrome 76
+// Fingerprint of Chrome 76
 
 package client
 

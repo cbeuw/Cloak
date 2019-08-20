@@ -63,7 +63,7 @@ func InitState(bindHost, bindPort string, nowFunc func() time.Time) (*State, err
 	return ret, nil
 }
 
-// ParseConfig parses the config (either a path to json or in-line ssv config) into a State variable
+// ParseConfig parses the config (either a path to json or the json itself as argument) into a State variable
 func (sta *State) ParseConfig(conf string) (err error) {
 	var content []byte
 	var preParse rawConfig
@@ -83,7 +83,6 @@ func (sta *State) ParseConfig(conf string) (err error) {
 
 	if preParse.CncMode {
 		//TODO: implement command & control mode
-
 	} else {
 		manager, err := usermanager.MakeLocalManager(preParse.DatabasePath)
 		if err != nil {
@@ -143,6 +142,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	return nil
 }
 
+// IsBypass checks if a UID is a bypass user
 func (sta *State) IsBypass(UID []byte) bool {
 	var arrUID [16]byte
 	copy(arrUID[:], UID)
@@ -154,7 +154,7 @@ const TIMESTAMP_TOLERANCE = 180 * time.Second
 
 const CACHE_CLEAN_INTERVAL = 12 * time.Hour
 
-// UsedRandomCleaner clears the cache of used random fields every 12 hours
+// UsedRandomCleaner clears the cache of used random fields every CACHE_CLEAN_INTERVAL
 func (sta *State) UsedRandomCleaner() {
 	for {
 		time.Sleep(CACHE_CLEAN_INTERVAL)

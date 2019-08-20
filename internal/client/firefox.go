@@ -1,4 +1,5 @@
-// Firefox 68
+// Fingerprint of Firefox 68
+
 package client
 
 import (

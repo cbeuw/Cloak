@@ -29,6 +29,7 @@ func MakeUserPanel(manager usermanager.UserManager) *userPanel {
 	return ret
 }
 
+// GetBypassUser does the same as GetUser except it unconditionally creates an ActiveUser when the UID isn't already active
 func (panel *userPanel) GetBypassUser(UID []byte) (*ActiveUser, error) {
 	panel.activeUsersM.Lock()
 	var arrUID [16]byte
@@ -49,6 +50,8 @@ func (panel *userPanel) GetBypassUser(UID []byte) (*ActiveUser, error) {
 	return user, nil
 }
 
+// GetUser retrieves the reference to an ActiveUser if it's already active, or creates a new ActiveUser of specified
+// UID with UserInfo queried from the UserManger, should the particular UID is allowed to connect
 func (panel *userPanel) GetUser(UID []byte) (*ActiveUser, error) {
 	panel.activeUsersM.Lock()
 	var arrUID [16]byte
@@ -76,7 +79,9 @@ func (panel *userPanel) GetUser(UID []byte) (*ActiveUser, error) {
 	return user, nil
 }
 
+// DeleteActiveUser deletes the references to the active user
 func (panel *userPanel) DeleteActiveUser(user *ActiveUser) {
+	// TODO: terminate the user here?
 	panel.updateUsageQueueForOne(user)
 	panel.activeUsersM.Lock()
 	delete(panel.activeUsers, user.arrUID)
@@ -97,6 +102,7 @@ type usagePair struct {
 	down *int64
 }
 
+// updateUsageQueue zeroes the accumulated usage all ActiveUsers valve and put the usage data im usageUpdateQueue
 func (panel *userPanel) updateUsageQueue() {
 	panel.activeUsersM.Lock()
 	panel.usageUpdateQueueM.Lock()
@@ -119,6 +125,8 @@ func (panel *userPanel) updateUsageQueue() {
 	panel.usageUpdateQueueM.Unlock()
 }
 
+// updateUsageQueueForOne is the same as updateUsageQueue except it only updates one user's usage
+// this is useful when the user is being terminated
 func (panel *userPanel) updateUsageQueueForOne(user *ActiveUser) {
 	// used when one particular user deactivates
 	if user.bypass {
@@ -137,6 +145,8 @@ func (panel *userPanel) updateUsageQueueForOne(user *ActiveUser) {
 
 }
 
+// commitUpdate put all usageUpdates into a slice of StatusUpdate, calls Manager.UploadStatus, gets the responses
+// and act to each user according to the responses
 func (panel *userPanel) commitUpdate() error {
 	panel.usageUpdateQueueM.Lock()
 	statuses := make([]usermanager.StatusUpdate, 0, len(panel.usageUpdateQueue))

@@ -9,6 +9,9 @@ import (
 
 const DATAGRAM_NUMBER_LIMIT = 1024
 
+// datagramBuffer is the same as bufferedPipe with the exception that it's message-oriented,
+// instead of byte-oriented. The integrity of datagrams written into this buffer is preserved.
+// it won't get chopped up into individual bytes
 type datagramBuffer struct {
 	buf    [][]byte
 	closed bool
@@ -36,6 +39,7 @@ func (d *datagramBuffer) Read(target []byte) (int, error) {
 		}
 		d.rwCond.Wait()
 	}
+	// TODO: return error if len(target) is smaller than the datagram
 	var data []byte
 	data, d.buf = d.buf[0], d.buf[1:]
 	copy(target, data)

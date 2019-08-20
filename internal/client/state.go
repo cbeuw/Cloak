@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/cbeuw/Cloak/internal/ecdh"
+	mux "github.com/cbeuw/Cloak/internal/multiplex"
 )
 
+// rawConfig represents the fields in the config json file
 type rawConfig struct {
 	ServerName       string
 	ProxyMethod      string
@@ -23,7 +25,7 @@ type rawConfig struct {
 	StreamTimeout    int
 }
 
-// State stores global variables
+// State stores the parsed configuration fields
 type State struct {
 	LocalHost  string
 	LocalPort  string
@@ -35,7 +37,7 @@ type State struct {
 	UID       []byte
 
 	staticPub crypto.PublicKey
-	now       func() time.Time
+	now       func() time.Time // for easier testing
 	browser   browser
 
 	ProxyMethod      string
@@ -45,6 +47,7 @@ type State struct {
 	Timeout          time.Duration
 }
 
+// TODO: remove this and let the caller declare it directly
 func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
 	ret := &State{
 		LocalHost:  localHost,
@@ -73,8 +76,8 @@ func ssvToJson(ssv string) (ret []byte) {
 		sp := strings.SplitN(ln, "=", 2)
 		key := sp[0]
 		value := sp[1]
-		// JSON doesn't like quotation marks around int
-		// Yes this is extremely ugly but it's still better than writing a tokeniser
+		// JSON doesn't like quotation marks around int and bool
+		// This is extremely ugly but it's still better than writing a tokeniser
 		if key == "NumConn" || key == "Unordered" || key == "StreamTimeout" {
 			ret = append(ret, []byte(`"`+key+`":`+value+`,`)...)
 		} else {
@@ -89,6 +92,7 @@ func ssvToJson(ssv string) (ret []byte) {
 // ParseConfig parses the config (either a path to json or Android config) into a State variable
 func (sta *State) ParseConfig(conf string) (err error) {
 	var content []byte
+	// Checking if it's a path to json or a ssv string
 	if strings.Contains(conf, ";") && strings.Contains(conf, "=") {
 		content = ssvToJson(conf)
 	} else {
@@ -105,11 +109,11 @@ func (sta *State) ParseConfig(conf string) (err error) {
 
 	switch strings.ToLower(preParse.EncryptionMethod) {
 	case "plain":
-		sta.EncryptionMethod = 0x00
+		sta.EncryptionMethod = mux.E_METHOD_PLAIN
 	case "aes-gcm":
-		sta.EncryptionMethod = 0x01
+		sta.EncryptionMethod = mux.E_METHOD_AES_GCM
 	case "chacha20-poly1305":
-		sta.EncryptionMethod = 0x02
+		sta.EncryptionMethod = mux.E_METHOD_CHACHA20_POLY1305
 	default:
 		return errors.New("Unknown encryption method")
 	}

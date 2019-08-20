@@ -113,6 +113,7 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 
 }
 
+// returns a random connId
 func (sb *switchboard) assignRandomConn() (uint32, error) {
 	sb.connsM.RLock()
 	defer sb.connsM.RUnlock()
@@ -124,6 +125,7 @@ func (sb *switchboard) assignRandomConn() (uint32, error) {
 }
 
 // actively triggered by session.Close()
+// TODO: closeALl needs to clear the conns map
 func (sb *switchboard) closeAll() {
 	if atomic.SwapUint32(&sb.broken, 1) == 1 {
 		return

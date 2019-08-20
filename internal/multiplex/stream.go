@@ -15,6 +15,8 @@ import (
 
 var ErrBrokenStream = errors.New("broken stream")
 
+// ReadWriteCloseLener is io.ReadWriteCloser with Len()
+// used for bufferedPipe and datagramBuffer
 type ReadWriteCloseLener interface {
 	io.ReadWriteCloser
 	Len() int
@@ -34,6 +36,7 @@ type Stream struct {
 
 	writingM sync.RWMutex
 
+	// atomic
 	closed uint32
 
 	obfsBuf []byte
@@ -41,6 +44,7 @@ type Stream struct {
 	// we assign each stream a fixed underlying TCP connection to utilise order guarantee provided by TCP itself
 	// so that frameSorter should have few to none ooo frames to deal with
 	// overall the streams in a session should be uniformly distributed across all connections
+	// This is not used in unordered connection mode
 	assignedConnId uint32
 }
 
@@ -64,8 +68,6 @@ func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
 	return stream
 }
 
-//func (s *Stream) reassignConnId(connId uint32) { atomic.StoreUint32(&s.assignedConnId,connId)}
-
 func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
 
 func (s *Stream) writeFrame(frame *Frame) {
@@ -77,6 +79,7 @@ func (s *Stream) writeFrame(frame *Frame) {
 	}
 }
 
+// Read implements io.Read
 func (s *Stream) Read(buf []byte) (n int, err error) {
 	//log.Tracef("attempting to read from stream %v", s.id)
 	if len(buf) == 0 {
@@ -103,6 +106,7 @@ func (s *Stream) Read(buf []byte) (n int, err error) {
 	}
 }
 
+// Write implements io.Write
 func (s *Stream) Write(in []byte) (n int, err error) {
 	// RWMutex used here isn't really for RW.
 	// we use it to exploit the fact that RLock doesn't create contention.

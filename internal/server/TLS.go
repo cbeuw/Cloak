@@ -199,9 +199,8 @@ func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte
 	return ret, nil
 }
 
-// composeReply composes the ServerHello, ChangeCipherSpec and Finished messages
-// together with their respective record layers into one byte slice. The content
-// of these messages are random and useless for this plugin
+// composeReply composes the ServerHello, ChangeCipherSpec and an ApplicationData messages
+// together with their respective record layers into one byte slice.
 func composeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) ([]byte, error) {
 	TLS12 := []byte{0x03, 0x03}
 	sh, err := composeServerHello(ch.sessionId, sharedSecret, sessionKey)
@@ -223,6 +222,10 @@ var ErrNotCloak = errors.New("TLS but non-Cloak ClientHello")
 var ErrReplay = errors.New("duplicate random")
 var ErrBadProxyMethod = errors.New("invalid proxy method")
 
+// PrepareConnection checks if the first packet of data is ClientHello, and checks if it was from a Cloak client
+// if it is from a Cloak client, it returns the ClientInfo with the decrypted fields. It doesn't check if the user
+// is authorised. It also returns a finisher callback function to be called when the caller wishes to proceed with
+// the handshake
 func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info ClientInfo, finisher func([]byte) error, err error) {
 	ch, err := parseClientHello(firstPacket)
 	if err != nil {
