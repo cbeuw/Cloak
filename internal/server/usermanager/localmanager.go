@@ -93,7 +93,7 @@ func (manager *localManager) AuthenticateUser(UID []byte) (int64, int64, error) 
 	return upRate, downRate, nil
 }
 
-func (manager *localManager) AuthoriseNewSession(UID []byte, numExistingSessions int) error {
+func (manager *localManager) AuthoriseNewSession(UID []byte, ainfo AuthorisationInfo) error {
 	var arrUID [16]byte
 	copy(arrUID[:], UID)
 	var sessionsCap int
@@ -121,12 +121,10 @@ func (manager *localManager) AuthoriseNewSession(UID []byte, numExistingSessions
 	if expiryTime < time.Now().Unix() {
 		return ErrUserExpired
 	}
-	//user.sessionsM.RLock()
-	if numExistingSessions >= sessionsCap {
-		//user.sessionsM.RUnlock()
+
+	if ainfo.NumExistingSessions >= sessionsCap {
 		return ErrSessionsCapReached
 	}
-	//user.sessionsM.RUnlock()
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"sync"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
@@ -40,7 +41,8 @@ func (u *ActiveUser) GetSession(sessionID uint32, config *mux.SessionConfig) (se
 		return sesh, true, nil
 	} else {
 		if !u.bypass {
-			err := u.panel.Manager.AuthoriseNewSession(u.arrUID[:], len(u.sessions))
+			ainfo := usermanager.AuthorisationInfo{NumExistingSessions: len(u.sessions)}
+			err := u.panel.Manager.AuthoriseNewSession(u.arrUID[:], ainfo)
 			if err != nil {
 				return nil, false, err
 			}

@@ -20,6 +20,10 @@ type StatusResponse struct {
 	Message string
 }
 
+type AuthorisationInfo struct {
+	NumExistingSessions int
+}
+
 const (
 	TERMINATE = iota + 1
 )
@@ -33,6 +37,6 @@ var ErrUserExpired = errors.New("User has expired")
 
 type UserManager interface {
 	AuthenticateUser([]byte) (int64, int64, error)
-	AuthoriseNewSession([]byte, int) error
+	AuthoriseNewSession([]byte, AuthorisationInfo) error
 	UploadStatus([]StatusUpdate) ([]StatusResponse, error)
 }
