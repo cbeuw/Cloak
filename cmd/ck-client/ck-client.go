@@ -23,7 +23,7 @@ import (
 
 var version string
 
-func makeSession(sta *client.State, isAdmin bool, unordered bool) *mux.Session {
+func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 	log.Info("Attemtping to start a new session")
 	if !isAdmin {
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
@@ -78,7 +78,7 @@ func makeSession(sta *client.State, isAdmin bool, unordered bool) *mux.Session {
 		Obfuscator: obfuscator,
 		Valve:      nil,
 		UnitRead:   util.ReadTLS,
-		Unordered:  unordered,
+		Unordered:  sta.Unordered,
 	}
 	sesh := mux.MakeSession(sta.SessionID, seshConfig)
 
@@ -113,7 +113,7 @@ start:
 	otherEnd.Store(oe)
 
 	if sesh == nil || sesh.IsClosed() {
-		sesh = makeSession(sta, adminUID != nil, true)
+		sesh = makeSession(sta, adminUID != nil)
 	}
 	log.Debugf("proxy local address %v", otherEnd.Load().(*net.UDPAddr).String())
 	stream, err := sesh.OpenStream()
@@ -193,7 +193,7 @@ func routeTCP(sta *client.State, adminUID []byte) {
 			continue
 		}
 		if sesh == nil || sesh.IsClosed() {
-			sesh = makeSession(sta, adminUID != nil, false)
+			sesh = makeSession(sta, adminUID != nil)
 		}
 		go func() {
 			data := make([]byte, 10240)
