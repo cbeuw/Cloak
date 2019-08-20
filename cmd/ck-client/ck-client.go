@@ -278,7 +278,14 @@ func main() {
 		log.Info("Starting standalone mode")
 	}
 
-	sta := client.InitState(localHost, localPort, remoteHost, remotePort, time.Now)
+	sta := &client.State{
+		LocalHost:  localHost,
+		LocalPort:  localPort,
+		RemoteHost: remoteHost,
+		RemotePort: remotePort,
+		Now:        time.Now,
+	}
+
 	err := sta.ParseConfig(config)
 	if err != nil {
 		log.Fatal(err)

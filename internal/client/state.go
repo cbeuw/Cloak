@@ -37,7 +37,7 @@ type State struct {
 	UID       []byte
 
 	staticPub crypto.PublicKey
-	now       func() time.Time // for easier testing
+	Now       func() time.Time // for easier testing
 	browser   browser
 
 	ProxyMethod      string
@@ -45,18 +45,6 @@ type State struct {
 	ServerName       string
 	NumConn          int
 	Timeout          time.Duration
-}
-
-// TODO: remove this and let the caller declare it directly
-func InitState(localHost, localPort, remoteHost, remotePort string, nowFunc func() time.Time) *State {
-	ret := &State{
-		LocalHost:  localHost,
-		LocalPort:  localPort,
-		RemoteHost: remoteHost,
-		RemotePort: remotePort,
-		now:        nowFunc,
-	}
-	return ret
 }
 
 // semi-colon separated value. This is for Android plugin options
