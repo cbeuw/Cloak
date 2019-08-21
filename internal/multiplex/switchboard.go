@@ -100,10 +100,14 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 				return 0, errBrokenSwitchboard
 			}
 			newConnId := rand.Intn(len(sb.conns))
-			conn, _ = sb.conns[uint32(newConnId)]
-			n, err = conn.Write(data)
-			sb.AddTx(int64(n))
-			return
+			conn, ok = sb.conns[uint32(newConnId)]
+			if !ok {
+				return 0, errBrokenSwitchboard
+			} else {
+				n, err = conn.Write(data)
+				sb.AddTx(int64(n))
+				return
+			}
 		}
 	}
 
