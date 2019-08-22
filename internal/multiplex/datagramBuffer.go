@@ -51,12 +51,12 @@ func (d *datagramBuffer) Read(target []byte) (int, error) {
 	return len(data), nil
 }
 
-func (d *datagramBuffer) Write(input []byte) (int, error) {
+func (d *datagramBuffer) Write(f Frame) error {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
 	for {
 		if d.closed {
-			return 0, io.ErrClosedPipe
+			return io.ErrClosedPipe
 		}
 		if len(d.buf) <= DATAGRAM_NUMBER_LIMIT {
 			// if d.buf gets too large, write() will panic. We don't want this to happen
@@ -64,12 +64,12 @@ func (d *datagramBuffer) Write(input []byte) (int, error) {
 		}
 		d.rwCond.Wait()
 	}
-	data := make([]byte, len(input))
-	copy(data, input)
+	data := make([]byte, len(f.Payload))
+	copy(data, f.Payload)
 	d.buf = append(d.buf, data)
 	// err will always be nil
 	d.rwCond.Broadcast()
-	return len(data), nil
+	return nil
 }
 
 func (d *datagramBuffer) Close() error {

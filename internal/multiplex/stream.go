@@ -27,9 +27,7 @@ type Stream struct {
 
 	session *Session
 
-	buf ReadWriteCloseLener
-
-	sorter *frameSorter
+	recvBuf recvBuffer
 
 	// atomic
 	nextSendSeq uint32
@@ -49,19 +47,18 @@ type Stream struct {
 }
 
 func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
-	var buf ReadWriteCloseLener
+	var recvBuf recvBuffer
 	if sesh.Unordered {
-		buf = NewDatagramBuffer()
+		recvBuf = NewDatagramBuffer()
 	} else {
-		buf = NewBufferedPipe()
+		recvBuf = NewStreamBuffer()
 	}
 
 	stream := &Stream{
 		id:             id,
 		session:        sesh,
-		buf:            buf,
+		recvBuf:        recvBuf,
 		obfsBuf:        make([]byte, 17000),
-		sorter:         NewFrameSorter(buf),
 		assignedConnId: assignedConnId,
 	}
 
@@ -70,13 +67,9 @@ func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
 
 func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
 
-func (s *Stream) writeFrame(frame *Frame) {
-	// TODO: refactor this through an interface
-	if s.session.Unordered {
-		s.buf.Write(frame.Payload)
-	} else {
-		s.sorter.writeNewFrame(frame)
-	}
+func (s *Stream) writeFrame(frame Frame) {
+	// TODO: Return error
+	s.recvBuf.Write(frame)
 }
 
 // Read implements io.Read
@@ -92,15 +85,15 @@ func (s *Stream) Read(buf []byte) (n int, err error) {
 
 	if s.isClosed() {
 		// TODO: Len check may not be necessary as this can be offloaded to buffer implementation
-		if s.buf.Len() == 0 {
+		if s.recvBuf.Len() == 0 {
 			return 0, ErrBrokenStream
 		} else {
-			n, err = s.buf.Read(buf)
+			n, err = s.recvBuf.Read(buf)
 			log.Tracef("%v read from stream %v with err %v", n, s.id, err)
 			return
 		}
 	} else {
-		n, err = s.buf.Read(buf)
+		n, err = s.recvBuf.Read(buf)
 		log.Tracef("%v read from stream %v with err %v", n, s.id, err)
 		return
 	}
@@ -142,9 +135,9 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 
 // the necessary steps to mark the stream as closed and to release resources
 func (s *Stream) _close() {
+	// TODO: return err here
 	atomic.StoreUint32(&s.closed, 1)
-	s.sorter.Close() // this will trigger frameSorter to return
-	s.buf.Close()
+	s.recvBuf.Close()
 }
 
 // only close locally. Used when the stream close is notified by the remote

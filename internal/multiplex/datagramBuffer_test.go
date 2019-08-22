@@ -9,15 +9,7 @@ import (
 func TestDatagramBuffer_RW(t *testing.T) {
 	pipe := NewDatagramBuffer()
 	b := []byte{0x01, 0x02, 0x03}
-	n, err := pipe.Write(b)
-	if n != len(b) {
-		t.Error(
-			"For", "number of bytes written",
-			"expecting", len(b),
-			"got", n,
-		)
-		return
-	}
+	err := pipe.Write(Frame{Payload: b})
 	if err != nil {
 		t.Error(
 			"For", "simple write",
@@ -28,7 +20,7 @@ func TestDatagramBuffer_RW(t *testing.T) {
 	}
 
 	b2 := make([]byte, len(b))
-	n, err = pipe.Read(b2)
+	n, err := pipe.Read(b2)
 	if n != len(b) {
 		t.Error(
 			"For", "number of bytes read",
@@ -64,7 +56,7 @@ func TestDatagramBuffer_BlockingRead(t *testing.T) {
 	b := []byte{0x01, 0x02, 0x03}
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		pipe.Write(b)
+		pipe.Write(Frame{Payload: b})
 	}()
 	b2 := make([]byte, len(b))
 	n, err := pipe.Read(b2)
@@ -97,7 +89,7 @@ func TestDatagramBuffer_BlockingRead(t *testing.T) {
 func TestDatagramBuffer_CloseThenRead(t *testing.T) {
 	pipe := NewDatagramBuffer()
 	b := []byte{0x01, 0x02, 0x03}
-	pipe.Write(b)
+	pipe.Write(Frame{Payload: b})
 	b2 := make([]byte, len(b))
 	pipe.Close()
 	n, err := pipe.Read(b2)
