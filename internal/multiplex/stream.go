@@ -30,7 +30,7 @@ type Stream struct {
 	recvBuf recvBuffer
 
 	// atomic
-	nextSendSeq uint32
+	nextSendSeq uint64
 
 	writingM sync.RWMutex
 
@@ -115,7 +115,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 
 	f := &Frame{
 		StreamID: s.id,
-		Seq:      atomic.AddUint32(&s.nextSendSeq, 1) - 1,
+		Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
 		Closing:  0,
 		Payload:  in,
 	}
@@ -163,7 +163,7 @@ func (s *Stream) Close() error {
 	prand.Read(pad)
 	f := &Frame{
 		StreamID: s.id,
-		Seq:      atomic.AddUint32(&s.nextSendSeq, 1) - 1,
+		Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
 		Closing:  1,
 		Payload:  pad,
 	}

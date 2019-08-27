@@ -13,17 +13,14 @@ package multiplex
 import (
 	"container/heap"
 	"errors"
+	"fmt"
 	"sync"
 )
 
-type frameNode struct {
-	trueSeq uint64
-	frame   Frame
-}
-type sorterHeap []*frameNode
+type sorterHeap []*Frame
 
 func (sh sorterHeap) Less(i, j int) bool {
-	return sh[i].trueSeq < sh[j].trueSeq
+	return sh[i].Seq < sh[j].Seq
 }
 func (sh sorterHeap) Len() int {
 	return len(sh)
@@ -33,7 +30,7 @@ func (sh sorterHeap) Swap(i, j int) {
 }
 
 func (sh *sorterHeap) Push(x interface{}) {
-	*sh = append(*sh, x.(*frameNode))
+	*sh = append(*sh, x.(*Frame))
 }
 
 func (sh *sorterHeap) Pop() interface{} {
@@ -47,17 +44,16 @@ func (sh *sorterHeap) Pop() interface{} {
 type streamBuffer struct {
 	recvM sync.Mutex
 
-	nextRecvSeq uint32
+	nextRecvSeq uint64
 	rev         int
 	sh          sorterHeap
-	wrapMode    bool
 
 	buf *bufferedPipe
 }
 
 func NewStreamBuffer() *streamBuffer {
 	sb := &streamBuffer{
-		sh:  []*frameNode{},
+		sh:  []*Frame{},
 		rev: 0,
 		buf: NewBufferedPipe(),
 	}
@@ -80,41 +76,18 @@ func (sb *streamBuffer) Write(f Frame) error {
 		} else {
 			sb.buf.Write(f.Payload)
 			sb.nextRecvSeq += 1
-			if sb.nextRecvSeq == 0 { // getting wrapped
-				sb.rev += 1
-				sb.wrapMode = false
-			}
 		}
 		return nil
 	}
 
-	node := &frameNode{
-		trueSeq: 0,
-		frame:   f,
-	}
-
 	if f.Seq < sb.nextRecvSeq {
-		// For the ease of demonstration, assume seq is uint8, i.e. it wraps around after 255
-		// e.g. we are on rev=0 (wrap has not happened yet)
-		// and we get the order of recv as 253 254 0 1
-		// after 254, nextN should be 255, but 0 is received and 0 < 255
-		// now 0 should have a trueSeq of 256
-		if !sb.wrapMode {
-			// wrapMode is true when the latest seq is wrapped but nextN is not
-			sb.wrapMode = true
-		}
-		node.trueSeq = uint64(1<<32)*uint64(sb.rev+1) + uint64(f.Seq) + 1
-		// +1 because wrapped 0 should have trueSeq of 256 instead of 255
-		// when this bit was run on 1, the trueSeq of 1 would become 256
-	} else {
-		node.trueSeq = uint64(1<<32)*uint64(sb.rev) + uint64(f.Seq)
-		// when this bit was run on 255, the trueSeq of 255 would be 255
+		return fmt.Errorf("seq %v is smaller than nextRecvSeq %v", f.Seq, sb.nextRecvSeq)
 	}
 
-	heap.Push(&sb.sh, node)
+	heap.Push(&sb.sh, &f)
 	// Keep popping from the heap until empty or to the point that the wanted seq was not received
-	for len(sb.sh) > 0 && sb.sh[0].frame.Seq == sb.nextRecvSeq {
-		f = heap.Pop(&sb.sh).(*frameNode).frame
+	for len(sb.sh) > 0 && sb.sh[0].Seq == sb.nextRecvSeq {
+		f = *heap.Pop(&sb.sh).(*Frame)
 		if f.Closing == 1 {
 			// empty data indicates closing signal
 			sb.buf.Close()
@@ -122,10 +95,6 @@ func (sb *streamBuffer) Write(f Frame) error {
 		} else {
 			sb.buf.Write(f.Payload)
 			sb.nextRecvSeq += 1
-			if sb.nextRecvSeq == 0 { // getting wrapped
-				sb.rev += 1
-				sb.wrapMode = false
-			}
 		}
 	}
 	return nil

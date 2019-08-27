@@ -17,12 +17,12 @@ func TestRecvNewFrame(t *testing.T) {
 
 	test := func(set []uint64, ct *testing.T) {
 		sb := NewStreamBuffer()
-		sb.nextRecvSeq = uint32(set[0])
+		sb.nextRecvSeq = set[0]
 		for _, n := range set {
 			bu64 := make([]byte, 8)
 			binary.BigEndian.PutUint64(bu64, n)
 			frame := Frame{
-				Seq:     uint32(n),
+				Seq:     n,
 				Payload: bu64,
 			}
 			sb.Write(frame)
