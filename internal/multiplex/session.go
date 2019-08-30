@@ -151,8 +151,7 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 	defer sesh.streamsM.Unlock()
 	stream, existing := sesh.streams[frame.StreamID]
 	if existing {
-		stream.writeFrame(*frame)
-		return nil
+		return stream.writeFrame(*frame)
 	} else {
 		if frame.Closing == 1 {
 			// If the stream has been closed and the current frame is a closing frame, we do noop
@@ -166,8 +165,7 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 			// we ignore the error here. If the switchboard is broken, it will be reflected upon stream.Write
 			stream = makeStream(sesh, frame.StreamID, connId)
 			sesh.acceptCh <- stream
-			stream.writeFrame(*frame)
-			return nil
+			return stream.writeFrame(*frame)
 		}
 	}
 
