@@ -5,5 +5,4 @@ import "io"
 type recvBuffer interface {
 	io.ReadCloser
 	Write(Frame) error
-	Len() int
 }

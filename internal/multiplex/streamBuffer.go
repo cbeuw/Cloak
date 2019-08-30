@@ -107,7 +107,3 @@ func (sb *streamBuffer) Read(buf []byte) (int, error) {
 func (sb *streamBuffer) Close() error {
 	return sb.buf.Close()
 }
-
-func (sb *streamBuffer) Len() int {
-	return sb.buf.Len()
-}

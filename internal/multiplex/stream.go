@@ -15,13 +15,6 @@ import (
 
 var ErrBrokenStream = errors.New("broken stream")
 
-// ReadWriteCloseLener is io.ReadWriteCloser with Len()
-// used for bufferedPipe and datagramBuffer
-type ReadWriteCloseLener interface {
-	io.ReadWriteCloser
-	Len() int
-}
-
 type Stream struct {
 	id uint32
 
@@ -83,20 +76,13 @@ func (s *Stream) Read(buf []byte) (n int, err error) {
 		}
 	}
 
-	if s.isClosed() {
-		// TODO: Len check may not be necessary as this can be offloaded to buffer implementation
-		if s.recvBuf.Len() == 0 {
-			return 0, ErrBrokenStream
-		} else {
-			n, err = s.recvBuf.Read(buf)
-			log.Tracef("%v read from stream %v with err %v", n, s.id, err)
-			return
-		}
-	} else {
-		n, err = s.recvBuf.Read(buf)
-		log.Tracef("%v read from stream %v with err %v", n, s.id, err)
-		return
+	n, err = s.recvBuf.Read(buf)
+	if err == io.EOF {
+		return n, ErrBrokenStream
 	}
+	log.Tracef("%v read from stream %v with err %v", n, s.id, err)
+	return
+
 }
 
 // Write implements io.Write

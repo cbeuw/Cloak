@@ -80,9 +80,3 @@ func (d *datagramBuffer) Close() error {
 	d.rwCond.Broadcast()
 	return nil
 }
-
-func (d *datagramBuffer) Len() int {
-	d.rwCond.L.Lock()
-	defer d.rwCond.L.Unlock()
-	return len(d.buf)
-}
