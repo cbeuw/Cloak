@@ -120,9 +120,8 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 
 // the necessary steps to mark the stream as closed and to release resources
 func (s *Stream) _close() {
-	// TODO: return err here
 	atomic.StoreUint32(&s.closed, 1)
-	s.recvBuf.Close()
+	_ = s.recvBuf.Close() // both datagramBuffer and streamBuffer won't return err on Close()
 }
 
 // only close locally. Used when the stream close is notified by the remote
