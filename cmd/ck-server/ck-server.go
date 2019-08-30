@@ -29,6 +29,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	var err error
 	buf := make([]byte, 1500)
 
+	// TODO: potential fingerprint for active probers here
 	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	i, err := io.ReadAtLeast(conn, buf, 1)
 	if err != nil {
