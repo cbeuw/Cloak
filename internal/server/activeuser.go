@@ -20,8 +20,8 @@ type ActiveUser struct {
 	sessions  map[uint32]*mux.Session
 }
 
-// DeleteSession closes a session and removes its reference from the user
-func (u *ActiveUser) DeleteSession(sessionID uint32, reason string) {
+// CloseSession closes a session and removes its reference from the user
+func (u *ActiveUser) CloseSession(sessionID uint32, reason string) {
 	u.sessionsM.Lock()
 	sesh, existing := u.sessions[sessionID]
 	if existing {
@@ -29,10 +29,11 @@ func (u *ActiveUser) DeleteSession(sessionID uint32, reason string) {
 		sesh.SetTerminalMsg(reason)
 		sesh.Close()
 	}
-	if len(u.sessions) == 0 {
-		u.panel.DeleteActiveUser(u)
-	}
+	remaining := len(u.sessions)
 	u.sessionsM.Unlock()
+	if remaining == 0 {
+		u.panel.TerminateActiveUser(u, "no session left")
+	}
 }
 
 // GetSession returns the reference to an existing session, or if one such session doesn't exist, it queries
@@ -58,17 +59,15 @@ func (u *ActiveUser) GetSession(sessionID uint32, config *mux.SessionConfig) (se
 	}
 }
 
-// Terminate closes all sessions of this active user
-func (u *ActiveUser) Terminate(reason string) {
+// closeAllSessions closes all sessions of this active user
+func (u *ActiveUser) closeAllSessions(reason string) {
 	u.sessionsM.Lock()
-	for _, sesh := range u.sessions {
-		if reason != "" {
-			sesh.SetTerminalMsg(reason)
-		}
+	for sessionID, sesh := range u.sessions {
+		sesh.SetTerminalMsg(reason)
 		sesh.Close()
+		delete(u.sessions, sessionID)
 	}
 	u.sessionsM.Unlock()
-	u.panel.DeleteActiveUser(u)
 }
 
 // NumSession returns the number of active sessions

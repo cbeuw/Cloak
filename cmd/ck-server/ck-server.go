@@ -125,7 +125,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	}
 	sesh, existing, err := user.GetSession(ci.SessionId, seshConfig)
 	if err != nil {
-		user.DeleteSession(ci.SessionId, "")
+		user.CloseSession(ci.SessionId, "")
 		log.Error(err)
 		return
 	}
@@ -163,7 +163,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 					"sessionID": ci.SessionId,
 					"reason":    sesh.TerminalMsg(),
 				}).Info("Session closed")
-				user.DeleteSession(ci.SessionId, "")
+				user.CloseSession(ci.SessionId, "")
 				return
 			} else {
 				continue
@@ -173,7 +173,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		localConn, err := net.Dial(proxyAddr.Network(), proxyAddr.String())
 		if err != nil {
 			log.Errorf("Failed to connect to %v: %v", ci.ProxyMethod, err)
-			user.DeleteSession(ci.SessionId, "Failed to connect to proxy server")
+			user.CloseSession(ci.SessionId, "Failed to connect to proxy server")
 			continue
 		}
 		log.Tracef("%v endpoint has been successfully connected", ci.ProxyMethod)

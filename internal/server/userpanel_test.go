@@ -43,14 +43,14 @@ func TestUserPanel_BypassUser(t *testing.T) {
 			t.Error("commit returned", err)
 		}
 	})
-	t.Run("DeleteActiveUser", func(t *testing.T) {
-		panel.DeleteActiveUser(user)
+	t.Run("TerminateActiveUser", func(t *testing.T) {
+		panel.TerminateActiveUser(user, "")
 		if panel.isActive(user.arrUID[:]) {
 			t.Error("user still active after deletion", err)
 		}
 	})
 	t.Run("Repeated delete", func(t *testing.T) {
-		panel.DeleteActiveUser(user)
+		panel.TerminateActiveUser(user, "")
 	})
 	err = manager.Close()
 	if err != nil {

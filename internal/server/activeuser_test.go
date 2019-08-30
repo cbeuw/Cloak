@@ -64,7 +64,7 @@ func TestActiveUser_Bypass(t *testing.T) {
 		}
 	})
 	t.Run("delete a session", func(t *testing.T) {
-		user.DeleteSession(0, "")
+		user.CloseSession(0, "")
 		if user.NumSession() != 1 {
 			t.Error("number of session is not 1 after deleting one")
 		}
@@ -72,11 +72,8 @@ func TestActiveUser_Bypass(t *testing.T) {
 			t.Error("session not closed after deletion")
 		}
 	})
-	t.Run("terminating user", func(t *testing.T) {
-		user.Terminate("")
-		if panel.isActive(user.arrUID[:]) {
-			t.Error("user is still active after termination")
-		}
+	t.Run("close all sessions", func(t *testing.T) {
+		user.closeAllSessions("")
 		if !sesh1.IsClosed() {
 			t.Error("session not closed after user termination")
 		}
@@ -97,7 +94,7 @@ func TestActiveUser_Bypass(t *testing.T) {
 		}
 	})
 	t.Run("delete last session", func(t *testing.T) {
-		user.DeleteSession(0, "")
+		user.CloseSession(0, "")
 		if panel.isActive(user.arrUID[:]) {
 			t.Error("user still active after last session deleted")
 		}

@@ -79,10 +79,10 @@ func (panel *userPanel) GetUser(UID []byte) (*ActiveUser, error) {
 	return user, nil
 }
 
-// DeleteActiveUser deletes the references to the active user
-func (panel *userPanel) DeleteActiveUser(user *ActiveUser) {
-	// TODO: terminate the user here?
+// TerminateActiveUser terminates a user and deletes its references
+func (panel *userPanel) TerminateActiveUser(user *ActiveUser, reason string) {
 	panel.updateUsageQueueForOne(user)
+	user.closeAllSessions(reason)
 	panel.activeUsersM.Lock()
 	delete(panel.activeUsers, user.arrUID)
 	panel.activeUsersM.Unlock()
@@ -182,7 +182,7 @@ func (panel *userPanel) commitUpdate() error {
 			user := panel.activeUsers[arrUID]
 			panel.activeUsersM.RUnlock()
 			if user != nil {
-				user.Terminate(resp.Message)
+				panel.TerminateActiveUser(user, resp.Message)
 			}
 		}
 	}
