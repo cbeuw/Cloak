@@ -64,7 +64,13 @@ func (d *datagramBuffer) Write(f Frame) error {
 		}
 		d.rwCond.Wait()
 	}
-	// TODO: deal with closing frame here
+
+	if f.Closing == 1 {
+		d.closed = true
+		d.rwCond.Broadcast()
+		return nil
+	}
+
 	data := make([]byte, len(f.Payload))
 	copy(data, f.Payload)
 	d.buf = append(d.buf, data)
