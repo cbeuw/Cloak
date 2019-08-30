@@ -232,6 +232,7 @@ func main() {
 	var remoteHost string
 	// The proxy port,should be 443
 	var remotePort string
+	var proxyMethod string
 	var udp bool
 	var config string
 	var b64AdminUID string
@@ -246,13 +247,13 @@ func main() {
 		remotePort = os.Getenv("SS_REMOTE_PORT")
 		config = os.Getenv("SS_PLUGIN_OPTIONS")
 	} else {
-		// TODO: allow proxy method to be set here as a flag so different cloak instances may share the same config file
 		flag.StringVar(&localHost, "i", "127.0.0.1", "localHost: Cloak listens to proxy clients on this ip")
 		flag.StringVar(&localPort, "l", "1984", "localPort: Cloak listens to proxy clients on this port")
 		flag.StringVar(&remoteHost, "s", "", "remoteHost: IP of your proxy server")
 		flag.StringVar(&remotePort, "p", "443", "remotePort: proxy port, should be 443")
 		flag.BoolVar(&udp, "u", false, "udp: set this flag if the underlying proxy is using UDP protocol")
 		flag.StringVar(&config, "c", "ckclient.json", "config: path to the configuration file or options seperated with semicolons")
+		flag.StringVar(&proxyMethod, "proxy", "", "proxy: the proxy method's name. It must match exactly with the corresponding entry in server's ProxyBook")
 		flag.StringVar(&b64AdminUID, "a", "", "adminUID: enter the adminUID to serve the admin api")
 		askVersion := flag.Bool("v", false, "Print the version number")
 		printUsage := flag.Bool("h", false, "Print this message")
@@ -289,6 +290,10 @@ func main() {
 	err := sta.ParseConfig(config)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if proxyMethod != "" {
+		sta.ProxyMethod = proxyMethod
 	}
 
 	if os.Getenv("SS_LOCAL_HOST") != "" {
@@ -330,7 +335,7 @@ func main() {
 			network = "TCP"
 			sta.Unordered = false
 		}
-		log.Infof("Listening on %v %v:%v for proxy clients", network, listeningIP, sta.LocalPort)
+		log.Infof("Listening on %v %v:%v for %v client", network, listeningIP, sta.LocalPort, sta.ProxyMethod)
 	}
 
 	if udp {
