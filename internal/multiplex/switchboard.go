@@ -68,7 +68,7 @@ func (sb *switchboard) removeConn(connId uint32) {
 
 // a pointer to connId is passed here so that the switchboard can reassign it
 func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
-	sb.Valve.rxWait(len(data))
+	sb.Valve.txWait(len(data))
 	sb.connsM.RLock()
 	defer sb.connsM.RUnlock()
 	if sb.strategy == UNIFORM_SPREAD {
