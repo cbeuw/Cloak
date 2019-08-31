@@ -2,11 +2,13 @@ package server
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
 	"net"
 
@@ -222,6 +224,30 @@ var ErrNotCloak = errors.New("TLS but non-Cloak ClientHello")
 var ErrReplay = errors.New("duplicate random")
 var ErrBadProxyMethod = errors.New("invalid proxy method")
 
+func unmarshalClientHello(ch *ClientHello, staticPv crypto.PrivateKey) (ai authenticationInfo, err error) {
+	ephPub, ok := ecdh.Unmarshal(ch.random)
+	if !ok {
+		err = ErrInvalidPubKey
+		return
+	}
+
+	ai.nonce = ch.random[:12]
+
+	ai.sharedSecret = ecdh.GenerateSharedSecret(staticPv, ephPub)
+	var keyShare []byte
+	keyShare, err = parseKeyShare(ch.extensions[[2]byte{0x00, 0x33}])
+	if err != nil {
+		return
+	}
+
+	ai.ciphertextWithTag = append(ch.sessionId, keyShare...)
+	if len(ai.ciphertextWithTag) != 64 {
+		err = fmt.Errorf("%v: %v", ErrCiphertextLength, len(ai.ciphertextWithTag))
+		return
+	}
+	return
+}
+
 // PrepareConnection checks if the first packet of data is ClientHello, and checks if it was from a Cloak client
 // if it is from a Cloak client, it returns the ClientInfo with the decrypted fields. It doesn't check if the user
 // is authorised. It also returns a finisher callback function to be called when the caller wishes to proceed with
@@ -239,8 +265,12 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 		return
 	}
 
-	var sharedSecret []byte
-	info, sharedSecret, err = touchStone(ch, sta.staticPv, sta.Now)
+	var ai authenticationInfo
+	ai, err = unmarshalClientHello(ch, sta.staticPv)
+	if err != nil {
+		return
+	}
+	info, err = touchStone(ai, sta.Now)
 	if err != nil {
 		log.Debug(err)
 		err = ErrNotCloak
@@ -252,7 +282,7 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 	}
 
 	finisher = func(sessionKey []byte) error {
-		reply, err := composeReply(ch, sharedSecret, sessionKey)
+		reply, err := composeReply(ch, ai.sharedSecret, sessionKey)
 		if err != nil {
 			return err
 		}

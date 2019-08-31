@@ -2,11 +2,9 @@ package server
 
 import (
 	"bytes"
-	"crypto"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
 	"time"
 )
@@ -19,6 +17,12 @@ type ClientInfo struct {
 	Unordered        bool
 }
 
+type authenticationInfo struct {
+	sharedSecret      []byte
+	nonce             []byte
+	ciphertextWithTag []byte
+}
+
 const (
 	UNORDERED_FLAG = 0x01 // 0000 0001
 )
@@ -29,28 +33,10 @@ var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting 
 
 // touchStone checks if a ClientHello came from a Cloak client by checking and decrypting the fields Cloak hides data in
 // It returns the ClientInfo, but it doesn't check if the UID is authorised
-func touchStone(ch *ClientHello, staticPv crypto.PrivateKey, now func() time.Time) (info ClientInfo, sharedSecret []byte, err error) {
-	ephPub, ok := ecdh.Unmarshal(ch.random)
-	if !ok {
-		err = ErrInvalidPubKey
-		return
-	}
-
-	sharedSecret = ecdh.GenerateSharedSecret(staticPv, ephPub)
-	var keyShare []byte
-	keyShare, err = parseKeyShare(ch.extensions[[2]byte{0x00, 0x33}])
-	if err != nil {
-		return
-	}
-
-	ciphertext := append(ch.sessionId, keyShare...)
-	if len(ciphertext) != 64 {
-		err = fmt.Errorf("%v: %v", ErrCiphertextLength, len(ciphertext))
-		return
-	}
+func touchStone(ai authenticationInfo, now func() time.Time) (info ClientInfo, err error) {
 
 	var plaintext []byte
-	plaintext, err = util.AESGCMDecrypt(ch.random[0:12], sharedSecret, ciphertext)
+	plaintext, err = util.AESGCMDecrypt(ai.nonce, ai.sharedSecret, ai.ciphertextWithTag)
 	if err != nil {
 		return
 	}
