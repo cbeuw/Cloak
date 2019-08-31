@@ -21,6 +21,7 @@ type rawConfig struct {
 	UID              string
 	PublicKey        string
 	BrowserSig       string
+	Transport        string
 	NumConn          int
 	StreamTimeout    int
 }
@@ -32,6 +33,8 @@ type State struct {
 	RemoteHost string
 	RemotePort string
 	Unordered  bool
+
+	Transport Transport
 
 	SessionID uint32
 	UID       []byte
@@ -113,6 +116,15 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		sta.browser = &Firefox{}
 	default:
 		return errors.New("unsupported browser signature")
+	}
+
+	switch strings.ToLower(preParse.Transport) {
+	case "tls":
+		sta.Transport = &TLS{}
+	case "websocket":
+		sta.Transport = &WebSocket{}
+	default:
+		sta.Transport = &TLS{}
 	}
 
 	sta.ProxyMethod = preParse.ProxyMethod

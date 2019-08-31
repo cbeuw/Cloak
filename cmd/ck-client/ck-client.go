@@ -53,7 +53,7 @@ func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 				time.Sleep(time.Second * 3)
 				goto makeconn
 			}
-			sk, err := client.PrepareConnection(sta, remoteConn)
+			sk, err := sta.Transport.PrepareConnection(sta, remoteConn)
 			if err != nil {
 				remoteConn.Close()
 				log.Errorf("Failed to prepare connection to remote: %v", err)

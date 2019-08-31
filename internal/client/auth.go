@@ -13,10 +13,11 @@ const (
 )
 
 type chHiddenData struct {
-	chRandom         []byte
-	chSessionId      []byte
-	chX25519KeyShare []byte
-	chExtSNI         []byte
+	rawCiphertextWithTag []byte
+	chRandom             []byte
+	chSessionId          []byte
+	chX25519KeyShare     []byte
+	chExtSNI             []byte
 }
 
 // makeHiddenData generates the ephemeral key pair, calculates the shared secret, and then compose and
@@ -49,6 +50,7 @@ func makeHiddenData(sta *State) (ret chHiddenData, sharedSecret []byte) {
 	sharedSecret = ecdh.GenerateSharedSecret(ephPv, sta.staticPub)
 	nonce := ret.chRandom[0:12]
 	ciphertextWithTag, _ := util.AESGCMEncrypt(nonce, sharedSecret, plaintext)
+	ret.rawCiphertextWithTag = ciphertextWithTag
 	ret.chSessionId = ciphertextWithTag[0:32]
 	ret.chX25519KeyShare = ciphertextWithTag[32:64]
 	ret.chExtSNI = makeServerName(sta.ServerName)

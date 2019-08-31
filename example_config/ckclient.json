@@ -1,4 +1,5 @@
 {
+	"Transport": "TLS",
 	"ProxyMethod":"shadowsocks",
 	"EncryptionMethod":"plain",
 	"UID":"5nneblJy6lniPJfr81LuYQ==",
