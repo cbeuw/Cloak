@@ -99,15 +99,20 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 			if atomic.LoadUint32(&sb.broken) == 1 || len(sb.conns) == 0 {
 				return 0, errBrokenSwitchboard
 			}
-			newConnId := rand.Intn(len(sb.conns))
-			conn, ok = sb.conns[uint32(newConnId)]
-			if !ok {
-				return 0, errBrokenSwitchboard
-			} else {
-				n, err = conn.Write(data)
-				sb.AddTx(int64(n))
-				return
+
+			r := rand.Intn(len(sb.conns))
+			var c int
+			for newConnId := range sb.conns {
+				if r == c {
+					connId = &newConnId
+					conn, _ = sb.conns[newConnId]
+					n, err = conn.Write(data)
+					sb.AddTx(int64(n))
+					return
+				}
+				c++
 			}
+			return 0, errBrokenSwitchboard
 		}
 	}
 
@@ -120,8 +125,16 @@ func (sb *switchboard) assignRandomConn() (uint32, error) {
 	if atomic.LoadUint32(&sb.broken) == 1 || len(sb.conns) == 0 {
 		return 0, errBrokenSwitchboard
 	}
-	connId := rand.Intn(len(sb.conns))
-	return uint32(connId), nil
+
+	r := rand.Intn(len(sb.conns))
+	var c int
+	for connId := range sb.conns {
+		if r == c {
+			return connId, nil
+		}
+		c++
+	}
+	return 0, errBrokenSwitchboard
 }
 
 // actively triggered by session.Close()
@@ -145,7 +158,7 @@ func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 		sb.rxWait(n)
 		sb.Valve.AddRx(int64(n))
 		if err != nil {
-			log.Tracef("a connection for session %v has closed: %v", sb.session.id, err)
+			log.Debugf("a connection for session %v has closed: %v", sb.session.id, err)
 			go conn.Close()
 			sb.removeConn(connId)
 			return
