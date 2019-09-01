@@ -30,6 +30,8 @@ type Obfuscator struct {
 type switchboardStrategy int
 
 type SessionConfig struct {
+	NoRecordLayer bool
+
 	*Obfuscator
 
 	Valve

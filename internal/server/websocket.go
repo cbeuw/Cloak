@@ -21,12 +21,13 @@ type firstBuffedConn struct {
 
 func (c *firstBuffedConn) Read(buf []byte) (int, error) {
 	if !c.firstRead {
+		c.firstRead = true
 		copy(buf, c.firstPacket)
 		n := len(c.firstPacket)
 		c.firstPacket = []byte{}
 		return n, nil
 	}
-	return c.Read(buf)
+	return c.Conn.Read(buf)
 }
 
 type wsAcceptor struct {
@@ -38,7 +39,7 @@ func newWsAcceptor(conn net.Conn, first []byte) *wsAcceptor {
 	f := make([]byte, len(first))
 	copy(f, first)
 	return &wsAcceptor{
-		c: &firstBuffedConn{Conn: conn, firstPacket: first},
+		c: &firstBuffedConn{Conn: conn, firstPacket: f},
 	}
 }
 
@@ -69,16 +70,13 @@ func newWsHandshakeHandler() *wsHandshakeHandler {
 }
 
 func (ws *wsHandshakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	upgrader := websocket.Upgrader{
-		ReadBufferSize:  16380,
-		WriteBufferSize: 16380,
-	}
+	upgrader := websocket.Upgrader{}
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Errorf("failed to upgrade connection to ws: %v", err)
 		return
 	}
-	ws.conn = &util.WebSocketConn{c}
+	ws.conn = &util.WebSocketConn{Conn: c}
 	ws.finished <- struct{}{}
 }
 

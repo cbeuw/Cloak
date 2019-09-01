@@ -14,7 +14,7 @@ import (
 func setupSesh(unordered bool) *Session {
 	sessionKey := make([]byte, 32)
 	rand.Read(sessionKey)
-	obfuscator, _ := GenerateObfs(0x00, sessionKey)
+	obfuscator, _ := GenerateObfs(0x00, sessionKey, true)
 
 	seshConfig := &SessionConfig{
 		Obfuscator: obfuscator,
@@ -144,6 +144,7 @@ func TestStream_Read(t *testing.T) {
 			_, err := conn.Write(data)
 			if err != nil {
 				t.Error("cannot write to connection", err)
+				return
 			}
 		}
 	}()
@@ -163,17 +164,21 @@ func TestStream_Read(t *testing.T) {
 		stream, err := sesh.Accept()
 		if err != nil {
 			t.Error("failed to accept stream", err)
+			return
 		}
 		i, err = stream.Read(buf)
 		if err != nil {
 			t.Error("failed to read", err)
+			return
 		}
 		if i != PAYLOAD_LEN {
 			t.Errorf("expected read %v, got %v", PAYLOAD_LEN, i)
+			return
 		}
 		if !bytes.Equal(buf[:i], testPayload) {
 			t.Error("expected", testPayload,
 				"got", buf[:i])
+			return
 		}
 	})
 	t.Run("Nil buf", func(t *testing.T) {

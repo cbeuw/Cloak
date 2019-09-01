@@ -22,6 +22,7 @@ type ClientInfo struct {
 	ProxyMethod      string
 	EncryptionMethod byte
 	Unordered        bool
+	Transport        Transport
 }
 
 type authenticationInfo struct {
@@ -67,14 +68,20 @@ func touchStone(ai authenticationInfo, now func() time.Time) (info ClientInfo, e
 	return
 }
 
+var ErrBadClientHello = errors.New("non (or malformed) ClientHello")
+var ErrReplay = errors.New("duplicate random")
+var ErrBadProxyMethod = errors.New("invalid proxy method")
+
 // PrepareConnection checks if the first packet of data is ClientHello or HTTP GET, and checks if it was from a Cloak client
 // if it is from a Cloak client, it returns the ClientInfo with the decrypted fields. It doesn't check if the user
 // is authorised. It also returns a finisher callback function to be called when the caller wishes to proceed with
 // the handshake
-func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info ClientInfo, finisher func([]byte) error, err error) {
+func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info ClientInfo, finisher func([]byte) (net.Conn, error), err error) {
+	var transport Transport
 	var ai authenticationInfo
 	switch firstPacket[0] {
 	case 0x47:
+		transport = &WebSocket{}
 		var req *http.Request
 		req, err = http.ReadRequest(bufio.NewReader(bytes.NewBuffer(firstPacket)))
 		if err != nil {
@@ -90,30 +97,33 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 			return
 		}
 
-		finisher = func(sessionKey []byte) error {
+		finisher = func(sessionKey []byte) (preparedConn net.Conn, err error) {
 			handler := newWsHandshakeHandler()
 
-			go http.Serve(newWsAcceptor(conn, firstPacket), handler)
+			http.Serve(newWsAcceptor(conn, firstPacket), handler)
 
 			<-handler.finished
-			conn = handler.conn
+			preparedConn = handler.conn
 			nonce := make([]byte, 12)
 			rand.Read(nonce)
 
 			// reply: [12 bytes nonce][32 bytes encrypted session key][16 bytes authentication tag]
 			encryptedKey, err := util.AESGCMEncrypt(nonce, ai.sharedSecret, sessionKey) // 32 + 16 = 48 bytes
 			if err != nil {
-				return fmt.Errorf("failed to encrypt reply: %v", err)
+				err = fmt.Errorf("failed to encrypt reply: %v", err)
+				return
 			}
 			reply := append(nonce, encryptedKey...)
-			_, err = conn.Write(reply)
+			_, err = preparedConn.Write(reply)
 			if err != nil {
-				go conn.Close()
-				return fmt.Errorf("failed to write reply: %v", err)
+				err = fmt.Errorf("failed to write reply: %v", err)
+				go preparedConn.Close()
+				return
 			}
-			return nil
+			return
 		}
 	case 0x16:
+		transport = &TLS{}
 		var ch *ClientHello
 		ch, err = parseClientHello(firstPacket)
 		if err != nil {
@@ -132,17 +142,21 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 			err = fmt.Errorf("failed to unmarshal ClientHello into authenticationInfo: %v", err)
 			return
 		}
-		finisher = func(sessionKey []byte) error {
+
+		finisher = func(sessionKey []byte) (preparedConn net.Conn, err error) {
+			preparedConn = conn
 			reply, err := composeReply(ch, ai.sharedSecret, sessionKey)
 			if err != nil {
-				return fmt.Errorf("failed to compose TLS reply: %v", err)
+				err = fmt.Errorf("failed to compose TLS reply: %v", err)
+				return
 			}
-			_, err = conn.Write(reply)
+			_, err = preparedConn.Write(reply)
 			if err != nil {
-				go conn.Close()
-				return fmt.Errorf("failed to write TLS reply: %v", err)
+				err = fmt.Errorf("failed to write TLS reply: %v", err)
+				go preparedConn.Close()
+				return
 			}
-			return nil
+			return
 		}
 	default:
 		err = ErrUnreconisedProtocol
@@ -152,9 +166,10 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 	info, err = touchStone(ai, sta.Now)
 	if err != nil {
 		log.Debug(err)
-		err = ErrNotCloak
+		err = fmt.Errorf("transport %v in correct format but not Cloak: %v", err)
 		return
 	}
+	info.Transport = transport
 	if _, ok := sta.ProxyBook[info.ProxyMethod]; !ok {
 		err = ErrBadProxyMethod
 		return

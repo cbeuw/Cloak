@@ -216,11 +216,6 @@ func composeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) ([]by
 	return ret, nil
 }
 
-var ErrBadClientHello = errors.New("non (or malformed) ClientHello")
-var ErrNotCloak = errors.New("TLS but non-Cloak ClientHello")
-var ErrReplay = errors.New("duplicate random")
-var ErrBadProxyMethod = errors.New("invalid proxy method")
-
 func unmarshalClientHello(ch *ClientHello, staticPv crypto.PrivateKey) (ai authenticationInfo, err error) {
 	ephPub, ok := ecdh.Unmarshal(ch.random)
 	if !ok {

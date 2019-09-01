@@ -41,13 +41,17 @@ type TLS struct {
 	Transport
 }
 
+func (*TLS) HasRecordLayer() bool                              { return true }
+func (*TLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadTLS }
+
 // PrepareConnection handles the TLS handshake for a given conn and returns the sessionKey
 // if the server proceed with Cloak authentication
-func (*TLS) PrepareConnection(sta *State, conn net.Conn) (sessionKey []byte, err error) {
+func (*TLS) PrepareConnection(sta *State, conn net.Conn) (preparedConn net.Conn, sessionKey []byte, err error) {
+	preparedConn = conn
 	hd, sharedSecret := makeHiddenData(sta)
 	chOnly := sta.browser.composeClientHello(hd)
 	chWithRecordLayer := util.AddRecordLayer(chOnly, []byte{0x16}, []byte{0x03, 0x01})
-	_, err = conn.Write(chWithRecordLayer)
+	_, err = preparedConn.Write(chWithRecordLayer)
 	if err != nil {
 		return
 	}
@@ -55,7 +59,7 @@ func (*TLS) PrepareConnection(sta *State, conn net.Conn) (sessionKey []byte, err
 
 	buf := make([]byte, 1024)
 	log.Trace("waiting for ServerHello")
-	_, err = util.ReadTLS(conn, buf)
+	_, err = util.ReadTLS(preparedConn, buf)
 	if err != nil {
 		return
 	}
@@ -70,12 +74,12 @@ func (*TLS) PrepareConnection(sta *State, conn net.Conn) (sessionKey []byte, err
 
 	for i := 0; i < 2; i++ {
 		// ChangeCipherSpec and EncryptedCert (in the format of application data)
-		_, err = util.ReadTLS(conn, buf)
+		_, err = util.ReadTLS(preparedConn, buf)
 		if err != nil {
 			return
 		}
 	}
 
-	return sessionKey, nil
+	return preparedConn, sessionKey, nil
 
 }

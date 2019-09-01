@@ -1,16 +1,23 @@
 package util
 
 import (
+	"errors"
 	"github.com/gorilla/websocket"
+	"io"
+	"net"
+	"sync"
 	"time"
 )
 
 type WebSocketConn struct {
 	*websocket.Conn
+	writeM sync.Mutex
 }
 
 func (ws *WebSocketConn) Write(data []byte) (int, error) {
+	ws.writeM.Lock()
 	err := ws.WriteMessage(websocket.BinaryMessage, data)
+	ws.writeM.Unlock()
 	if err != nil {
 		return 0, err
 	} else {
@@ -18,12 +25,41 @@ func (ws *WebSocketConn) Write(data []byte) (int, error) {
 	}
 }
 
-func (ws *WebSocketConn) Read(buf []byte) (int, error) {
-	_, r, err := ws.NextReader()
+func (ws *WebSocketConn) Read(buf []byte) (n int, err error) {
+	t, r, err := ws.NextReader()
 	if err != nil {
 		return 0, err
 	}
-	return r.Read(buf)
+	if t != websocket.BinaryMessage {
+		return 0, nil
+	}
+
+	// Read until io.EOL for one full message
+	for {
+		var read int
+		read, err = r.Read(buf[n:])
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+				break
+			} else {
+				break
+			}
+		} else {
+			// There may be data available to read but n == len(buf)-1, read==0 because buffer is full
+			if read == 0 {
+				err = errors.New("nothing more is read. message may be larger than buffer")
+				break
+			}
+		}
+		n += read
+	}
+	return
+}
+func (ws *WebSocketConn) Close() error {
+	ws.writeM.Lock()
+	defer ws.writeM.Unlock()
+	return ws.Conn.Close()
 }
 
 func (ws *WebSocketConn) SetDeadline(t time.Time) error {
@@ -36,4 +72,9 @@ func (ws *WebSocketConn) SetDeadline(t time.Time) error {
 		return err
 	}
 	return nil
+}
+
+// ws unit reader
+func ReadWebSocket(conn net.Conn, buffer []byte) (n int, err error) {
+	return conn.Read(buffer)
 }

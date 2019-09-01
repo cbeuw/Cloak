@@ -51,7 +51,7 @@ func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
 		id:             id,
 		session:        sesh,
 		recvBuf:        recvBuf,
-		obfsBuf:        make([]byte, 17000),
+		obfsBuf:        make([]byte, 17000), //TODO don't leave this hardcoded
 		assignedConnId: assignedConnId,
 	}
 

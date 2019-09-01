@@ -53,7 +53,8 @@ func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 				time.Sleep(time.Second * 3)
 				goto makeconn
 			}
-			sk, err := sta.Transport.PrepareConnection(sta, remoteConn)
+			var sk []byte
+			remoteConn, sk, err = sta.Transport.PrepareConnection(sta, remoteConn)
 			if err != nil {
 				remoteConn.Close()
 				log.Errorf("Failed to prepare connection to remote: %v", err)
@@ -69,7 +70,7 @@ func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 	log.Debug("All underlying connections established")
 
 	sessionKey := _sessionKey.Load().([]byte)
-	obfuscator, err := mux.GenerateObfs(sta.EncryptionMethod, sessionKey)
+	obfuscator, err := mux.GenerateObfs(sta.EncryptionMethod, sessionKey, sta.Transport.HasRecordLayer())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -77,7 +78,7 @@ func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 	seshConfig := &mux.SessionConfig{
 		Obfuscator: obfuscator,
 		Valve:      nil,
-		UnitRead:   util.ReadTLS,
+		UnitRead:   sta.Transport.UnitReadFunc(),
 		Unordered:  sta.Unordered,
 	}
 	sesh := mux.MakeSession(sta.SessionID, seshConfig)

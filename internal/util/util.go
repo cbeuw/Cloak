@@ -89,10 +89,10 @@ func AddRecordLayer(input []byte, typ []byte, ver []byte) []byte {
 }
 
 func Pipe(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) {
-	// The maximum size of TLS message will be 16380+12+16. 12 because of the stream header and 16
+	// The maximum size of TLS message will be 16380+14+16. 14 because of the stream header and 16
 	// because of the salt/mac
 	// 16408 is the max TLS message size on Firefox
-	buf := make([]byte, 16380)
+	buf := make([]byte, 16378)
 	if srcReadTimeout != 0 {
 		src.SetReadDeadline(time.Now().Add(srcReadTimeout))
 	}

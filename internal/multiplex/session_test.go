@@ -35,7 +35,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 	sessionKey := make([]byte, 32)
 	rand.Read(sessionKey)
 	t.Run("plain ordered", func(t *testing.T) {
-		obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey)
+		obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey, true)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -58,7 +58,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 		}
 	})
 	t.Run("aes-gcm ordered", func(t *testing.T) {
-		obfuscator, _ := GenerateObfs(E_METHOD_AES_GCM, sessionKey)
+		obfuscator, _ := GenerateObfs(E_METHOD_AES_GCM, sessionKey, true)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -81,7 +81,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 		}
 	})
 	t.Run("chacha20-poly1305 ordered", func(t *testing.T) {
-		obfuscator, _ := GenerateObfs(E_METHOD_CHACHA20_POLY1305, sessionKey)
+		obfuscator, _ := GenerateObfs(E_METHOD_CHACHA20_POLY1305, sessionKey, true)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -105,7 +105,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 	})
 
 	t.Run("plain unordered", func(t *testing.T) {
-		obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey)
+		obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey, true)
 		seshConfigUnordered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -146,7 +146,7 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 	rand.Read(sessionKey)
 
 	b.Run("plain", func(b *testing.B) {
-		obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey)
+		obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey, true)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -159,7 +159,7 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 	})
 
 	b.Run("aes-gcm", func(b *testing.B) {
-		obfuscator, _ := GenerateObfs(E_METHOD_AES_GCM, sessionKey)
+		obfuscator, _ := GenerateObfs(E_METHOD_AES_GCM, sessionKey, true)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -172,7 +172,7 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 	})
 
 	b.Run("chacha20-poly1305", func(b *testing.B) {
-		obfuscator, _ := GenerateObfs(E_METHOD_CHACHA20_POLY1305, sessionKey)
+		obfuscator, _ := GenerateObfs(E_METHOD_CHACHA20_POLY1305, sessionKey, true)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)

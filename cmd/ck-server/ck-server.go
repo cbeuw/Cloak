@@ -68,7 +68,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 
 	sessionKey := make([]byte, 32)
 	rand.Read(sessionKey)
-	obfuscator, err := mux.GenerateObfs(ci.EncryptionMethod, sessionKey)
+	obfuscator, err := mux.GenerateObfs(ci.EncryptionMethod, sessionKey, ci.Transport.HasRecordLayer())
 	if err != nil {
 		log.Error(err)
 		goWeb()
@@ -79,7 +79,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	// added to the userinfo database. The distinction between going into the admin mode
 	// and normal proxy mode is that sessionID needs == 0 for admin mode
 	if bytes.Equal(ci.UID, sta.AdminUID) && ci.SessionId == 0 {
-		err = finishHandshake(sessionKey)
+		preparedConn, err := finishHandshake(sessionKey)
 		if err != nil {
 			log.Error(err)
 			return
@@ -88,12 +88,12 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		seshConfig := &mux.SessionConfig{
 			Obfuscator: obfuscator,
 			Valve:      nil,
-			UnitRead:   util.ReadTLS,
+			UnitRead:   ci.Transport.UnitReadFunc(),
 		}
 		sesh := mux.MakeSession(0, seshConfig)
-		sesh.AddConnection(conn)
+		sesh.AddConnection(preparedConn)
 		//TODO: Router could be nil in cnc mode
-		log.WithField("remoteAddr", conn.RemoteAddr()).Info("New admin session")
+		log.WithField("remoteAddr", preparedConn.RemoteAddr()).Info("New admin session")
 		err = http.Serve(sesh, sta.LocalAPIRouter)
 		if err != nil {
 			log.Error(err)
@@ -120,7 +120,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	seshConfig := &mux.SessionConfig{
 		Obfuscator: obfuscator,
 		Valve:      nil,
-		UnitRead:   util.ReadTLS,
+		UnitRead:   ci.Transport.UnitReadFunc(),
 		Unordered:  ci.Unordered,
 	}
 	sesh, existing, err := user.GetSession(ci.SessionId, seshConfig)
@@ -131,17 +131,17 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	}
 
 	if existing {
-		err = finishHandshake(sesh.SessionKey)
+		preparedConn, err := finishHandshake(sesh.SessionKey)
 		if err != nil {
 			log.Error(err)
 			return
 		}
 		log.Trace("finished handshake")
-		sesh.AddConnection(conn)
+		sesh.AddConnection(preparedConn)
 		return
 	}
 
-	err = finishHandshake(sessionKey)
+	preparedConn, err := finishHandshake(sessionKey)
 	if err != nil {
 		log.Error(err)
 		return
@@ -152,7 +152,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		"UID":       b64(ci.UID),
 		"sessionID": ci.SessionId,
 	}).Info("New session")
-	sesh.AddConnection(conn)
+	sesh.AddConnection(preparedConn)
 
 	for {
 		newStream, err := sesh.Accept()
