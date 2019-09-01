@@ -10,9 +10,6 @@ import (
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
-	"net"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // ClientHello contains every field in a ClientHello message
@@ -244,54 +241,6 @@ func unmarshalClientHello(ch *ClientHello, staticPv crypto.PrivateKey) (ai authe
 	if len(ai.ciphertextWithTag) != 64 {
 		err = fmt.Errorf("%v: %v", ErrCiphertextLength, len(ai.ciphertextWithTag))
 		return
-	}
-	return
-}
-
-// PrepareConnection checks if the first packet of data is ClientHello, and checks if it was from a Cloak client
-// if it is from a Cloak client, it returns the ClientInfo with the decrypted fields. It doesn't check if the user
-// is authorised. It also returns a finisher callback function to be called when the caller wishes to proceed with
-// the handshake
-func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info ClientInfo, finisher func([]byte) error, err error) {
-	ch, err := parseClientHello(firstPacket)
-	if err != nil {
-		log.Debug(err)
-		err = ErrBadClientHello
-		return
-	}
-
-	if sta.registerRandom(ch.random) {
-		err = ErrReplay
-		return
-	}
-
-	var ai authenticationInfo
-	ai, err = unmarshalClientHello(ch, sta.staticPv)
-	if err != nil {
-		return
-	}
-	info, err = touchStone(ai, sta.Now)
-	if err != nil {
-		log.Debug(err)
-		err = ErrNotCloak
-		return
-	}
-	if _, ok := sta.ProxyBook[info.ProxyMethod]; !ok {
-		err = ErrBadProxyMethod
-		return
-	}
-
-	finisher = func(sessionKey []byte) error {
-		reply, err := composeReply(ch, ai.sharedSecret, sessionKey)
-		if err != nil {
-			return err
-		}
-		_, err = conn.Write(reply)
-		if err != nil {
-			go conn.Close()
-			return err
-		}
-		return nil
 	}
 	return
 }

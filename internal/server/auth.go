@@ -1,12 +1,19 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/util"
+	"net"
+	"net/http"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type ClientInfo struct {
@@ -30,11 +37,11 @@ const (
 var ErrInvalidPubKey = errors.New("public key has invalid format")
 var ErrCiphertextLength = errors.New("ciphertext has the wrong length")
 var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
+var ErrUnreconisedProtocol = errors.New("unreconised protocol")
 
 // touchStone checks if a ClientHello came from a Cloak client by checking and decrypting the fields Cloak hides data in
 // It returns the ClientInfo, but it doesn't check if the UID is authorised
 func touchStone(ai authenticationInfo, now func() time.Time) (info ClientInfo, err error) {
-
 	var plaintext []byte
 	plaintext, err = util.AESGCMDecrypt(ai.nonce, ai.sharedSecret, ai.ciphertextWithTag)
 	if err != nil {
@@ -57,5 +64,101 @@ func touchStone(ai authenticationInfo, now func() time.Time) (info ClientInfo, e
 		return
 	}
 	info.SessionId = binary.BigEndian.Uint32(plaintext[37:41])
+	return
+}
+
+// PrepareConnection checks if the first packet of data is ClientHello or HTTP GET, and checks if it was from a Cloak client
+// if it is from a Cloak client, it returns the ClientInfo with the decrypted fields. It doesn't check if the user
+// is authorised. It also returns a finisher callback function to be called when the caller wishes to proceed with
+// the handshake
+func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info ClientInfo, finisher func([]byte) error, err error) {
+	var ai authenticationInfo
+	switch firstPacket[0] {
+	case 0x47:
+		var req *http.Request
+		req, err = http.ReadRequest(bufio.NewReader(bytes.NewBuffer(firstPacket)))
+		if err != nil {
+			err = fmt.Errorf("failed to parse first HTTP GET: %v", err)
+			return
+		}
+		var hiddenData []byte
+		hiddenData, err = base64.StdEncoding.DecodeString(req.Header.Get("hidden"))
+
+		ai, err = unmarshalHidden(hiddenData, sta.staticPv)
+		if err != nil {
+			err = fmt.Errorf("failed to unmarshal hidden data from WS into authenticationInfo: %v", err)
+			return
+		}
+
+		finisher = func(sessionKey []byte) error {
+			handler := newWsHandshakeHandler()
+
+			go http.Serve(newWsAcceptor(conn, firstPacket), handler)
+
+			<-handler.finished
+			conn = handler.conn
+			nonce := make([]byte, 12)
+			rand.Read(nonce)
+
+			// reply: [12 bytes nonce][32 bytes encrypted session key][16 bytes authentication tag]
+			encryptedKey, err := util.AESGCMEncrypt(nonce, ai.sharedSecret, sessionKey) // 32 + 16 = 48 bytes
+			if err != nil {
+				return fmt.Errorf("failed to encrypt reply: %v", err)
+			}
+			reply := append(nonce, encryptedKey...)
+			_, err = conn.Write(reply)
+			if err != nil {
+				go conn.Close()
+				return fmt.Errorf("failed to write reply: %v", err)
+			}
+			return nil
+		}
+	case 0x16:
+		var ch *ClientHello
+		ch, err = parseClientHello(firstPacket)
+		if err != nil {
+			log.Debug(err)
+			err = ErrBadClientHello
+			return
+		}
+
+		if sta.registerRandom(ch.random) {
+			err = ErrReplay
+			return
+		}
+
+		ai, err = unmarshalClientHello(ch, sta.staticPv)
+		if err != nil {
+			err = fmt.Errorf("failed to unmarshal ClientHello into authenticationInfo: %v", err)
+			return
+		}
+		finisher = func(sessionKey []byte) error {
+			reply, err := composeReply(ch, ai.sharedSecret, sessionKey)
+			if err != nil {
+				return fmt.Errorf("failed to compose TLS reply: %v", err)
+			}
+			_, err = conn.Write(reply)
+			if err != nil {
+				go conn.Close()
+				return fmt.Errorf("failed to write TLS reply: %v", err)
+			}
+			return nil
+		}
+	default:
+		err = ErrUnreconisedProtocol
+		return
+	}
+
+	info, err = touchStone(ai, sta.Now)
+	if err != nil {
+		log.Debug(err)
+		err = ErrNotCloak
+		return
+	}
+	if _, ok := sta.ProxyBook[info.ProxyMethod]; !ok {
+		err = ErrBadProxyMethod
+		return
+	}
+
 	return
 }
