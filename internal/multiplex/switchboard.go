@@ -19,7 +19,7 @@ type switchboardConfig struct {
 	strategy switchboardStrategy
 }
 
-// switchboard is responsible for keeping the reference of TLS connections between client and server
+// switchboard is responsible for keeping the reference of TCP connections between client and server
 type switchboard struct {
 	session *Session
 

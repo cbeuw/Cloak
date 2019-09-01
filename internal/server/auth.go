@@ -40,8 +40,7 @@ var ErrCiphertextLength = errors.New("ciphertext has the wrong length")
 var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
 var ErrUnreconisedProtocol = errors.New("unreconised protocol")
 
-// touchStone checks if a ClientHello came from a Cloak client by checking and decrypting the fields Cloak hides data in
-// It returns the ClientInfo, but it doesn't check if the UID is authorised
+// touchStone checks if a the authenticationInfo are valid. It doesn't check if the UID is authorised
 func touchStone(ai authenticationInfo, now func() time.Time) (info ClientInfo, err error) {
 	var plaintext []byte
 	plaintext, err = util.AESGCMDecrypt(ai.nonce, ai.sharedSecret, ai.ciphertextWithTag)

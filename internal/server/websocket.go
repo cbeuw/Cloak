@@ -13,6 +13,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// since we need to read the first packet from the client to identify its protocol, the first packet will no longer
+// be in Conn's buffer. However, websocket.Upgrade relies on reading the first packet for handshake, so we must
+// fake a conn that returns the first packet on first read
 type firstBuffedConn struct {
 	net.Conn
 	firstRead   bool
@@ -35,6 +38,8 @@ type wsAcceptor struct {
 	c    *firstBuffedConn
 }
 
+// net/http provides no method to serve an existing connection, we must feed in a net.Accept interface to get an
+// http.Server. This is an acceptor that accepts only one Conn
 func newWsAcceptor(conn net.Conn, first []byte) *wsAcceptor {
 	f := make([]byte, len(first))
 	copy(f, first)
@@ -65,6 +70,7 @@ type wsHandshakeHandler struct {
 	finished chan struct{}
 }
 
+// the handler to turn a net.Conn into a websocket.Conn
 func newWsHandshakeHandler() *wsHandshakeHandler {
 	return &wsHandshakeHandler{finished: make(chan struct{})}
 }
