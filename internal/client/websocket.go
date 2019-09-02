@@ -9,17 +9,29 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+
+	utls "github.com/refraction-networking/utls"
 )
 
-type WebSocket struct {
+type WSOverTLS struct {
 	Transport
 }
 
-func (*WebSocket) HasRecordLayer() bool                              { return false }
-func (*WebSocket) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadWebSocket }
+func (WSOverTLS) HasRecordLayer() bool                              { return false }
+func (WSOverTLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadWebSocket }
 
-func (WebSocket) PrepareConnection(sta *State, conn net.Conn) (preparedConn net.Conn, sessionKey []byte, err error) {
-	preparedConn = conn
+func (WSOverTLS) PrepareConnection(sta *State, conn net.Conn) (preparedConn net.Conn, sessionKey []byte, err error) {
+	utlsConfig := &utls.Config{
+		ServerName:         sta.ServerName,
+		InsecureSkipVerify: true,
+	}
+	uconn := utls.UClient(conn, utlsConfig, utls.HelloChrome_Auto)
+	err = uconn.Handshake()
+	preparedConn = uconn
+	if err != nil {
+		return
+	}
+
 	u, err := url.Parse("ws://" + sta.RemoteHost + ":" + sta.RemotePort) //TODO IPv6
 	if err != nil {
 		return preparedConn, nil, fmt.Errorf("failed to parse ws url: %v", err)

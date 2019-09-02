@@ -119,12 +119,12 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	}
 
 	switch strings.ToLower(preParse.Transport) {
-	case "tls":
-		sta.Transport = &TLS{}
-	case "websocket":
-		sta.Transport = &WebSocket{}
+	case "direct":
+		sta.Transport = DirectTLS{}
+	case "cdn":
+		sta.Transport = WSOverTLS{}
 	default:
-		sta.Transport = &TLS{}
+		sta.Transport = &DirectTLS{}
 	}
 
 	sta.ProxyMethod = preParse.ProxyMethod

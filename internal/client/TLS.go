@@ -37,16 +37,16 @@ func addExtRec(typ []byte, data []byte) []byte {
 	return ret
 }
 
-type TLS struct {
+type DirectTLS struct {
 	Transport
 }
 
-func (*TLS) HasRecordLayer() bool                              { return true }
-func (*TLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadTLS }
+func (DirectTLS) HasRecordLayer() bool                              { return true }
+func (DirectTLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadTLS }
 
 // PrepareConnection handles the TLS handshake for a given conn and returns the sessionKey
 // if the server proceed with Cloak authentication
-func (*TLS) PrepareConnection(sta *State, conn net.Conn) (preparedConn net.Conn, sessionKey []byte, err error) {
+func (DirectTLS) PrepareConnection(sta *State, conn net.Conn) (preparedConn net.Conn, sessionKey []byte, err error) {
 	preparedConn = conn
 	hd, sharedSecret := makeHiddenData(sta)
 	chOnly := sta.browser.composeClientHello(hd)
