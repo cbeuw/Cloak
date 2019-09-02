@@ -80,7 +80,7 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 	var ai authenticationInfo
 	switch firstPacket[0] {
 	case 0x47:
-		transport = &WebSocket{}
+		transport = WebSocket{}
 		var req *http.Request
 		req, err = http.ReadRequest(bufio.NewReader(bytes.NewBuffer(firstPacket)))
 		if err != nil {
@@ -122,7 +122,7 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 			return
 		}
 	case 0x16:
-		transport = &TLS{}
+		transport = TLS{}
 		var ch *ClientHello
 		ch, err = parseClientHello(firstPacket)
 		if err != nil {
@@ -165,7 +165,7 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 	info, err = touchStone(ai, sta.Now)
 	if err != nil {
 		log.Debug(err)
-		err = fmt.Errorf("transport %v in correct format but not Cloak: %v", err)
+		err = fmt.Errorf("transport %v in correct format but not Cloak: %v", transport, err)
 		return
 	}
 	info.Transport = transport

@@ -12,10 +12,12 @@ type Transport interface {
 
 type TLS struct{}
 
-func (*TLS) HasRecordLayer() bool                              { return true }
-func (*TLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadTLS }
+func (TLS) String() string                                    { return "TLS" }
+func (TLS) HasRecordLayer() bool                              { return true }
+func (TLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadTLS }
 
 type WebSocket struct{}
 
-func (*WebSocket) HasRecordLayer() bool                              { return false }
-func (*WebSocket) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadWebSocket }
+func (WebSocket) String() string                                    { return "WebSocket" }
+func (WebSocket) HasRecordLayer() bool                              { return false }
+func (WebSocket) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadWebSocket }
