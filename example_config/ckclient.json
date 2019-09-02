@@ -1,11 +1,11 @@
 {
   "Transport": "direct",
-	"ProxyMethod":"shadowsocks",
-	"EncryptionMethod":"plain",
-	"UID":"5nneblJy6lniPJfr81LuYQ==",
-	"PublicKey":"IYoUzkle/T/kriE+Ufdm7AHQtIeGnBWbhhlTbmDpUUI=",
-	"ServerName":"www.bing.com",
-	"NumConn":4,
-	"BrowserSig": "chrome",
-	"StreamTimeout": 300
+  "ProxyMethod": "shadowsocks",
+  "EncryptionMethod": "plain",
+  "UID": "5nneblJy6lniPJfr81LuYQ==",
+  "PublicKey": "IYoUzkle/T/kriE+Ufdm7AHQtIeGnBWbhhlTbmDpUUI=",
+  "ServerName": "www.bing.com",
+  "NumConn": 4,
+  "BrowserSig": "chrome",
+  "StreamTimeout": 300
 }
