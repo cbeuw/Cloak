@@ -124,7 +124,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	case "cdn":
 		sta.Transport = WSOverTLS{}
 	default:
-		sta.Transport = &DirectTLS{}
+		sta.Transport = DirectTLS{}
 	}
 
 	sta.ProxyMethod = preParse.ProxyMethod
