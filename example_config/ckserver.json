@@ -20,7 +20,7 @@
   "BypassUID": [
     "1rmq6Ag1jZJCImLBIL5wzQ=="
   ],
-  "RedirAddr": "204.79.197.200:443",
+  "RedirAddr": "204.79.197.200",
   "PrivateKey": "EN5aPEpNBO+vw+BtFQY2OnK9bQU7rvEj5qmnmgwEtUc=",
   "AdminUID": "5nneblJy6lniPJfr81LuYQ==",
   "DatabasePath": "userinfo.db",

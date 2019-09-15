@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -93,7 +94,8 @@ func (sta *State) ParseConfig(conf string) (err error) {
 
 	sta.RedirAddr, err = net.ResolveIPAddr("ip", preParse.RedirAddr)
 	if err != nil {
-		return fmt.Errorf("unable to resolve RedirAddr: %v", err)
+		logrus.Error("If RedirAddr contains a port number, please remove it.")
+		return fmt.Errorf("unable to resolve RedirAddr: %v. ", err)
 	}
 
 	for _, addr := range preParse.BindAddr {

@@ -256,6 +256,9 @@ func main() {
 	}
 
 	if !pluginMode && len(sta.BindAddr) == 0 {
+		https, _ := net.ResolveTCPAddr("tcp", ":443")
+		http, _ := net.ResolveTCPAddr("tcp", ":80")
+		sta.BindAddr = []net.Addr{https, http}
 		log.Fatalf("bind address cannot be empty")
 	}
 
