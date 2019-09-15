@@ -18,6 +18,7 @@ import (
 
 type rawConfig struct {
 	ProxyBook     map[string][]string
+	BindAddr      []string
 	BypassUID     [][]byte
 	RedirAddr     string
 	PrivateKey    string
@@ -29,10 +30,8 @@ type rawConfig struct {
 
 // State type stores the global state of the program
 type State struct {
+	BindAddr  []net.Addr
 	ProxyBook map[string]net.Addr
-
-	BindHost string
-	BindPort string
 
 	Now      func() time.Time
 	AdminUID []byte
@@ -41,7 +40,7 @@ type State struct {
 	BypassUID map[[16]byte]struct{}
 	staticPv  crypto.PrivateKey
 
-	RedirAddr string
+	RedirAddr net.Addr
 
 	usedRandomM sync.RWMutex
 	usedRandom  map[[32]byte]int64
@@ -50,10 +49,8 @@ type State struct {
 	LocalAPIRouter *gmux.Router
 }
 
-func InitState(bindHost, bindPort string, nowFunc func() time.Time) (*State, error) {
+func InitState(nowFunc func() time.Time) (*State, error) {
 	ret := &State{
-		BindHost:   bindHost,
-		BindPort:   bindPort,
 		Now:        nowFunc,
 		BypassUID:  make(map[[16]byte]struct{}),
 		ProxyBook:  map[string]net.Addr{},
@@ -92,12 +89,25 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		sta.LocalAPIRouter = manager.Router
 	}
 
-	sta.RedirAddr = preParse.RedirAddr
 	sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
 
+	sta.RedirAddr, err = net.ResolveIPAddr("ip", preParse.RedirAddr)
+	if err != nil {
+		return fmt.Errorf("unable to resolve RedirAddr: %v", err)
+	}
+
+	for _, addr := range preParse.BindAddr {
+		bindAddr, err := net.ResolveTCPAddr("tcp", addr)
+		if err != nil {
+			return err
+		}
+		sta.BindAddr = append(sta.BindAddr, bindAddr)
+	}
+
 	for name, pair := range preParse.ProxyBook {
+		name = strings.ToLower(name)
 		if len(pair) != 2 {
-			return fmt.Errorf("invalid protocol and address pair for %v: %v", name, pair)
+			return fmt.Errorf("invalid proxy endpoint and address pair for %v: %v", name, pair)
 		}
 		network := strings.ToLower(pair[0])
 		switch network {

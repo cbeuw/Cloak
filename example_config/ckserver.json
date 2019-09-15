@@ -13,6 +13,10 @@
       "127.0.0.1:9001"
     ]
   },
+  "BindAddr": [
+    ":443",
+    ":80"
+  ],
   "BypassUID": [
     "1rmq6Ag1jZJCImLBIL5wzQ=="
   ],
