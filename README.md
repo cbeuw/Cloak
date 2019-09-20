@@ -1,8 +1,10 @@
 # Cloak
 
-![Cloak](https://user-images.githubusercontent.com/7034308/62282723-f6ee4980-b447-11e9-8cca-e3270b8f45f5.png)
+![Cloak](https://user-images.githubusercontent.com/7034308/64479678-1e0c0980-d1b2-11e9-836e-b4c1238f2669.png)
 
 Cloak is a universal pluggable transport that cryptographically obfuscates proxy traffic as legitimate HTTPS traffic, disguises the proxy server as a normal web server, multiplexes traffic through multiple TCP connections and provides multi-user usage control. 
+
+Cloak works fundamentally by masquerading proxy traffic as indistinguishable normal web browsing traffic. This increases the collateral damage to censorship actions and therefore make it very difficult, if not impossible, for censors to selectively block censorship evasion tools and proxy servers without affecting services that the state may also heavily rely on. 
 
 Cloak eliminates any "fingerprints" exposed by traditional proxy protocol designs which can be identified by adversaries through deep packet inspection. If a non-Cloak program or an unauthorised Cloak user (such as an adversary's prober) attempts to connect to Cloak server, it will serve as a transparent proxy between said machine and an ordinary website, so that to any unauthorised third party, a host running Cloak server is indistinguishable from an innocent web server. This is achieved through the use a series of [cryptographic stegnatography techniques](https://github.com/cbeuw/Cloak/wiki/Steganography-and-encryption).
 
@@ -11,6 +13,8 @@ Since Cloak is transparent, it can be used in conjunction with any proxy softwar
 Cloak multiplexes traffic through multiple underlying TCP connections which reduces head-of-line blocking and eliminates TCP handshake overhead.
 
 Cloak provides multi-user support, allowing multiple clients to connect to the proxy server on the same port (443 by default). It also provides QoS controls for individual users such as data usage limit and bandwidth control.
+
+Cloak has two modes of [_Transport_](https://github.com/cbeuw/Cloak/wiki/CDN-mode): `direct` and `CDN`. Clients can either connect to the host running Cloak server directly, or it can instead connect to a CDN edge server, which may be used by many legitimate websites as well, and thus increase the collateral damage to censorship. 
 
 **Cloak 2.x is not compatible with legacy Cloak 1.x's protocol, configuration file or database file. Cloak 1.x protocol has critical cryptographic flaws regarding encrypting stream headers. Using Cloak 1.x is strongly discouraged**
 
@@ -23,7 +27,7 @@ To quickly deploy Cloak with Shadowsocks on a server, you can run this [script](
 If you are not using the experimental go mod support, make sure you `go get` the following dependencies:
 ```
 github.com/boltdb/bolt
-github.com/cbeuw/ratelimit
+github.com/juju/ratelimit
 github.com/gorilla/mux
 github.com/sirupsen/logrus
 golang.org/x/crypto
@@ -33,7 +37,9 @@ Then run `make client` or `make server`. Output binary will be in `build` folder
 ## Configuration
 
 ### Server
-`RedirAddr` is the redirection address and port when the incoming traffic is not from a Cloak client. It should correspond to the IP record of the `ServerName` field set in `ckclient.json`.
+`RedirAddr` is the redirection address when the incoming traffic is not from a Cloak client. It should either be the same as, or correspond to the IP record of the `ServerName` field set in `ckclient.json`.
+
+`BindAddr` is a list of addresses Cloak will bind and listen to (e.g. [":443",":80] to listen to port 443 and 80 on all interfaces)
 
 `ProxyBook` is a nested JSON section which defines the address of different proxy server ends. For instance, if OpenVPN server is listening on 127.0.0.1:1194, the pair should be `"openvpn":"127.0.0.1:1194"`. There can be multiple pairs. You can add any other proxy server in a similar fashion, as long as the name matches the `ProxyMethod` in the client config exactly (case-sensitive).
 
@@ -47,6 +53,8 @@ Then run `make client` or `make server`. Output binary will be in `build` folder
 
 ### Client
 `UID` is your UID in base64.
+
+`Transport` can be either `direct` or `CDN`. If the server host wishes you to connect to it directly, use `direct`. If instead a CDN is used, use `CDN`.
 
 `PublicKey` is the static curve25519 public key, given by the server admin.
 
@@ -93,7 +101,7 @@ Note: the user database is persistent as it's in-disk. You don't need to add the
 4. [Configure the proxy program.](https://github.com/cbeuw/Cloak/wiki/Underlying-proxy-configuration-guides) Run `ck-client -c <path to ckclient.json> -s <ip of your server>`
 
 ## Support me
-If you find this project useful, donations are greatly appreciated!
+If you find this project useful, you can visit my [merch store](https://teespring.com/en-GB/stores/andys-scribble) which sells some of my designed t-shirts, phone cases, mugs and other bits and bobs; alternatively you can donate directly to me
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=SAUYKGSREP8GL&source=url)
 
