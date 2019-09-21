@@ -92,9 +92,23 @@ func (sta *State) ParseConfig(conf string) (err error) {
 
 	sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
 
-	sta.RedirAddr, err = net.ResolveIPAddr("ip", preParse.RedirAddr)
+	redirAddr := preParse.RedirAddr
+	colonSep := strings.Split(redirAddr, ":")
+	if len(colonSep) != 0 {
+		if len(colonSep) == 2 {
+			logrus.Error("If RedirAddr contains a port number, please remove it.")
+			redirAddr = colonSep[0]
+		} else {
+			if strings.Contains(redirAddr, "[") {
+				logrus.Error("If RedirAddr contains a port number, please remove it.")
+				redirAddr = strings.TrimRight(redirAddr, "]:"+colonSep[len(colonSep)-1])
+				redirAddr = strings.TrimPrefix(redirAddr, "[")
+			}
+		}
+	}
+
+	sta.RedirAddr, err = net.ResolveIPAddr("ip", redirAddr)
 	if err != nil {
-		logrus.Error("If RedirAddr contains a port number, please remove it.")
 		return fmt.Errorf("unable to resolve RedirAddr: %v. ", err)
 	}
 

@@ -259,7 +259,7 @@ func main() {
 		https, _ := net.ResolveTCPAddr("tcp", ":443")
 		http, _ := net.ResolveTCPAddr("tcp", ":80")
 		sta.BindAddr = []net.Addr{https, http}
-		log.Fatalf("bind address cannot be empty")
+		log.Fatalf("BindAddr cannot be empty")
 	}
 
 	// when cloak is started as a shadowsocks plugin
