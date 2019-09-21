@@ -90,7 +90,11 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		sta.LocalAPIRouter = manager.Router
 	}
 
-	sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
+	if preParse.StreamTimeout == 0 {
+		sta.Timeout = time.Duration(300) * time.Second
+	} else {
+		sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
+	}
 
 	redirAddr := preParse.RedirAddr
 	colonSep := strings.Split(redirAddr, ":")
