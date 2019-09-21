@@ -1,4 +1,4 @@
-# Cloak
+![image](https://user-images.githubusercontent.com/7034308/65361318-0a719180-dbfb-11e9-96de-56d1023856f0.png)
 
 ![Cloak](https://user-images.githubusercontent.com/7034308/64479678-1e0c0980-d1b2-11e9-836e-b4c1238f2669.png)
 
