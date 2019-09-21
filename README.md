@@ -29,8 +29,10 @@ If you are not using the experimental go mod support, make sure you `go get` the
 github.com/boltdb/bolt
 github.com/juju/ratelimit
 github.com/gorilla/mux
+github.com/gorilla/websocket
 github.com/sirupsen/logrus
 golang.org/x/crypto
+github.com/refraction-networking/utls
 ```
 Then run `make client` or `make server`. Output binary will be in `build` folder.
 
