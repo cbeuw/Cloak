@@ -6,15 +6,79 @@ import (
 	"testing"
 )
 
+func TestSwitchboard_Send(t *testing.T) {
+	doTest := func(seshConfig *SessionConfig) {
+		sesh := MakeSession(0, seshConfig)
+		hole0 := newBlackHole()
+		sesh.sb.addConn(hole0)
+		connId, err := sesh.sb.assignRandomConn()
+		if err != nil {
+			t.Error("failed to get a random conn", err)
+			return
+		}
+		data := make([]byte, 1000)
+		rand.Read(data)
+		_, err = sesh.sb.send(data, &connId)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		hole1 := newBlackHole()
+		sesh.sb.addConn(hole1)
+		connId, err = sesh.sb.assignRandomConn()
+		if err != nil {
+			t.Error("failed to get a random conn", err)
+			return
+		}
+		_, err = sesh.sb.send(data, &connId)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		hole0.Close()
+
+		connId, err = sesh.sb.assignRandomConn()
+		if err != nil {
+			t.Error("failed to get a random conn", err)
+			return
+		}
+		_, err = sesh.sb.send(data, &connId)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}
+
+	t.Run("Ordered", func(t *testing.T) {
+		seshConfig := &SessionConfig{
+			Obfuscator: nil,
+			Valve:      nil,
+			UnitRead:   util.ReadTLS,
+			Unordered:  false,
+		}
+		doTest(seshConfig)
+	})
+	t.Run("Unordered", func(t *testing.T) {
+		seshConfig := &SessionConfig{
+			Obfuscator: nil,
+			Valve:      nil,
+			UnitRead:   util.ReadTLS,
+			Unordered:  true,
+		}
+		doTest(seshConfig)
+	})
+}
+
 func BenchmarkSwitchboard_Send(b *testing.B) {
+	hole := newBlackHole()
 	seshConfig := &SessionConfig{
 		Obfuscator: nil,
 		Valve:      nil,
 		UnitRead:   util.ReadTLS,
 	}
 	sesh := MakeSession(0, seshConfig)
-
-	hole := newBlackHole()
 	sesh.sb.addConn(hole)
 	connId, err := sesh.sb.assignRandomConn()
 	if err != nil {

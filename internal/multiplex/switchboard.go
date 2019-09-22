@@ -72,15 +72,22 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 	sb.connsM.RLock()
 	defer sb.connsM.RUnlock()
 	if sb.strategy == UNIFORM_SPREAD {
-		randConnId := rand.Intn(len(sb.conns))
-		conn, ok := sb.conns[uint32(randConnId)]
-		if !ok {
+		if atomic.LoadUint32(&sb.broken) == 1 || len(sb.conns) == 0 {
 			return 0, errBrokenSwitchboard
-		} else {
-			n, err = conn.Write(data)
-			sb.AddTx(int64(n))
-			return
 		}
+
+		r := rand.Intn(len(sb.conns))
+		var c int
+		for newConnId := range sb.conns {
+			if r == c {
+				conn, _ := sb.conns[newConnId]
+				n, err = conn.Write(data)
+				sb.AddTx(int64(n))
+				return
+			}
+			c++
+		}
+		return 0, errBrokenSwitchboard
 	} else {
 		var conn net.Conn
 		conn, ok := sb.conns[*connId]
