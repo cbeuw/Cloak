@@ -41,7 +41,7 @@ Then run `make client` or `make server`. Output binary will be in `build` folder
 ### Server
 `RedirAddr` is the redirection address when the incoming traffic is not from a Cloak client. It should either be the same as, or correspond to the IP record of the `ServerName` field set in `ckclient.json`.
 
-`BindAddr` is a list of addresses Cloak will bind and listen to (e.g. [":443",":80] to listen to port 443 and 80 on all interfaces)
+`BindAddr` is a list of addresses Cloak will bind and listen to (e.g. `[":443",":80"]` to listen to port 443 and 80 on all interfaces)
 
 `ProxyBook` is a nested JSON section which defines the address of different proxy server ends. For instance, if OpenVPN server is listening on 127.0.0.1:1194, the pair should be `"openvpn":"127.0.0.1:1194"`. There can be multiple pairs. You can add any other proxy server in a similar fashion, as long as the name matches the `ProxyMethod` in the client config exactly (case-sensitive).
 
