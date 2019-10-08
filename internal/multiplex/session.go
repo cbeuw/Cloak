@@ -56,6 +56,7 @@ type Session struct {
 	// Switchboard manages all connections to remote
 	sb *switchboard
 
+	// Used for LocalAddr() and RemoteAddr() etc.
 	addrs atomic.Value
 
 	// For accepting new streams
@@ -150,8 +151,8 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 	}
 
 	sesh.streamsM.Lock()
-	defer sesh.streamsM.Unlock()
 	stream, existing := sesh.streams[frame.StreamID]
+	sesh.streamsM.Unlock()
 	if existing {
 		return stream.writeFrame(*frame)
 	} else {

@@ -112,6 +112,9 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	n, err = s.session.sb.send(s.obfsBuf[:i], &s.assignedConnId)
 	log.Tracef("%v sent to remote through stream %v with err %v", len(in), s.id, err)
 	if err != nil {
+		if err == errBrokenSwitchboard {
+			s.session.Close()
+		}
 		return
 	}
 	return len(in), nil
