@@ -1,6 +1,7 @@
 package multiplex
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net"
@@ -134,14 +135,46 @@ func (sesh *Session) Accept() (net.Conn, error) {
 	return stream, nil
 }
 
-func (sesh *Session) delStream(id uint32) {
+func (sesh *Session) closeStream(s *Stream, active bool) error {
+	atomic.StoreUint32(&s.closed, 1)
+	_ = s.recvBuf.Close() // both datagramBuffer and streamBuffer won't return err on Close()
+
+	if active {
+		s.writingM.Lock()
+		defer s.writingM.Unlock()
+		if s.isClosed() {
+			return errors.New("Already Closed")
+		}
+
+		// Notify remote that this stream is closed
+		pad := genRandomPadding()
+		f := &Frame{
+			StreamID: s.id,
+			Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
+			Closing:  1,
+			Payload:  pad,
+		}
+		i, err := s.session.Obfs(f, s.obfsBuf)
+		if err != nil {
+			return err
+		}
+		_, err = s.session.sb.send(s.obfsBuf[:i], &s.assignedConnId)
+		if err != nil {
+			return err
+		}
+		log.Tracef("stream %v actively closed", s.id)
+	} else {
+		log.Tracef("stream %v passively closed", s.id)
+	}
+
 	sesh.streamsM.Lock()
-	delete(sesh.streams, id)
+	delete(sesh.streams, s.id)
 	if len(sesh.streams) == 0 {
 		log.Tracef("session %v has no active stream left", sesh.id)
 		go sesh.timeoutAfter(30 * time.Second)
 	}
 	sesh.streamsM.Unlock()
+	return nil
 }
 
 func (sesh *Session) recvDataFromRemote(data []byte) error {
@@ -159,6 +192,9 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 		if frame.Closing == 1 {
 			// If the stream has been closed and the current frame is a closing frame, we do noop
 			return nil
+		} else if frame.Closing == 2 {
+			// Closing session
+			return sesh.passiveClose()
 		} else {
 			// it may be tempting to use the connId from which the frame was received. However it doesn't make
 			// any difference because we only care to send the data from the same stream through the same
@@ -171,7 +207,6 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 			return stream.writeFrame(*frame)
 		}
 	}
-
 }
 
 func (sesh *Session) SetTerminalMsg(msg string) {
@@ -187,20 +222,18 @@ func (sesh *Session) TerminalMsg() string {
 	}
 }
 
-func (sesh *Session) Close() error {
-	log.Debugf("attempting to close session %v", sesh.id)
+func (sesh *Session) passiveClose() error {
+	log.Debugf("attempting to passively close session %v", sesh.id)
 	if atomic.SwapUint32(&sesh.closed, 1) == 1 {
 		log.Debugf("session %v has already been closed", sesh.id)
 		return errRepeatSessionClosing
 	}
-	sesh.streamsM.Lock()
 	sesh.acceptCh <- nil
+
+	sesh.streamsM.Lock()
 	for id, stream := range sesh.streams {
-		// If we call stream.Close() here, streamsM will result in a deadlock
-		// because stream.Close calls sesh.delStream, which locks the mutex.
-		// so we need to implement a method of stream that closes the stream without calling
-		// sesh.delStream
-		go stream.closeNoDelMap()
+		atomic.StoreUint32(&stream.closed, 1)
+		_ = stream.recvBuf.Close() // both datagramBuffer and streamBuffer won't return err on Close()
 		delete(sesh.streams, id)
 	}
 	sesh.streamsM.Unlock()
@@ -208,7 +241,52 @@ func (sesh *Session) Close() error {
 	sesh.sb.closeAll()
 	log.Debugf("session %v closed gracefully", sesh.id)
 	return nil
+}
 
+func genRandomPadding() []byte {
+	lenB := make([]byte, 1)
+	rand.Read(lenB)
+	pad := make([]byte, lenB[0])
+	rand.Read(pad)
+	return pad
+}
+
+func (sesh *Session) Close() error {
+	log.Debugf("attempting to actively close session %v", sesh.id)
+	if atomic.SwapUint32(&sesh.closed, 1) == 1 {
+		log.Debugf("session %v has already been closed", sesh.id)
+		return errRepeatSessionClosing
+	}
+	sesh.acceptCh <- nil
+
+	sesh.streamsM.Lock()
+	for id, stream := range sesh.streams {
+		atomic.StoreUint32(&stream.closed, 1)
+		_ = stream.recvBuf.Close() // both datagramBuffer and streamBuffer won't return err on Close()
+		delete(sesh.streams, id)
+	}
+	sesh.streamsM.Unlock()
+
+	pad := genRandomPadding()
+	f := &Frame{
+		StreamID: 0xffffffff,
+		Seq:      0,
+		Closing:  2,
+		Payload:  pad,
+	}
+	obfsBuf := make([]byte, len(pad)+64)
+	i, err := sesh.Obfs(f, obfsBuf)
+	if err != nil {
+		return err
+	}
+	_, err = sesh.sb.send(obfsBuf[:i], new(uint32))
+	if err != nil {
+		return err
+	}
+
+	sesh.sb.closeAll()
+	log.Debugf("session %v closed gracefully", sesh.id)
+	return nil
 }
 
 func (sesh *Session) IsClosed() bool {

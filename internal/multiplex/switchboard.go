@@ -62,7 +62,7 @@ func (sb *switchboard) removeConn(connId uint32) {
 	if remaining == 0 {
 		atomic.StoreUint32(&sb.broken, 1)
 		sb.session.SetTerminalMsg("no underlying connection left")
-		sb.session.Close()
+		sb.session.passiveClose()
 	}
 }
 
@@ -149,12 +149,12 @@ func (sb *switchboard) closeAll() {
 	if atomic.SwapUint32(&sb.broken, 1) == 1 {
 		return
 	}
-	sb.connsM.RLock()
+	sb.connsM.Lock()
 	for key, conn := range sb.conns {
 		conn.Close()
 		delete(sb.conns, key)
 	}
-	sb.connsM.RUnlock()
+	sb.connsM.Unlock()
 }
 
 // deplex function costantly reads from a TCP connection
