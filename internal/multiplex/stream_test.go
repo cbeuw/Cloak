@@ -98,6 +98,71 @@ func BenchmarkStream_Read_Ordered(b *testing.B) {
 
 }
 
+func TestStream_Write(t *testing.T) {
+	const PAYLOAD_LEN = 1000
+	hole := newBlackHole()
+	sesh := setupSesh(false)
+	sesh.AddConnection(hole)
+	testData := make([]byte, PAYLOAD_LEN)
+	rand.Read(testData)
+
+	stream, _ := sesh.OpenStream()
+	_, err := stream.Write(testData)
+	if err != nil {
+		t.Error(
+			"For", "stream write",
+			"got", err,
+		)
+	}
+}
+
+func TestStream_Close(t *testing.T) {
+	sesh := setupSesh(false)
+	testPayload := []byte{42, 42, 42}
+	streamID := uint32(1)
+
+	f := &Frame{
+		streamID,
+		0,
+		0,
+		testPayload,
+	}
+	ch := make(chan []byte)
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
+	go func() {
+		conn, _ := net.Dial("tcp", l.Addr().String())
+		for {
+			data := <-ch
+			_, err := conn.Write(data)
+			if err != nil {
+				t.Error("cannot write to connection", err)
+				return
+			}
+		}
+	}()
+	conn, _ := l.Accept()
+	sesh.AddConnection(conn)
+	obfsBuf := make([]byte, 512)
+	i, _ := sesh.Obfs(f, obfsBuf)
+	ch <- obfsBuf[:i]
+	time.Sleep(100 * time.Microsecond)
+	stream, err := sesh.Accept()
+	if err != nil {
+		t.Error("failed to accept stream", err)
+		return
+	}
+	err = stream.Close()
+	if err != nil {
+		t.Error("failed to actively close stream", err)
+		return
+	}
+
+	if _, ok := sesh.streams[streamID]; ok {
+		t.Error("stream still exists")
+		return
+	}
+}
+
 func TestStream_Read(t *testing.T) {
 	sesh := setupSesh(false)
 	testPayload := []byte{42, 42, 42}
