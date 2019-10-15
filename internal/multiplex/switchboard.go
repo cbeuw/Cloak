@@ -61,8 +61,10 @@ func (sb *switchboard) removeConn(connId uint32) {
 	sb.connsM.Unlock()
 	if remaining == 0 {
 		atomic.StoreUint32(&sb.broken, 1)
-		sb.session.SetTerminalMsg("no underlying connection left")
-		sb.session.passiveClose()
+		if !sb.session.IsClosed() {
+			sb.session.SetTerminalMsg("no underlying connection left")
+			sb.session.passiveClose()
+		}
 	}
 }
 
