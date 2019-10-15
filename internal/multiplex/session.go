@@ -136,16 +136,15 @@ func (sesh *Session) Accept() (net.Conn, error) {
 }
 
 func (sesh *Session) closeStream(s *Stream, active bool) error {
+	if s.isClosed() {
+		return errors.New("Already Closed")
+	}
 	atomic.StoreUint32(&s.closed, 1)
 	_ = s.recvBuf.Close() // both datagramBuffer and streamBuffer won't return err on Close()
 
 	if active {
 		s.writingM.Lock()
 		defer s.writingM.Unlock()
-		if s.isClosed() {
-			return errors.New("Already Closed")
-		}
-
 		// Notify remote that this stream is closed
 		pad := genRandomPadding()
 		f := &Frame{
