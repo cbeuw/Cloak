@@ -193,6 +193,7 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 			return nil
 		} else if frame.Closing == 2 {
 			// Closing session
+			sesh.SetTerminalMsg("Received a closing notification frame")
 			return sesh.passiveClose()
 		} else {
 			// it may be tempting to use the connId from which the frame was received. However it doesn't make
