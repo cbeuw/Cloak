@@ -54,20 +54,6 @@ func (sb *switchboard) addConn(conn net.Conn) {
 	go sb.deplex(connId, conn)
 }
 
-func (sb *switchboard) removeConn(connId uint32) {
-	sb.connsM.Lock()
-	delete(sb.conns, connId)
-	remaining := len(sb.conns)
-	sb.connsM.Unlock()
-	if remaining == 0 {
-		atomic.StoreUint32(&sb.broken, 1)
-		if !sb.session.IsClosed() {
-			sb.session.SetTerminalMsg("no underlying connection left")
-			sb.session.passiveClose()
-		}
-	}
-}
-
 // a pointer to connId is passed here so that the switchboard can reassign it
 func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 	sb.Valve.txWait(len(data))
@@ -148,9 +134,6 @@ func (sb *switchboard) assignRandomConn() (uint32, error) {
 
 // actively triggered by session.Close()
 func (sb *switchboard) closeAll() {
-	if atomic.SwapUint32(&sb.broken, 1) == 1 {
-		return
-	}
 	sb.connsM.Lock()
 	for key, conn := range sb.conns {
 		conn.Close()
@@ -169,7 +152,11 @@ func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 		if err != nil {
 			log.Debugf("a connection for session %v has closed: %v", sb.session.id, err)
 			go conn.Close()
-			sb.removeConn(connId)
+			atomic.StoreUint32(&sb.broken, 1)
+			if !sb.session.IsClosed() {
+				sb.session.SetTerminalMsg("a connection has dropped unexpectedly")
+				sb.session.passiveClose()
+			}
 			return
 		}
 
