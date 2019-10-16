@@ -3,7 +3,9 @@ package multiplex
 import (
 	"github.com/cbeuw/Cloak/internal/util"
 	"math/rand"
+	"net"
 	"testing"
+	"time"
 )
 
 func TestSwitchboard_Send(t *testing.T) {
@@ -147,4 +149,41 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 			t.Error("tx credit didn't increase by 10")
 		}
 	})
+}
+
+func TestSwitchboard_CloseOnOneDisconn(t *testing.T) {
+	sesh := setupSesh(false)
+
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
+	addRemoteConn := func(close chan struct{}) {
+		conn, _ := net.Dial("tcp", l.Addr().String())
+		for {
+			conn.Write([]byte{0x00})
+			<-close
+			conn.Close()
+		}
+	}
+
+	close0 := make(chan struct{})
+	go addRemoteConn(close0)
+	conn0, _ := l.Accept()
+	sesh.AddConnection(conn0)
+
+	close1 := make(chan struct{})
+	go addRemoteConn(close1)
+	conn1, _ := l.Accept()
+	sesh.AddConnection(conn1)
+
+	close0 <- struct{}{}
+
+	time.Sleep(100 * time.Millisecond)
+
+	if !sesh.IsClosed() {
+		t.Error("session not closed after one conn is disconnected")
+		return
+	}
+	if _, err := conn1.Write([]byte{0x00}); err == nil {
+		t.Error("the other conn is still connected")
+		return
+	}
 }

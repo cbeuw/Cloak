@@ -153,7 +153,11 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			sesh.recvDataFromRemote(obfsBuf[:n])
+			err := sesh.recvDataFromRemote(obfsBuf[:n])
+			if err != nil {
+				b.Error(err)
+				return
+			}
 			b.SetBytes(int64(n))
 		}
 	})
@@ -166,7 +170,11 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			sesh.recvDataFromRemote(obfsBuf[:n])
+			err := sesh.recvDataFromRemote(obfsBuf[:n])
+			if err != nil {
+				b.Error(err)
+				return
+			}
 			b.SetBytes(int64(n))
 		}
 	})
@@ -179,7 +187,11 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			sesh.recvDataFromRemote(obfsBuf[:n])
+			err := sesh.recvDataFromRemote(obfsBuf[:n])
+			if err != nil {
+				b.Error(err)
+				return
+			}
 			b.SetBytes(int64(n))
 		}
 	})
