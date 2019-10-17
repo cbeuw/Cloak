@@ -9,8 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-
-	utls "github.com/refraction-networking/utls"
 )
 
 type WSOverTLS struct {
@@ -21,16 +19,7 @@ func (WSOverTLS) HasRecordLayer() bool                              { return fal
 func (WSOverTLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadWebSocket }
 
 func (WSOverTLS) PrepareConnection(sta *State, conn net.Conn) (preparedConn net.Conn, sessionKey []byte, err error) {
-	utlsConfig := &utls.Config{
-		ServerName:         sta.ServerName,
-		InsecureSkipVerify: true,
-	}
-	uconn := utls.UClient(conn, utlsConfig, utls.HelloChrome_Auto)
-	err = uconn.Handshake()
-	preparedConn = uconn
-	if err != nil {
-		return
-	}
+	preparedConn = conn
 
 	u, err := url.Parse("ws://" + sta.RemoteHost + ":" + sta.RemotePort) //TODO IPv6
 	if err != nil {
