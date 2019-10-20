@@ -9,9 +9,17 @@ import (
 )
 
 func TestSwitchboard_Send(t *testing.T) {
+	getHole := func() net.Conn {
+		l, _ := net.Listen("tcp", "127.0.0.1:0")
+		go func() {
+			net.Dial("tcp", l.Addr().String())
+		}()
+		hole, _ := l.Accept()
+		return hole
+	}
 	doTest := func(seshConfig *SessionConfig) {
 		sesh := MakeSession(0, seshConfig)
-		hole0 := newBlackHole()
+		hole0 := getHole()
 		sesh.sb.addConn(hole0)
 		connId, err := sesh.sb.assignRandomConn()
 		if err != nil {
@@ -26,7 +34,7 @@ func TestSwitchboard_Send(t *testing.T) {
 			return
 		}
 
-		hole1 := newBlackHole()
+		hole1 := getHole()
 		sesh.sb.addConn(hole1)
 		connId, err = sesh.sb.assignRandomConn()
 		if err != nil {
@@ -38,8 +46,6 @@ func TestSwitchboard_Send(t *testing.T) {
 			t.Error(err)
 			return
 		}
-
-		hole0.Close()
 
 		connId, err = sesh.sb.assignRandomConn()
 		if err != nil {
