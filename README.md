@@ -2,23 +2,23 @@
 
 ![Cloak](https://user-images.githubusercontent.com/7034308/65385852-7eab5280-dd2b-11e9-8887-db449b250e2a.png)
 
-Cloak is a universal pluggable transport that cryptographically obfuscates proxy traffic as legitimate HTTPS traffic, disguises the proxy server as a normal web server, multiplexes traffic through multiple TCP connections and provides multi-user usage control. 
+Cloak is a universal pluggable transport that cryptographically obfuscates proxy traffic as legitimate HTTPS traffic, disguises the proxy server as a normal web server, multiplexes traffic through a fixed amount of TCP connections and provides multi-user usage control. 
 
-Cloak works fundamentally by masquerading proxy traffic as indistinguishable normal web browsing traffic. This increases the collateral damage to censorship actions and therefore make it very difficult, if not impossible, for censors to selectively block censorship evasion tools and proxy servers without affecting services that the state may also heavily rely on. 
+Cloak works fundamentally by masquerading proxy traffic as normal web browsing traffic. This increases the collateral damage to censorship actions and therefore make it very difficult, if not impossible, for censors to selectively block censorship evasion tools and proxy servers without affecting services that the state may also heavily rely on. 
 
 Cloak eliminates any "fingerprints" exposed by traditional proxy protocol designs which can be identified by adversaries through deep packet inspection. If a non-Cloak program or an unauthorised Cloak user (such as an adversary's prober) attempts to connect to Cloak server, it will serve as a transparent proxy between said machine and an ordinary website, so that to any unauthorised third party, a host running Cloak server is indistinguishable from an innocent web server. This is achieved through the use a series of [cryptographic stegnatography techniques](https://github.com/cbeuw/Cloak/wiki/Steganography-and-encryption).
 
 Since Cloak is transparent, it can be used in conjunction with any proxy software that tunnels traffic through TCP, such as Shadowsocks, OpenVPN and Tor. Multiple proxy servers can be running on the same server host machine and Cloak server will act as a reverse proxy, bridging clients with their desired proxy end.
 
-Cloak multiplexes traffic through multiple underlying TCP connections which reduces head-of-line blocking and eliminates TCP handshake overhead.
+Cloak multiplexes traffic through multiple underlying TCP connections which reduces head-of-line blocking and eliminates TCP handshake overhead. This also makes the traffic pattern more similar to real websites.
 
-Cloak provides multi-user support, allowing multiple clients to connect to the proxy server on the same port (443 by default). It also provides QoS controls for individual users such as data usage limit and bandwidth control.
+Cloak provides multi-user support, allowing multiple clients to connect to the proxy server on the same port (443 by default). It also provides traffic management features such as usage credit and bandwidth control. This allows a proxy server to serve multiple users even if the underlying proxy software wasn't designed for multiple users
 
-Cloak has two modes of [_Transport_](https://github.com/cbeuw/Cloak/wiki/CDN-mode): `direct` and `CDN`. Clients can either connect to the host running Cloak server directly, or it can instead connect to a CDN edge server, which may be used by many legitimate websites as well, and thus increase the collateral damage to censorship. 
+Cloak has two modes of [_Transport_](https://github.com/cbeuw/Cloak/wiki/CDN-mode): `direct` and `CDN`. Clients can either connect to the host running Cloak server directly, or it can instead connect to a CDN edge server, which may be used by many legitimate websites as well, thus further increases the collateral damage to censorship. 
 
 **Cloak 2.x is not compatible with legacy Cloak 1.x's protocol, configuration file or database file. Cloak 1.x protocol has critical cryptographic flaws regarding encrypting stream headers. Using Cloak 1.x is strongly discouraged**
 
-This project is based on [GoQuiet](https://github.com/cbeuw/GoQuiet). Through multiplexing, Cloak provides a siginifcant reduction in webpage loading time compared to GoQuiet (from 10% to 50%+, depending on the amount of content on the webpage, see [benchmarks](https://github.com/cbeuw/Cloak/wiki/Web-page-loading-benchmarks)).
+This project was evolved from [GoQuiet](https://github.com/cbeuw/GoQuiet). Through multiplexing, Cloak provides a significant reduction in webpage loading time compared to GoQuiet (from 10% to 50%+, depending on the amount of content on the webpage, see [benchmarks](https://github.com/cbeuw/Cloak/wiki/Web-page-loading-benchmarks)).
 
 ## Quick Start
 To quickly deploy Cloak with Shadowsocks on a server, you can run this [script](https://github.com/HirbodBehnam/Shadowsocks-Cloak-Installer/blob/master/Cloak2-Installer.sh) written by @HirbodBehnam 
@@ -62,7 +62,7 @@ Then run `make client` or `make server`. Output binary will be in `build` folder
 
 `ProxyMethod` is the name of the proxy method you are using.
 
-`EncryptionMethod` is the name of the encryption algorithm you want Cloak to use. Note: Cloak isn't intended to provide data encryption. The point of encryption is to hide fingerprints of proxy protocols. If the proxy protocol is already fingerprint-less, which is the case for Shadowsocks, this field can be left as `plain`. Options are `plain`, `aes-gcm` and `chacha20-poly1305`.
+`EncryptionMethod` is the name of the encryption algorithm you want Cloak to use. Note: Cloak isn't intended to provide transport security. The point of encryption is to hide fingerprints of proxy protocols and render the payload statistically random-like. If the proxy protocol is already fingerprint-less, which is the case for Shadowsocks, this field can be left as `plain`. Options are `plain`, `aes-gcm` and `chacha20-poly1305`.
 
 `ServerName` is the domain you want to make your ISP or firewall think you are visiting.
 
