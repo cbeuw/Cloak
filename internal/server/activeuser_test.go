@@ -1,12 +1,28 @@
 package server
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
+	"github.com/cbeuw/Cloak/internal/util"
 	"os"
 	"testing"
 )
+
+func getSeshConfig(unordered bool) *mux.SessionConfig {
+	sessionKey := make([]byte, 32)
+	rand.Read(sessionKey)
+	obfuscator, _ := mux.GenerateObfs(0x00, sessionKey, true)
+
+	seshConfig := &mux.SessionConfig{
+		Obfuscator: obfuscator,
+		Valve:      nil,
+		UnitRead:   util.ReadTLS,
+		Unordered:  unordered,
+	}
+	return seshConfig
+}
 
 func TestActiveUser_Bypass(t *testing.T) {
 	manager, err := usermanager.MakeLocalManager(MOCK_DB_NAME)
@@ -20,7 +36,7 @@ func TestActiveUser_Bypass(t *testing.T) {
 	var existing bool
 	var sesh1 *mux.Session
 	t.Run("get first session", func(t *testing.T) {
-		sesh0, existing, err = user.GetSession(0, &mux.SessionConfig{})
+		sesh0, existing, err = user.GetSession(0, getSeshConfig(false))
 		if err != nil {
 			t.Error(err)
 		}
@@ -47,7 +63,7 @@ func TestActiveUser_Bypass(t *testing.T) {
 		}
 	})
 	t.Run("get second session", func(t *testing.T) {
-		sesh1, existing, err = user.GetSession(1, &mux.SessionConfig{})
+		sesh1, existing, err = user.GetSession(1, getSeshConfig(false))
 		if err != nil {
 			t.Error(err)
 		}
@@ -79,7 +95,7 @@ func TestActiveUser_Bypass(t *testing.T) {
 		}
 	})
 	t.Run("get session again after termination", func(t *testing.T) {
-		seshx, existing, err := user.GetSession(0, &mux.SessionConfig{})
+		seshx, existing, err := user.GetSession(0, getSeshConfig(false))
 		if err != nil {
 			t.Error(err)
 		}
