@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"sync/atomic"
 )
 
 const DATAGRAM_NUMBER_LIMIT = 1024
@@ -15,7 +16,7 @@ const DATAGRAM_NUMBER_LIMIT = 1024
 // it won't get chopped up into individual bytes
 type datagramBuffer struct {
 	buf    [][]byte
-	closed bool
+	closed uint32
 	rwCond *sync.Cond
 }
 
@@ -31,7 +32,7 @@ func (d *datagramBuffer) Read(target []byte) (int, error) {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
 	for {
-		if d.closed && len(d.buf) == 0 {
+		if atomic.LoadUint32(&d.closed) == 1 && len(d.buf) == 0 {
 			return 0, io.EOF
 		}
 
@@ -55,7 +56,7 @@ func (d *datagramBuffer) Write(f Frame) error {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
 	for {
-		if d.closed {
+		if atomic.LoadUint32(&d.closed) == 1 {
 			return io.ErrClosedPipe
 		}
 		if len(d.buf) <= DATAGRAM_NUMBER_LIMIT {
@@ -66,7 +67,7 @@ func (d *datagramBuffer) Write(f Frame) error {
 	}
 
 	if f.Closing == 1 {
-		d.closed = true
+		atomic.StoreUint32(&d.closed, 1)
 		d.rwCond.Broadcast()
 		return nil
 	}
@@ -80,10 +81,7 @@ func (d *datagramBuffer) Write(f Frame) error {
 }
 
 func (d *datagramBuffer) Close() error {
-	d.rwCond.L.Lock()
-	defer d.rwCond.L.Unlock()
-
-	d.closed = true
+	atomic.StoreUint32(&d.closed, 1)
 	d.rwCond.Broadcast()
 	return nil
 }

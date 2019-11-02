@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"io"
 	"sync"
+	"sync/atomic"
 )
 
 const BUF_SIZE_LIMIT = 1 << 20 * 500
@@ -13,7 +14,7 @@ const BUF_SIZE_LIMIT = 1 << 20 * 500
 // The point of a bufferedPipe is that Read() will block until data is available
 type bufferedPipe struct {
 	buf    *bytes.Buffer
-	closed bool
+	closed uint32
 	rwCond *sync.Cond
 }
 
@@ -29,7 +30,7 @@ func (p *bufferedPipe) Read(target []byte) (int, error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
 	for {
-		if p.closed && p.buf.Len() == 0 {
+		if atomic.LoadUint32(&p.closed) == 1 && p.buf.Len() == 0 {
 			return 0, io.EOF
 		}
 
@@ -48,7 +49,7 @@ func (p *bufferedPipe) Write(input []byte) (int, error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
 	for {
-		if p.closed {
+		if atomic.LoadUint32(&p.closed) == 1 {
 			return 0, io.ErrClosedPipe
 		}
 		if p.buf.Len() <= BUF_SIZE_LIMIT {
@@ -64,10 +65,7 @@ func (p *bufferedPipe) Write(input []byte) (int, error) {
 }
 
 func (p *bufferedPipe) Close() error {
-	p.rwCond.L.Lock()
-	defer p.rwCond.L.Unlock()
-
-	p.closed = true
+	atomic.StoreUint32(&p.closed, 1)
 	p.rwCond.Broadcast()
 	return nil
 }

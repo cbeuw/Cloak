@@ -2,6 +2,7 @@ package multiplex
 
 import (
 	"bytes"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -63,7 +64,7 @@ func TestDatagramBuffer_RW(t *testing.T) {
 			)
 			return
 		}
-		if !pipe.closed {
+		if atomic.LoadUint32(&pipe.closed) != 1 {
 			t.Error("expecting closed pipe, not closed")
 		}
 	})
