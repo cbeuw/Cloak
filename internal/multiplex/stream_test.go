@@ -157,7 +157,7 @@ func TestStream_Close(t *testing.T) {
 		return
 	}
 
-	if _, ok := sesh.streams[streamID]; ok {
+	if _, ok := sesh.streams.Load(streamID); ok {
 		t.Error("stream still exists")
 		return
 	}

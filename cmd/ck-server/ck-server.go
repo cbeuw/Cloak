@@ -167,6 +167,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 				user.CloseSession(ci.SessionId, "")
 				return
 			} else {
+				// TODO: other errors
 				continue
 			}
 		}

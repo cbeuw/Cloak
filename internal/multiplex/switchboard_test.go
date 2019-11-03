@@ -21,7 +21,7 @@ func TestSwitchboard_Send(t *testing.T) {
 		sesh := MakeSession(0, seshConfig)
 		hole0 := getHole()
 		sesh.sb.addConn(hole0)
-		connId, err := sesh.sb.assignRandomConn()
+		connId, _, err := sesh.sb.pickRandConn()
 		if err != nil {
 			t.Error("failed to get a random conn", err)
 			return
@@ -36,7 +36,7 @@ func TestSwitchboard_Send(t *testing.T) {
 
 		hole1 := getHole()
 		sesh.sb.addConn(hole1)
-		connId, err = sesh.sb.assignRandomConn()
+		connId, _, err = sesh.sb.pickRandConn()
 		if err != nil {
 			t.Error("failed to get a random conn", err)
 			return
@@ -47,7 +47,7 @@ func TestSwitchboard_Send(t *testing.T) {
 			return
 		}
 
-		connId, err = sesh.sb.assignRandomConn()
+		connId, _, err = sesh.sb.pickRandConn()
 		if err != nil {
 			t.Error("failed to get a random conn", err)
 			return
@@ -88,7 +88,7 @@ func BenchmarkSwitchboard_Send(b *testing.B) {
 	}
 	sesh := MakeSession(0, seshConfig)
 	sesh.sb.addConn(hole)
-	connId, err := sesh.sb.assignRandomConn()
+	connId, _, err := sesh.sb.pickRandConn()
 	if err != nil {
 		b.Error("failed to get a random conn", err)
 		return
@@ -115,7 +115,7 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 	sesh := MakeSession(0, seshConfig)
 	hole := newBlackHole()
 	sesh.sb.addConn(hole)
-	connId, err := sesh.sb.assignRandomConn()
+	connId, _, err := sesh.sb.pickRandConn()
 	if err != nil {
 		t.Error("failed to get a random conn", err)
 		return

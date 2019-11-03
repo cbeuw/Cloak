@@ -25,8 +25,7 @@ type switchboard struct {
 
 	*switchboardConfig
 
-	connsM     sync.RWMutex
-	conns      map[uint32]net.Conn
+	conns      sync.Map
 	nextConnId uint32
 
 	broken uint32
@@ -38,7 +37,6 @@ func makeSwitchboard(sesh *Session, config *switchboardConfig) *switchboard {
 	sb := &switchboard{
 		session:           sesh,
 		switchboardConfig: config,
-		conns:             make(map[uint32]net.Conn),
 	}
 	return sb
 }
@@ -46,11 +44,19 @@ func makeSwitchboard(sesh *Session, config *switchboardConfig) *switchboard {
 var errNilOptimum = errors.New("The optimal connection is nil")
 var errBrokenSwitchboard = errors.New("the switchboard is broken")
 
+func (sb *switchboard) connsCount() int {
+	// count the number of entries in conns
+	var count int
+	sb.conns.Range(func(_, _ interface{}) bool {
+		count += 1
+		return true
+	})
+	return count
+}
+
 func (sb *switchboard) addConn(conn net.Conn) {
 	connId := atomic.AddUint32(&sb.nextConnId, 1) - 1
-	sb.connsM.Lock()
-	sb.conns[connId] = conn
-	sb.connsM.Unlock()
+	sb.conns.Store(connId, conn)
 	go sb.deplex(connId, conn)
 }
 
@@ -67,69 +73,58 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 	}
 
 	sb.Valve.txWait(len(data))
-	sb.connsM.RLock()
-	defer sb.connsM.RUnlock()
-	if atomic.LoadUint32(&sb.broken) == 1 || len(sb.conns) == 0 {
+	connCount := sb.connsCount()
+	if atomic.LoadUint32(&sb.broken) == 1 || connCount == 0 {
 		return 0, errBrokenSwitchboard
 	}
 
 	if sb.strategy == UNIFORM_SPREAD {
-		r := rand.Intn(len(sb.conns))
-		var c int
-		for newConnId := range sb.conns {
-			if r == c {
-				conn, _ := sb.conns[newConnId]
-				return writeAndRegUsage(conn, data)
-			}
-			c++
+		_, conn, err := sb.pickRandConn()
+		if err != nil {
+			return 0, errBrokenSwitchboard
 		}
-		return 0, errBrokenSwitchboard
+		return writeAndRegUsage(conn, data)
 	} else {
-		var conn net.Conn
-		conn, ok := sb.conns[*connId]
+		connI, ok := sb.conns.Load(*connId)
+		conn := connI.(net.Conn)
 		if ok {
 			return writeAndRegUsage(conn, data)
 		} else {
-			// do not call assignRandomConn() here.
-			// we'll have to do connsM.RLock() after we get a new connId from assignRandomConn, in order to
-			// get the new conn through conns[newConnId]
-			// however between connsM.RUnlock() in assignRandomConn and our call to connsM.RLock(), things may happen.
-			// in particular if newConnId is removed between the RUnlock and RLock, conns[newConnId] will return
-			// a nil pointer. To prevent this we must get newConnId and the reference to conn itself in one single mutex
-			// protection
-			r := rand.Intn(len(sb.conns))
-			var c int
-			for newConnId := range sb.conns {
-				if r == c {
-					connId = &newConnId
-					conn, _ = sb.conns[newConnId]
-					return writeAndRegUsage(conn, data)
-				}
-				c++
+			newConnId, conn, err := sb.pickRandConn()
+			if err != nil {
+				return 0, errBrokenSwitchboard
 			}
-			return 0, errBrokenSwitchboard
+			connId = &newConnId
+			return writeAndRegUsage(conn, data)
 		}
 	}
 
 }
 
 // returns a random connId
-func (sb *switchboard) assignRandomConn() (uint32, error) {
-	sb.connsM.RLock()
-	defer sb.connsM.RUnlock()
-	if atomic.LoadUint32(&sb.broken) == 1 || len(sb.conns) == 0 {
-		return 0, errBrokenSwitchboard
+func (sb *switchboard) pickRandConn() (uint32, net.Conn, error) {
+	connCount := sb.connsCount()
+	if atomic.LoadUint32(&sb.broken) == 1 || connCount == 0 {
+		return 0, nil, errBrokenSwitchboard
 	}
 
-	r := rand.Intn(len(sb.conns))
-	var c int
-	for connId := range sb.conns {
+	// there is no guarantee that sb.conns still has the same amount of entries
+	// between the count loop and the pick loop
+	// so if the r > len(sb.conns) at the point of range call, the last visited element is picked
+	var id uint32
+	var conn net.Conn
+	r := rand.Intn(connCount)
+	sb.conns.Range(func(connIdI, connI interface{}) bool {
+		var c int
 		if r == c {
-			return connId, nil
+			id = connIdI.(uint32)
+			conn = connI.(net.Conn)
+			return false
 		}
 		c++
-	}
-	return 0, errBrokenSwitchboard
+		return true
+	})
+	return id, conn, nil
 }
 
 func (sb *switchboard) close(terminalMsg string) {
@@ -142,12 +137,12 @@ func (sb *switchboard) close(terminalMsg string) {
 
 // actively triggered by session.Close()
 func (sb *switchboard) closeAll() {
-	sb.connsM.Lock()
-	for key, conn := range sb.conns {
+	sb.conns.Range(func(key, connI interface{}) bool {
+		conn := connI.(net.Conn)
 		conn.Close()
-		delete(sb.conns, key)
-	}
-	sb.connsM.Unlock()
+		sb.conns.Delete(key)
+		return true
+	})
 }
 
 // deplex function costantly reads from a TCP connection

@@ -40,7 +40,11 @@ func TestRecvDataFromRemote(t *testing.T) {
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
 
-		sesh.recvDataFromRemote(obfsBuf[:n])
+		err := sesh.recvDataFromRemote(obfsBuf[:n])
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		stream, err := sesh.Accept()
 		if err != nil {
 			t.Error(err)
@@ -63,7 +67,11 @@ func TestRecvDataFromRemote(t *testing.T) {
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
 
-		sesh.recvDataFromRemote(obfsBuf[:n])
+		err := sesh.recvDataFromRemote(obfsBuf[:n])
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		stream, err := sesh.Accept()
 		if err != nil {
 			t.Error(err)
@@ -86,7 +94,11 @@ func TestRecvDataFromRemote(t *testing.T) {
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
 
-		sesh.recvDataFromRemote(obfsBuf[:n])
+		err := sesh.recvDataFromRemote(obfsBuf[:n])
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		stream, err := sesh.Accept()
 		if err != nil {
 			t.Error(err)
@@ -110,7 +122,11 @@ func TestRecvDataFromRemote(t *testing.T) {
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
 
-		sesh.recvDataFromRemote(obfsBuf[:n])
+		err := sesh.recvDataFromRemote(obfsBuf[:n])
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		stream, err := sesh.Accept()
 		if err != nil {
 			t.Error(err)
