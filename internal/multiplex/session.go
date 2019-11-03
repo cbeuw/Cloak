@@ -144,7 +144,7 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		f := &Frame{
 			StreamID: s.id,
 			Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
-			Closing:  1,
+			Closing:  C_STREAM,
 			Payload:  pad,
 		}
 		i, err := s.session.Obfs(f, s.obfsBuf)
@@ -185,10 +185,10 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 		stream := streamI.(*Stream)
 		return stream.writeFrame(*frame)
 	} else {
-		if frame.Closing == 1 {
+		if frame.Closing == C_STREAM {
 			// If the stream has been closed and the current frame is a closing frame, we do noop
 			return nil
-		} else if frame.Closing == 2 {
+		} else if frame.Closing == C_SESSION {
 			// Closing session
 			sesh.SetTerminalMsg("Received a closing notification frame")
 			return sesh.passiveClose()
@@ -268,7 +268,7 @@ func (sesh *Session) Close() error {
 	f := &Frame{
 		StreamID: 0xffffffff,
 		Seq:      0,
-		Closing:  2,
+		Closing:  C_SESSION,
 		Payload:  pad,
 	}
 	obfsBuf := make([]byte, len(pad)+64)
