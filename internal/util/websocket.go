@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// WebSocketConn implements io.ReadWriteCloser
+// it makes websocket.Conn binary-oriented
 type WebSocketConn struct {
 	*websocket.Conn
 	writeM sync.Mutex

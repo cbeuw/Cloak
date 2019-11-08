@@ -99,6 +99,7 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 		finisher = func(sessionKey []byte) (preparedConn net.Conn, err error) {
 			handler := newWsHandshakeHandler()
 
+			// For an explanation of the following 3 lines, see the comments in websocket.go
 			http.Serve(newWsAcceptor(conn, firstPacket), handler)
 
 			<-handler.finished
