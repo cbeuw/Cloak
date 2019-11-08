@@ -41,7 +41,6 @@ func makeSwitchboard(sesh *Session, config *switchboardConfig) *switchboard {
 	return sb
 }
 
-var errNilOptimum = errors.New("The optimal connection is nil")
 var errBrokenSwitchboard = errors.New("the switchboard is broken")
 
 func (sb *switchboard) connsCount() int {

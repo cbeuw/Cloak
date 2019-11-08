@@ -7,7 +7,6 @@ import (
 )
 
 // Valve needs to be universal, across all sessions that belong to a user
-// gabe please don't sue
 type LimitedValve struct {
 	// traffic directions from the server's perspective are refered
 	// exclusively as rx and tx.
