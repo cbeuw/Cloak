@@ -24,6 +24,7 @@ type rawConfig struct {
 	AdminUID      []byte
 	DatabasePath  string
 	StreamTimeout int
+	KeepAlive     int
 	CncMode       bool
 }
 
@@ -32,9 +33,10 @@ type State struct {
 	BindAddr  []net.Addr
 	ProxyBook map[string]net.Addr
 
-	Now      func() time.Time
-	AdminUID []byte
-	Timeout  time.Duration
+	Now       func() time.Time
+	AdminUID  []byte
+	Timeout   time.Duration
+	KeepAlive time.Duration
 
 	BypassUID map[[16]byte]struct{}
 	staticPv  crypto.PrivateKey
@@ -171,6 +173,12 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		sta.Timeout = time.Duration(300) * time.Second
 	} else {
 		sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
+	}
+
+	if preParse.KeepAlive <= 0 {
+		sta.KeepAlive = -1
+	} else {
+		sta.KeepAlive = time.Duration(preParse.KeepAlive) * time.Second
 	}
 
 	sta.RedirHost, sta.RedirPort, err = parseRedirAddr(preParse.RedirAddr)
