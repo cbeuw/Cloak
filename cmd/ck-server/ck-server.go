@@ -174,7 +174,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			}
 		}
 		proxyAddr := sta.ProxyBook[ci.ProxyMethod]
-		localConn, err := net.Dial(proxyAddr.Network(), proxyAddr.String())
+		d := net.Dialer{KeepAlive: sta.KeepAlive}
+		localConn, err := d.Dial(proxyAddr.Network(), proxyAddr.String())
 		if err != nil {
 			log.Errorf("Failed to connect to %v: %v", ci.ProxyMethod, err)
 			user.CloseSession(ci.SessionId, "Failed to connect to proxy server")

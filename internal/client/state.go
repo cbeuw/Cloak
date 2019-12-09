@@ -24,6 +24,7 @@ type rawConfig struct {
 	Transport        string
 	NumConn          int
 	StreamTimeout    int
+	KeepAlive        int
 	RemoteHost       string
 	RemotePort       int
 }
@@ -50,6 +51,7 @@ type State struct {
 	ServerName       string
 	NumConn          int
 	Timeout          time.Duration
+	KeepAlive        time.Duration
 }
 
 // semi-colon separated value. This is for Android plugin options
@@ -137,6 +139,11 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		sta.Timeout = 300 * time.Second
 	} else {
 		sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
+	}
+	if preParse.KeepAlive <= 0 {
+		sta.KeepAlive = -1
+	} else {
+		sta.KeepAlive = time.Duration(preParse.KeepAlive) * time.Second
 	}
 	sta.UID = preParse.UID
 

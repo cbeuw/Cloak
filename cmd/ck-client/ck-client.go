@@ -23,7 +23,7 @@ import (
 var version string
 
 func makeSession(sta *client.State, isAdmin bool) *mux.Session {
-	log.Info("Attemtping to start a new session")
+	log.Info("Attempting to start a new session")
 	if !isAdmin {
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 		// sessionID is limited to its UID.
@@ -32,7 +32,7 @@ func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 		atomic.StoreUint32(&sta.SessionID, binary.BigEndian.Uint32(quad))
 	}
 
-	d := net.Dialer{Control: protector}
+	d := net.Dialer{Control: protector, KeepAlive: sta.KeepAlive}
 	connsCh := make(chan net.Conn, sta.NumConn)
 	var _sessionKey atomic.Value
 	var wg sync.WaitGroup
