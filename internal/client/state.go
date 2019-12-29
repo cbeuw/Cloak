@@ -2,7 +2,6 @@ package client
 
 import (
 	"crypto"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -18,8 +17,8 @@ type rawConfig struct {
 	ServerName       string
 	ProxyMethod      string
 	EncryptionMethod string
-	UID              string
-	PublicKey        string
+	UID              []byte
+	PublicKey        []byte
 	BrowserSig       string
 	Transport        string
 	NumConn          int
@@ -131,21 +130,13 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	sta.ServerName = preParse.ServerName
 	sta.NumConn = preParse.NumConn
 	sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
+	sta.UID = preParse.UID
 
-	uid, err := base64.StdEncoding.DecodeString(preParse.UID)
-	if err != nil {
-		return errors.New("Failed to parse UID: " + err.Error())
-	}
-	sta.UID = uid
-
-	pubBytes, err := base64.StdEncoding.DecodeString(preParse.PublicKey)
-	if err != nil {
-		return errors.New("Failed to parse Public key: " + err.Error())
-	}
-	pub, ok := ecdh.Unmarshal(pubBytes)
+	pub, ok := ecdh.Unmarshal(preParse.PublicKey)
 	if !ok {
 		return errors.New("Failed to unmarshal Public key")
 	}
 	sta.staticPub = pub
+
 	return nil
 }
