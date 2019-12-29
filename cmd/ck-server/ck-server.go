@@ -40,8 +40,11 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	data := buf[:i]
 
 	goWeb := func() {
-		_, remotePort, _ := net.SplitHostPort(conn.LocalAddr().String())
-		webConn, err := net.Dial("tcp", net.JoinHostPort(sta.RedirAddr.String(), remotePort))
+		redirPort := sta.RedirPort
+		if redirPort == "" {
+			_, redirPort, _ = net.SplitHostPort(conn.LocalAddr().String())
+		}
+		webConn, err := net.Dial("tcp", net.JoinHostPort(sta.RedirHost.String(), redirPort))
 		if err != nil {
 			log.Errorf("Making connection to redirection server: %v", err)
 			return
