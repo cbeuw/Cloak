@@ -2,12 +2,10 @@ package server
 
 import (
 	"crypto"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -22,8 +20,8 @@ type rawConfig struct {
 	BindAddr      []string
 	BypassUID     [][]byte
 	RedirAddr     string
-	PrivateKey    string
-	AdminUID      string
+	PrivateKey    []byte
+	AdminUID      []byte
 	DatabasePath  string
 	StreamTimeout int
 	CncMode       bool
@@ -41,7 +39,8 @@ type State struct {
 	BypassUID map[[16]byte]struct{}
 	staticPv  crypto.PrivateKey
 
-	RedirAddr net.Addr
+	RedirHost net.Addr
+	RedirPort string
 
 	usedRandomM sync.RWMutex
 	usedRandom  map[[32]byte]int64
@@ -59,6 +58,89 @@ func InitState(nowFunc func() time.Time) (*State, error) {
 	}
 	go ret.UsedRandomCleaner()
 	return ret, nil
+}
+
+func parseRedirAddr(redirAddr string) (net.Addr, string, error) {
+	var host string
+	var port string
+	colonSep := strings.Split(redirAddr, ":")
+	if len(colonSep) > 1 {
+		if len(colonSep) == 2 {
+			// domain or ipv4 with port
+			host = colonSep[0]
+			port = colonSep[1]
+		} else {
+			if strings.Contains(redirAddr, "[") {
+				// ipv6 with port
+				port = colonSep[len(colonSep)-1]
+				host = strings.TrimSuffix(redirAddr, "]:"+port)
+				host = strings.TrimPrefix(host, "[")
+			} else {
+				// ipv6 without port
+				host = redirAddr
+			}
+		}
+	} else {
+		// domain or ipv4 without port
+		host = redirAddr
+	}
+
+	redirHost, err := net.ResolveIPAddr("ip", host)
+	if err != nil {
+		return nil, "", fmt.Errorf("unable to resolve RedirAddr: %v. ", err)
+	}
+	return redirHost, port, nil
+}
+
+func parseLocalPanel(databasePath string) (*userPanel, *gmux.Router, error) {
+	manager, err := usermanager.MakeLocalManager(databasePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	panel := MakeUserPanel(manager)
+	router := manager.Router
+	return panel, router, nil
+
+}
+
+func parseBindAddr(bindAddrs []string) ([]net.Addr, error) {
+	var addrs []net.Addr
+	for _, addr := range bindAddrs {
+		bindAddr, err := net.ResolveTCPAddr("tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+		addrs = append(addrs, bindAddr)
+	}
+	return addrs, nil
+}
+
+func parseProxyBook(bookEntries map[string][]string) (map[string]net.Addr, error) {
+	proxyBook := map[string]net.Addr{}
+	for name, pair := range bookEntries {
+		name = strings.ToLower(name)
+		if len(pair) != 2 {
+			return nil, fmt.Errorf("invalid proxy endpoint and address pair for %v: %v", name, pair)
+		}
+		network := strings.ToLower(pair[0])
+		switch network {
+		case "tcp":
+			addr, err := net.ResolveTCPAddr("tcp", pair[1])
+			if err != nil {
+				return nil, err
+			}
+			proxyBook[name] = addr
+			continue
+		case "udp":
+			addr, err := net.ResolveUDPAddr("udp", pair[1])
+			if err != nil {
+				return nil, err
+			}
+			proxyBook[name] = addr
+			continue
+		}
+	}
+	return proxyBook, nil
 }
 
 // ParseConfig parses the config (either a path to json or the json itself as argument) into a State variable
@@ -80,14 +162,9 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	}
 
 	if preParse.CncMode {
-		//TODO: implement command & control mode
+		return errors.New("command & control mode not implemented")
 	} else {
-		manager, err := usermanager.MakeLocalManager(preParse.DatabasePath)
-		if err != nil {
-			return err
-		}
-		sta.Panel = MakeUserPanel(manager)
-		sta.LocalAPIRouter = manager.Router
+		sta.Panel, sta.LocalAPIRouter, err = parseLocalPanel(preParse.DatabasePath)
 	}
 
 	if preParse.StreamTimeout == 0 {
@@ -96,79 +173,35 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
 	}
 
-	redirAddr := preParse.RedirAddr
-	colonSep := strings.Split(redirAddr, ":")
-	if len(colonSep) != 0 {
-		if len(colonSep) == 2 {
-			logrus.Error("If RedirAddr contains a port number, please remove it.")
-			redirAddr = colonSep[0]
-		} else {
-			if strings.Contains(redirAddr, "[") {
-				logrus.Error("If RedirAddr contains a port number, please remove it.")
-				redirAddr = strings.TrimRight(redirAddr, "]:"+colonSep[len(colonSep)-1])
-				redirAddr = strings.TrimPrefix(redirAddr, "[")
-			}
-		}
-	}
-
-	sta.RedirAddr, err = net.ResolveIPAddr("ip", redirAddr)
+	sta.RedirHost, sta.RedirPort, err = parseRedirAddr(preParse.RedirAddr)
 	if err != nil {
-		return fmt.Errorf("unable to resolve RedirAddr: %v. ", err)
+		return fmt.Errorf("unable to parse RedirAddr: %v", err)
 	}
 
-	for _, addr := range preParse.BindAddr {
-		bindAddr, err := net.ResolveTCPAddr("tcp", addr)
-		if err != nil {
-			return err
-		}
-		sta.BindAddr = append(sta.BindAddr, bindAddr)
-	}
-
-	for name, pair := range preParse.ProxyBook {
-		name = strings.ToLower(name)
-		if len(pair) != 2 {
-			return fmt.Errorf("invalid proxy endpoint and address pair for %v: %v", name, pair)
-		}
-		network := strings.ToLower(pair[0])
-		switch network {
-		case "tcp":
-			addr, err := net.ResolveTCPAddr("tcp", pair[1])
-			if err != nil {
-				return err
-			}
-			sta.ProxyBook[name] = addr
-			continue
-		case "udp":
-			addr, err := net.ResolveUDPAddr("udp", pair[1])
-			if err != nil {
-				return err
-			}
-			sta.ProxyBook[name] = addr
-			continue
-		}
-	}
-
-	pvBytes, err := base64.StdEncoding.DecodeString(preParse.PrivateKey)
+	sta.BindAddr, err = parseBindAddr(preParse.BindAddr)
 	if err != nil {
-		return errors.New("Failed to decode private key: " + err.Error())
+		return fmt.Errorf("unable to parse BindAddr: %v", err)
 	}
+
+	sta.ProxyBook, err = parseProxyBook(preParse.ProxyBook)
+	if err != nil {
+		return fmt.Errorf("unable to parse ProxyBook: %v", err)
+	}
+
 	var pv [32]byte
-	copy(pv[:], pvBytes)
+	copy(pv[:], preParse.PrivateKey)
 	sta.staticPv = &pv
 
-	adminUID, err := base64.StdEncoding.DecodeString(preParse.AdminUID)
-	if err != nil {
-		return errors.New("Failed to decode AdminUID: " + err.Error())
-	}
-	sta.AdminUID = adminUID
+	sta.AdminUID = preParse.AdminUID
 
 	var arrUID [16]byte
 	for _, UID := range preParse.BypassUID {
 		copy(arrUID[:], UID)
 		sta.BypassUID[arrUID] = struct{}{}
 	}
-	copy(arrUID[:], adminUID)
+	copy(arrUID[:], sta.AdminUID)
 	sta.BypassUID[arrUID] = struct{}{}
+
 	return nil
 }
 
