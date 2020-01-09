@@ -179,29 +179,35 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 		return fmt.Errorf("Failed to decrypt a frame for session %v: %v", sesh.id, err)
 	}
 
-	streamI, existing := sesh.streams.Load(frame.StreamID)
-	if existing {
-		stream := streamI.(*Stream)
-		return stream.writeFrame(*frame)
-	} else {
-		if frame.Closing == C_STREAM {
+	if frame.Closing == C_STREAM {
+		streamI, existing := sesh.streams.Load(frame.StreamID)
+		if existing {
 			// If the stream has been closed and the current frame is a closing frame, we do noop
+			stream := streamI.(*Stream)
+			return stream.writeFrame(*frame)
+		} else {
 			return nil
-		} else if frame.Closing == C_SESSION {
+		}
+	} else if frame.Closing == C_SESSION {
+		streamI, existing := sesh.streams.Load(frame.StreamID)
+		if existing {
+			stream := streamI.(*Stream)
+			return stream.writeFrame(*frame)
+		} else {
 			// Closing session
 			sesh.SetTerminalMsg("Received a closing notification frame")
 			return sesh.passiveClose()
+		}
+	} else {
+		connId, _, _ := sesh.sb.pickRandConn()
+		// we ignore the error here. If the switchboard is broken, it will be reflected upon stream.Write
+		newStream := makeStream(sesh, frame.StreamID, connId)
+		existingStreamI, existing := sesh.streams.LoadOrStore(frame.StreamID, newStream)
+		if existing {
+			return existingStreamI.(*Stream).writeFrame(*frame)
 		} else {
-			// it may be tempting to use the connId from which the frame was received. However it doesn't make
-			// any difference because we only care to send the data from the same stream through the same
-			// TCP connection. The remote may use a different connection to send the same stream than the one the client
-			// use to send.
-			connId, _, _ := sesh.sb.pickRandConn()
-			// we ignore the error here. If the switchboard is broken, it will be reflected upon stream.Write
-			stream := makeStream(sesh, frame.StreamID, connId)
-			sesh.streams.Store(stream.id, stream)
-			sesh.acceptCh <- stream
-			return stream.writeFrame(*frame)
+			sesh.acceptCh <- newStream
+			return newStream.writeFrame(*frame)
 		}
 	}
 }

@@ -9,6 +9,7 @@ require (
 	github.com/gorilla/websocket v1.4.1
 	github.com/juju/ratelimit v1.0.1
 	github.com/kr/pretty v0.1.0 // indirect
+	github.com/mitchellh/gox v1.0.1 // indirect
 	github.com/refraction-networking/utls v0.0.0-20190824032329-cc2996c81813
 	github.com/sirupsen/logrus v1.4.2
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
