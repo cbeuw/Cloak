@@ -184,7 +184,7 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 	if frame.Closing == C_STREAM {
 		streamI, existing := sesh.streams.Load(frame.StreamID)
 		if existing {
-			// DO NOT close the stream (or session below) straight away here because the sequence number of this frame
+			// DO NOT close the stream straight away here because the sequence number of this frame
 			// hasn't been checked. There may be later data frames which haven't arrived
 			stream := streamI.(*Stream)
 			return stream.writeFrame(*frame)
@@ -193,15 +193,9 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 			return nil
 		}
 	} else if frame.Closing == C_SESSION {
-		streamI, existing := sesh.streams.Load(frame.StreamID)
-		if existing {
-			stream := streamI.(*Stream)
-			return stream.writeFrame(*frame)
-		} else {
-			// Closing session
-			sesh.SetTerminalMsg("Received a closing notification frame")
-			return sesh.passiveClose()
-		}
+		// Closing session
+		sesh.SetTerminalMsg("Received a closing notification frame")
+		return sesh.passiveClose()
 	} else {
 		connId, _, _ := sesh.sb.pickRandConn()
 		// we ignore the error here. If the switchboard is broken, it will be reflected upon stream.Write
