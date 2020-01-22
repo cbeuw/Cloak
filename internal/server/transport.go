@@ -1,23 +1,16 @@
 package server
 
 import (
-	"github.com/cbeuw/Cloak/internal/util"
+	"crypto"
+	"errors"
 	"net"
 )
 
 type Transport interface {
 	HasRecordLayer() bool
 	UnitReadFunc() func(net.Conn, []byte) (int, error)
+	handshake(reqPacket []byte, privateKey crypto.PrivateKey, originalConn net.Conn) (authenticationInfo, func([]byte) (net.Conn, error), error)
 }
 
-type TLS struct{}
-
-func (TLS) String() string                                    { return "TLS" }
-func (TLS) HasRecordLayer() bool                              { return true }
-func (TLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadTLS }
-
-type WebSocket struct{}
-
-func (WebSocket) String() string                                    { return "WebSocket" }
-func (WebSocket) HasRecordLayer() bool                              { return false }
-func (WebSocket) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadWebSocket }
+var ErrInvalidPubKey = errors.New("public key has invalid format")
+var ErrCiphertextLength = errors.New("ciphertext has the wrong length")

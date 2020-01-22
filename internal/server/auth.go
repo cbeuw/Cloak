@@ -1,16 +1,12 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/util"
 	"net"
-	"net/http"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -35,8 +31,6 @@ const (
 	UNORDERED_FLAG = 0x01 // 0000 0001
 )
 
-var ErrInvalidPubKey = errors.New("public key has invalid format")
-var ErrCiphertextLength = errors.New("ciphertext has the wrong length")
 var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
 var ErrUnreconisedProtocol = errors.New("unreconised protocol")
 
@@ -67,7 +61,6 @@ func touchStone(ai authenticationInfo, now func() time.Time) (info ClientInfo, e
 	return
 }
 
-var ErrBadClientHello = errors.New("non (or malformed) ClientHello")
 var ErrReplay = errors.New("duplicate random")
 var ErrBadProxyMethod = errors.New("invalid proxy method")
 
@@ -76,100 +69,34 @@ var ErrBadProxyMethod = errors.New("invalid proxy method")
 // is authorised. It also returns a finisher callback function to be called when the caller wishes to proceed with
 // the handshake
 func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info ClientInfo, finisher func([]byte) (net.Conn, error), err error) {
-	var transport Transport
-	var ai authenticationInfo
 	switch firstPacket[0] {
 	case 0x47:
-		transport = WebSocket{}
-		var req *http.Request
-		req, err = http.ReadRequest(bufio.NewReader(bytes.NewBuffer(firstPacket)))
-		if err != nil {
-			err = fmt.Errorf("failed to parse first HTTP GET: %v", err)
-			return
-		}
-		var hiddenData []byte
-		hiddenData, err = base64.StdEncoding.DecodeString(req.Header.Get("hidden"))
-
-		ai, err = unmarshalHidden(hiddenData, sta.staticPv)
-		if err != nil {
-			err = fmt.Errorf("failed to unmarshal hidden data from WS into authenticationInfo: %v", err)
-			return
-		}
-
-		finisher = func(sessionKey []byte) (preparedConn net.Conn, err error) {
-			handler := newWsHandshakeHandler()
-
-			// For an explanation of the following 3 lines, see the comments in websocket.go
-			http.Serve(newWsAcceptor(conn, firstPacket), handler)
-
-			<-handler.finished
-			preparedConn = handler.conn
-			nonce := make([]byte, 12)
-			rand.Read(nonce)
-
-			// reply: [12 bytes nonce][32 bytes encrypted session key][16 bytes authentication tag]
-			encryptedKey, err := util.AESGCMEncrypt(nonce, ai.sharedSecret, sessionKey) // 32 + 16 = 48 bytes
-			if err != nil {
-				err = fmt.Errorf("failed to encrypt reply: %v", err)
-				return
-			}
-			reply := append(nonce, encryptedKey...)
-			_, err = preparedConn.Write(reply)
-			if err != nil {
-				err = fmt.Errorf("failed to write reply: %v", err)
-				go preparedConn.Close()
-				return
-			}
-			return
-		}
+		info.Transport = WebSocket{}
 	case 0x16:
-		transport = TLS{}
-		var ch *ClientHello
-		ch, err = parseClientHello(firstPacket)
-		if err != nil {
-			log.Debug(err)
-			err = ErrBadClientHello
-			return
-		}
-
-		if sta.registerRandom(ch.random) {
-			err = ErrReplay
-			return
-		}
-
-		ai, err = unmarshalClientHello(ch, sta.staticPv)
-		if err != nil {
-			err = fmt.Errorf("failed to unmarshal ClientHello into authenticationInfo: %v", err)
-			return
-		}
-
-		finisher = func(sessionKey []byte) (preparedConn net.Conn, err error) {
-			preparedConn = conn
-			reply, err := composeReply(ch, ai.sharedSecret, sessionKey)
-			if err != nil {
-				err = fmt.Errorf("failed to compose TLS reply: %v", err)
-				return
-			}
-			_, err = preparedConn.Write(reply)
-			if err != nil {
-				err = fmt.Errorf("failed to write TLS reply: %v", err)
-				go preparedConn.Close()
-				return
-			}
-			return
-		}
+		info.Transport = TLS{}
 	default:
 		err = ErrUnreconisedProtocol
+		return
+	}
+
+	var ai authenticationInfo
+	ai, finisher, err = info.Transport.handshake(firstPacket, sta.staticPv, conn)
+
+	if err != nil {
+		return
+	}
+
+	if sta.registerRandom(ai.nonce) {
+		err = ErrReplay
 		return
 	}
 
 	info, err = touchStone(ai, sta.Now)
 	if err != nil {
 		log.Debug(err)
-		err = fmt.Errorf("transport %v in correct format but not Cloak: %v", transport, err)
+		err = fmt.Errorf("transport %v in correct format but not Cloak: %v", info.Transport, err)
 		return
 	}
-	info.Transport = transport
 	if _, ok := sta.ProxyBook[info.ProxyMethod]; !ok {
 		err = ErrBadProxyMethod
 		return
