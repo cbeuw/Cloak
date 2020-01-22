@@ -3,6 +3,7 @@ package server
 import (
 	"crypto"
 	"encoding/hex"
+	"fmt"
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	"testing"
 	"time"
@@ -121,6 +122,10 @@ func TestPrepareConnection(t *testing.T) {
 		}
 		if info.SessionId != 3710878841 {
 			t.Error("failed to get correct session id")
+			return
+		}
+		if info.Transport.(fmt.Stringer).String() != "TLS" {
+			t.Errorf("wrong transport: %v", info.Transport)
 			return
 		}
 	})

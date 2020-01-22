@@ -69,18 +69,19 @@ var ErrBadProxyMethod = errors.New("invalid proxy method")
 // is authorised. It also returns a finisher callback function to be called when the caller wishes to proceed with
 // the handshake
 func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info ClientInfo, finisher func([]byte) (net.Conn, error), err error) {
+	var transport Transport
 	switch firstPacket[0] {
 	case 0x47:
-		info.Transport = WebSocket{}
+		transport = WebSocket{}
 	case 0x16:
-		info.Transport = TLS{}
+		transport = TLS{}
 	default:
 		err = ErrUnreconisedProtocol
 		return
 	}
 
 	var ai authenticationInfo
-	ai, finisher, err = info.Transport.handshake(firstPacket, sta.staticPv, conn)
+	ai, finisher, err = transport.handshake(firstPacket, sta.staticPv, conn)
 
 	if err != nil {
 		return
@@ -101,6 +102,6 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 		err = ErrBadProxyMethod
 		return
 	}
-
+	info.Transport = transport
 	return
 }
