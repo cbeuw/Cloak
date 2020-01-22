@@ -4,5 +4,5 @@ import "io"
 
 type recvBuffer interface {
 	io.ReadCloser
-	Write(Frame) error
+	Write(Frame) (toBeClosed bool, err error)
 }

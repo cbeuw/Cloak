@@ -59,7 +59,11 @@ func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
 func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
 
 func (s *Stream) writeFrame(frame Frame) error {
-	return s.recvBuf.Write(frame)
+	toBeClosed, err := s.recvBuf.Write(frame)
+	if toBeClosed {
+		return s.passiveClose()
+	}
+	return err
 }
 
 // Read implements io.Read
@@ -99,7 +103,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	f := &Frame{
 		StreamID: s.id,
 		Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
-		Closing:  0,
+		Closing:  C_NOOP,
 		Payload:  in,
 	}
 

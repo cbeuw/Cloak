@@ -11,7 +11,7 @@ func TestDatagramBuffer_RW(t *testing.T) {
 	b := []byte{0x01, 0x02, 0x03}
 	t.Run("simple write", func(t *testing.T) {
 		pipe := NewDatagramBuffer()
-		err := pipe.Write(Frame{Payload: b})
+		_, err := pipe.Write(Frame{Payload: b})
 		if err != nil {
 			t.Error(
 				"expecting", "nil error",
@@ -23,7 +23,7 @@ func TestDatagramBuffer_RW(t *testing.T) {
 
 	t.Run("simple read", func(t *testing.T) {
 		pipe := NewDatagramBuffer()
-		_ = pipe.Write(Frame{Payload: b})
+		_, _ = pipe.Write(Frame{Payload: b})
 		b2 := make([]byte, len(b))
 		n, err := pipe.Read(b2)
 		if n != len(b) {
@@ -56,7 +56,10 @@ func TestDatagramBuffer_RW(t *testing.T) {
 
 	t.Run("writing closing frame", func(t *testing.T) {
 		pipe := NewDatagramBuffer()
-		err := pipe.Write(Frame{Closing: 1})
+		toBeClosed, err := pipe.Write(Frame{Closing: C_STREAM})
+		if !toBeClosed {
+			t.Error("should be to be closed")
+		}
 		if err != nil {
 			t.Error(
 				"expecting", "nil error",

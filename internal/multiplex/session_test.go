@@ -143,7 +143,95 @@ func TestRecvDataFromRemote(t *testing.T) {
 			t.Errorf("Expecting %x, got %x", testPayload, resultPayload)
 		}
 	})
+}
 
+func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
+	testPayloadLen := 1024
+	testPayload := make([]byte, testPayloadLen)
+	rand.Read(testPayload)
+	obfsBuf := make([]byte, 17000)
+
+	sessionKey := make([]byte, 32)
+	obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey, true)
+	seshConfigOrdered.Obfuscator = obfuscator
+
+	rand.Read(sessionKey)
+	sesh := MakeSession(0, seshConfigOrdered)
+
+	f1 := &Frame{
+		1,
+		0,
+		C_NOOP,
+		testPayload,
+	}
+	// create stream 1
+	n, _ := sesh.Obfs(f1, obfsBuf)
+	err := sesh.recvDataFromRemote(obfsBuf[:n])
+	if err != nil {
+		t.Fatalf("receiving normal frame for stream 1: %v", err)
+	}
+	s1I, ok := sesh.streams.Load(f1.StreamID)
+	if !ok {
+		t.Fatal("failed to fetch stream 1 after receiving it")
+	}
+
+	// create stream 2
+	f2 := &Frame{
+		2,
+		0,
+		C_NOOP,
+		testPayload,
+	}
+	n, _ = sesh.Obfs(f2, obfsBuf)
+	err = sesh.recvDataFromRemote(obfsBuf[:n])
+	if err != nil {
+		t.Fatalf("receiving normal frame for stream 2: %v", err)
+	}
+	s2I, ok := sesh.streams.Load(f2.StreamID)
+	if !ok {
+		t.Fatal("failed to fetch stream 2 after receiving it")
+	}
+
+	// close stream 1
+	f1CloseStream := &Frame{
+		1,
+		1,
+		C_STREAM,
+		testPayload,
+	}
+	n, _ = sesh.Obfs(f1CloseStream, obfsBuf)
+	err = sesh.recvDataFromRemote(obfsBuf[:n])
+	if err != nil {
+		t.Fatalf("receiving stream closing frame for stream 1: %v", err)
+	}
+	_, ok = sesh.streams.Load(f1.StreamID)
+	if ok {
+		t.Fatal("stream 1 still exist after receiving stream close")
+	}
+	s1 := s1I.(*Stream)
+	if !s1.isClosed() {
+		t.Fatal("stream 1 not marked as closed")
+	}
+	payloadBuf := make([]byte, testPayloadLen)
+	_, err = s1.recvBuf.Read(payloadBuf)
+	if err != nil || !bytes.Equal(payloadBuf, testPayload) {
+		t.Fatalf("failed to read from stream 1 after closing: %v", err)
+	}
+	s2 := s2I.(*Stream)
+	if s2.isClosed() {
+		t.Fatal("stream 2 shouldn't be closed")
+	}
+
+	// close stream 1 again
+	n, _ = sesh.Obfs(f1CloseStream, obfsBuf)
+	err = sesh.recvDataFromRemote(obfsBuf[:n])
+	if err != nil {
+		t.Fatalf("receiving stream closing frame for stream 1: %v", err)
+	}
+	_, ok = sesh.streams.Load(f1.StreamID)
+	if ok {
+		t.Fatal("stream 1 exists after receiving stream close for the second time")
+	}
 }
 
 func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
@@ -211,5 +299,4 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 			b.SetBytes(int64(n))
 		}
 	})
-
 }

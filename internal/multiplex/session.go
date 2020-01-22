@@ -172,7 +172,9 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 	return nil
 }
 
-// recvDataFromRemote deobfuscate the frame and send it to the appropriate stream buffer
+// recvDataFromRemote deobfuscate the frame and read the Closing field. If it is a closing frame, it writes the frame
+// to the stream buffer, otherwise it fetches the desired stream instance, or creates and stores one if it's a new
+// stream and then writes to the stream buffer
 func (sesh *Session) recvDataFromRemote(data []byte) error {
 	frame, err := sesh.Deobfs(data)
 	if err != nil {
@@ -182,10 +184,12 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 	if frame.Closing == C_STREAM {
 		streamI, existing := sesh.streams.Load(frame.StreamID)
 		if existing {
-			// If the stream has been closed and the current frame is a closing frame, we do noop
+			// DO NOT close the stream (or session below) straight away here because the sequence number of this frame
+			// hasn't been checked. There may be later data frames which haven't arrived
 			stream := streamI.(*Stream)
 			return stream.writeFrame(*frame)
 		} else {
+			// If the stream has been closed and the current frame is a closing frame, we do noop
 			return nil
 		}
 	} else if frame.Closing == C_SESSION {

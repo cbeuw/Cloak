@@ -61,39 +61,38 @@ func NewStreamBuffer() *streamBuffer {
 
 // recvNewFrame is a forever running loop which receives frames unordered,
 // cache and order them and send them into sortedBufCh
-func (sb *streamBuffer) Write(f Frame) error {
+func (sb *streamBuffer) Write(f Frame) (toBeClosed bool, err error) {
 	sb.recvM.Lock()
 	defer sb.recvM.Unlock()
 	// when there'fs no ooo packages in heap and we receive the next package in order
 	if len(sb.sh) == 0 && f.Seq == sb.nextRecvSeq {
-		if f.Closing == 1 {
+		if f.Closing != C_NOOP {
 			sb.buf.Close()
-			return nil
+			return true, nil
 		} else {
 			sb.buf.Write(f.Payload)
 			sb.nextRecvSeq += 1
 		}
-		return nil
+		return false, nil
 	}
 
 	if f.Seq < sb.nextRecvSeq {
-		return fmt.Errorf("seq %v is smaller than nextRecvSeq %v", f.Seq, sb.nextRecvSeq)
+		return false, fmt.Errorf("seq %v is smaller than nextRecvSeq %v", f.Seq, sb.nextRecvSeq)
 	}
 
 	heap.Push(&sb.sh, &f)
 	// Keep popping from the heap until empty or to the point that the wanted seq was not received
 	for len(sb.sh) > 0 && sb.sh[0].Seq == sb.nextRecvSeq {
 		f = *heap.Pop(&sb.sh).(*Frame)
-		if f.Closing == 1 {
-			// empty data indicates closing signal
+		if f.Closing != C_NOOP {
 			sb.buf.Close()
-			return nil
+			return true, nil
 		} else {
 			sb.buf.Write(f.Payload)
 			sb.nextRecvSeq += 1
 		}
 	}
-	return nil
+	return false, nil
 }
 
 func (sb *streamBuffer) Read(buf []byte) (int, error) {
