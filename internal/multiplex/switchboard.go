@@ -113,8 +113,8 @@ func (sb *switchboard) pickRandConn() (uint32, net.Conn, error) {
 	var id uint32
 	var conn net.Conn
 	r := rand.Intn(connCount)
+	var c int
 	sb.conns.Range(func(connIdI, connI interface{}) bool {
-		var c int
 		if r == c {
 			id = connIdI.(uint32)
 			conn = connI.(net.Conn)
