@@ -129,7 +129,11 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	sta.ProxyMethod = preParse.ProxyMethod
 	sta.ServerName = preParse.ServerName
 	sta.NumConn = preParse.NumConn
-	sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
+	if preParse.StreamTimeout == 0 {
+		sta.Timeout = 300 * time.Second
+	} else {
+		sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
+	}
 	sta.UID = preParse.UID
 
 	pub, ok := ecdh.Unmarshal(preParse.PublicKey)
