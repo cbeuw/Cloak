@@ -51,7 +51,9 @@ type Session struct {
 	// atomic
 	nextStreamID uint32
 
-	streams sync.Map
+	// atomic
+	activeStreamCount uint32
+	streams           sync.Map
 
 	// Switchboard manages all connections to remote
 	sb *switchboard
@@ -94,6 +96,16 @@ func MakeSession(id uint32, config *SessionConfig) *Session {
 	return sesh
 }
 
+func (sesh *Session) streamCountIncr() uint32 {
+	return atomic.AddUint32(&sesh.activeStreamCount, 1)
+}
+func (sesh *Session) streamCountDecr() uint32 {
+	return atomic.AddUint32(&sesh.activeStreamCount, ^uint32(0))
+}
+func (sesh *Session) streamCount() uint32 {
+	return atomic.LoadUint32(&sesh.activeStreamCount)
+}
+
 func (sesh *Session) AddConnection(conn net.Conn) {
 	sesh.sb.addConn(conn)
 	addrs := []net.Addr{conn.LocalAddr(), conn.RemoteAddr()}
@@ -112,6 +124,7 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 	}
 	stream := makeStream(sesh, id, connId)
 	sesh.streams.Store(id, stream)
+	sesh.streamCountIncr()
 	log.Tracef("stream %v of session %v opened", id, sesh.id)
 	return stream, nil
 }
@@ -159,14 +172,9 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		log.Tracef("stream %v passively closed", s.id)
 	}
 
-	sesh.streams.Delete(s.id)
-	var count int
-	sesh.streams.Range(func(_, _ interface{}) bool {
-		count += 1
-		return true
-	})
-	if count == 0 {
-		log.Tracef("session %v has no active stream left", sesh.id)
+	sesh.streams.Store(s.id, nil)
+	if sesh.streamCountDecr() == 0 {
+		log.Debugf("session %v has no active stream left", sesh.id)
 		go sesh.timeoutAfter(30 * time.Second)
 	}
 	return nil
@@ -181,32 +189,25 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 		return fmt.Errorf("Failed to decrypt a frame for session %v: %v", sesh.id, err)
 	}
 
-	if frame.Closing == C_STREAM {
-		streamI, existing := sesh.streams.Load(frame.StreamID)
-		if existing {
-			// DO NOT close the stream straight away here because the sequence number of this frame
-			// hasn't been checked. There may be later data frames which haven't arrived
-			stream := streamI.(*Stream)
-			return stream.writeFrame(*frame)
-		} else {
-			// If the stream has been closed and the current frame is a closing frame, we do noop
-			return nil
-		}
-	} else if frame.Closing == C_SESSION {
-		// Closing session
+	if frame.Closing == C_SESSION {
 		sesh.SetTerminalMsg("Received a closing notification frame")
 		return sesh.passiveClose()
-	} else {
-		connId, _, _ := sesh.sb.pickRandConn()
-		// we ignore the error here. If the switchboard is broken, it will be reflected upon stream.Write
-		newStream := makeStream(sesh, frame.StreamID, connId)
-		existingStreamI, existing := sesh.streams.LoadOrStore(frame.StreamID, newStream)
-		if existing {
-			return existingStreamI.(*Stream).writeFrame(*frame)
-		} else {
-			sesh.acceptCh <- newStream
-			return newStream.writeFrame(*frame)
+	}
+
+	connId, _, _ := sesh.sb.pickRandConn()
+	// we ignore the error here. If the switchboard is broken, it will be reflected upon stream.Write
+	newStream := makeStream(sesh, frame.StreamID, connId)
+	existingStreamI, existing := sesh.streams.LoadOrStore(frame.StreamID, newStream)
+	if existing {
+		if existingStreamI == nil {
+			// this is when the stream existed before but has since been closed. We do nothing
+			return nil
 		}
+		return existingStreamI.(*Stream).writeFrame(*frame)
+	} else {
+		sesh.streamCountIncr()
+		sesh.acceptCh <- newStream
+		return newStream.writeFrame(*frame)
 	}
 }
 
@@ -232,10 +233,14 @@ func (sesh *Session) passiveClose() error {
 	sesh.acceptCh <- nil
 
 	sesh.streams.Range(func(key, streamI interface{}) bool {
+		if streamI == nil {
+			return true
+		}
 		stream := streamI.(*Stream)
 		atomic.StoreUint32(&stream.closed, 1)
 		_ = stream.recvBuf.Close() // will not block
 		sesh.streams.Delete(key)
+		sesh.streamCountDecr()
 		return true
 	})
 
@@ -261,10 +266,14 @@ func (sesh *Session) Close() error {
 	sesh.acceptCh <- nil
 
 	sesh.streams.Range(func(key, streamI interface{}) bool {
+		if streamI == nil {
+			return true
+		}
 		stream := streamI.(*Stream)
 		atomic.StoreUint32(&stream.closed, 1)
 		_ = stream.recvBuf.Close() // will not block
 		sesh.streams.Delete(key)
+		sesh.streamCountDecr()
 		return true
 	})
 
@@ -296,12 +305,8 @@ func (sesh *Session) IsClosed() bool {
 
 func (sesh *Session) timeoutAfter(to time.Duration) {
 	time.Sleep(to)
-	var count int
-	sesh.streams.Range(func(_, _ interface{}) bool {
-		count += 1
-		return true
-	})
-	if count == 0 && !sesh.IsClosed() {
+
+	if sesh.streamCount() == 0 && !sesh.IsClosed() {
 		sesh.SetTerminalMsg("timeout")
 		sesh.Close()
 	}
