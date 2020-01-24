@@ -44,7 +44,6 @@ type streamBuffer struct {
 	recvM sync.Mutex
 
 	nextRecvSeq uint64
-	rev         int
 	sh          sorterHeap
 
 	buf *bufferedPipe
@@ -53,7 +52,6 @@ type streamBuffer struct {
 func NewStreamBuffer() *streamBuffer {
 	sb := &streamBuffer{
 		sh:  []*Frame{},
-		rev: 0,
 		buf: NewBufferedPipe(),
 	}
 	return sb
