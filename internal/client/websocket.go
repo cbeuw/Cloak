@@ -37,9 +37,9 @@ func (WSOverTLS) PrepareConnection(sta *State, conn net.Conn) (preparedConn net.
 		return preparedConn, nil, fmt.Errorf("failed to parse ws url: %v", err)
 	}
 
-	hd, sharedSecret := makeHiddenData(sta)
+	payload, sharedSecret := makeAuthenticationPayload(sta)
 	header := http.Header{}
-	header.Add("hidden", base64.StdEncoding.EncodeToString(hd.fullRaw))
+	header.Add("hidden", base64.StdEncoding.EncodeToString(append(payload.randPubKey[:], payload.ciphertextWithTag[:]...)))
 	c, _, err := websocket.NewClient(preparedConn, u, header, 16480, 16480)
 	if err != nil {
 		return preparedConn, nil, fmt.Errorf("failed to handshake: %v", err)

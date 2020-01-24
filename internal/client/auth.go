@@ -3,8 +3,10 @@ package client
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/hex"
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
+	"log"
 	"sync/atomic"
 )
 
@@ -12,17 +14,14 @@ const (
 	UNORDERED_FLAG = 0x01 // 0000 0001
 )
 
-type chHiddenData struct {
-	fullRaw          []byte // pubkey, ciphertext, tag
-	chRandom         []byte
-	chSessionId      []byte
-	chX25519KeyShare []byte
-	chExtSNI         []byte
+type authenticationPayload struct {
+	randPubKey        [32]byte
+	ciphertextWithTag [64]byte
 }
 
-// makeHiddenData generates the ephemeral key pair, calculates the shared secret, and then compose and
+// makeAuthenticationPayload generates the ephemeral key pair, calculates the shared secret, and then compose and
 // encrypt the Authentication data. It also composes SNI extension.
-func makeHiddenData(sta *State) (ret chHiddenData, sharedSecret []byte) {
+func makeAuthenticationPayload(sta *State) (ret authenticationPayload, sharedSecret []byte) {
 	// random is marshalled ephemeral pub key 32 bytes
 	/*
 		Authentication data:
@@ -34,7 +33,7 @@ func makeHiddenData(sta *State) (ret chHiddenData, sharedSecret []byte) {
 	*/
 	// The authentication ciphertext and its tag are then distributed among SessionId and X25519KeyShare
 	ephPv, ephPub, _ := ecdh.GenerateKey(rand.Reader)
-	ret.chRandom = ecdh.Marshal(ephPub)
+	copy(ret.randPubKey[:], ecdh.Marshal(ephPub))
 
 	plaintext := make([]byte, 48)
 	copy(plaintext, sta.UID)
@@ -48,11 +47,8 @@ func makeHiddenData(sta *State) (ret chHiddenData, sharedSecret []byte) {
 	}
 
 	sharedSecret = ecdh.GenerateSharedSecret(ephPv, sta.staticPub)
-	nonce := ret.chRandom[0:12]
-	ciphertextWithTag, _ := util.AESGCMEncrypt(nonce, sharedSecret, plaintext)
-	ret.fullRaw = append(ret.chRandom, ciphertextWithTag...)
-	ret.chSessionId = ciphertextWithTag[0:32]
-	ret.chX25519KeyShare = ciphertextWithTag[32:64]
-	ret.chExtSNI = makeServerName(sta.ServerName)
+	ciphertextWithTag, _ := util.AESGCMEncrypt(ret.randPubKey[:12], sharedSecret, plaintext)
+	log.Print(hex.EncodeToString(sharedSecret))
+	copy(ret.ciphertextWithTag[:], ciphertextWithTag[:])
 	return
 }

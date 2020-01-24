@@ -79,20 +79,20 @@ func (c *Chrome) composeExtensions(sni []byte, keyShare []byte) []byte {
 	return ret
 }
 
-func (c *Chrome) composeClientHello(hd chHiddenData) (ch []byte) {
+func (c *Chrome) composeClientHello(hd clientHelloFields) (ch []byte) {
 	var clientHello [12][]byte
 	clientHello[0] = []byte{0x01}             // handshake type
 	clientHello[1] = []byte{0x00, 0x01, 0xfc} // length 508
 	clientHello[2] = []byte{0x03, 0x03}       // client version
-	clientHello[3] = hd.chRandom              // random
+	clientHello[3] = hd.random                // random
 	clientHello[4] = []byte{0x20}             // session id length 32
-	clientHello[5] = hd.chSessionId           // session id
+	clientHello[5] = hd.sessionId             // session id
 	clientHello[6] = []byte{0x00, 0x22}       // cipher suites length 34
 	cipherSuites, _ := hex.DecodeString("130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035000a")
 	clientHello[7] = append(makeGREASE(), cipherSuites...) // cipher suites
 	clientHello[8] = []byte{0x01}                          // compression methods length 1
 	clientHello[9] = []byte{0x00}                          // compression methods
-	clientHello[11] = c.composeExtensions(hd.chExtSNI, hd.chX25519KeyShare)
+	clientHello[11] = c.composeExtensions(hd.sni, hd.x25519KeyShare)
 	clientHello[10] = []byte{0x00, 0x00} // extensions length 401
 	binary.BigEndian.PutUint16(clientHello[10], uint16(len(clientHello[11])))
 	var ret []byte

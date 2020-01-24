@@ -8,8 +8,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type clientHelloFields struct {
+	random         []byte
+	sessionId      []byte
+	x25519KeyShare []byte
+	sni            []byte
+}
+
 type browser interface {
-	composeClientHello(chHiddenData) []byte
+	composeClientHello(clientHelloFields) []byte
 }
 
 func makeServerName(serverName string) []byte {
@@ -37,6 +44,14 @@ func addExtRec(typ []byte, data []byte) []byte {
 	return ret
 }
 
+func unmarshalAuthenticationInfo(ai authenticationPayload, serverName string) (ret clientHelloFields) {
+	ret.random = ai.randPubKey[:]
+	ret.sessionId = ai.ciphertextWithTag[0:32]
+	ret.x25519KeyShare = ai.ciphertextWithTag[32:64]
+	ret.sni = makeServerName(serverName)
+	return
+}
+
 type DirectTLS struct {
 	Transport
 }
@@ -48,8 +63,8 @@ func (DirectTLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return uti
 // if the server proceed with Cloak authentication
 func (DirectTLS) PrepareConnection(sta *State, conn net.Conn) (preparedConn net.Conn, sessionKey []byte, err error) {
 	preparedConn = conn
-	hd, sharedSecret := makeHiddenData(sta)
-	chOnly := sta.browser.composeClientHello(hd)
+	payload, sharedSecret := makeAuthenticationPayload(sta)
+	chOnly := sta.browser.composeClientHello(unmarshalAuthenticationInfo(payload, sta.ServerName))
 	chWithRecordLayer := util.AddRecordLayer(chOnly, []byte{0x16}, []byte{0x03, 0x01})
 	_, err = preparedConn.Write(chWithRecordLayer)
 	if err != nil {
