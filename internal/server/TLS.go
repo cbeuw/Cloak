@@ -36,7 +36,7 @@ func (TLS) handshake(clientHello []byte, privateKey crypto.PrivateKey, originalC
 
 	finisher = func(sessionKey []byte) (preparedConn net.Conn, err error) {
 		preparedConn = originalConn
-		reply, err := composeReply(ch, ai.sharedSecret, sessionKey)
+		reply, err := composeReply(ch, ai.sharedSecret[:], sessionKey)
 		if err != nil {
 			err = fmt.Errorf("failed to compose TLS reply: %v", err)
 			return
@@ -54,24 +54,25 @@ func (TLS) handshake(clientHello []byte, privateKey crypto.PrivateKey, originalC
 }
 
 func unmarshalClientHello(ch *ClientHello, staticPv crypto.PrivateKey) (ai authenticationInfo, err error) {
-	ai.randPubKey = ch.random
-	ephPub, ok := ecdh.Unmarshal(ai.randPubKey)
+	copy(ai.randPubKey[:], ch.random)
+	ephPub, ok := ecdh.Unmarshal(ai.randPubKey[:])
 	if !ok {
 		err = ErrInvalidPubKey
 		return
 	}
 
-	ai.sharedSecret = ecdh.GenerateSharedSecret(staticPv, ephPub)
+	copy(ai.sharedSecret[:], ecdh.GenerateSharedSecret(staticPv, ephPub))
 	var keyShare []byte
 	keyShare, err = parseKeyShare(ch.extensions[[2]byte{0x00, 0x33}])
 	if err != nil {
 		return
 	}
 
-	ai.ciphertextWithTag = append(ch.sessionId, keyShare...)
-	if len(ai.ciphertextWithTag) != 64 {
-		err = fmt.Errorf("%v: %v", ErrCiphertextLength, len(ai.ciphertextWithTag))
+	ctxTag := append(ch.sessionId, keyShare...)
+	if len(ctxTag) != 64 {
+		err = fmt.Errorf("%v: %v", ErrCiphertextLength, len(ctxTag))
 		return
 	}
+	copy(ai.ciphertextWithTag[:], ctxTag)
 	return
 }

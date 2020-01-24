@@ -232,12 +232,10 @@ func (sta *State) UsedRandomCleaner() {
 	}
 }
 
-func (sta *State) registerRandom(r []byte) bool {
-	var random [32]byte
-	copy(random[:], r)
+func (sta *State) registerRandom(r [32]byte) bool {
 	sta.usedRandomM.Lock()
-	_, used := sta.usedRandom[random]
-	sta.usedRandom[random] = sta.Now().Unix()
+	_, used := sta.usedRandom[r]
+	sta.usedRandom[r] = sta.Now().Unix()
 	sta.usedRandomM.Unlock()
 	return used
 }

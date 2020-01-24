@@ -48,7 +48,7 @@ func (WebSocket) handshake(reqPacket []byte, privateKey crypto.PrivateKey, origi
 		rand.Read(nonce)
 
 		// reply: [12 bytes nonce][32 bytes encrypted session key][16 bytes authentication tag]
-		encryptedKey, err := util.AESGCMEncrypt(nonce, ai.sharedSecret, sessionKey) // 32 + 16 = 48 bytes
+		encryptedKey, err := util.AESGCMEncrypt(nonce, ai.sharedSecret[:], sessionKey) // 32 + 16 = 48 bytes
 		if err != nil {
 			err = fmt.Errorf("failed to encrypt reply: %v", err)
 			return
@@ -74,19 +74,20 @@ func unmarshalHidden(hidden []byte, staticPv crypto.PrivateKey) (ai authenticati
 		return
 	}
 
-	ai.randPubKey = hidden[0:32]
-	ephPub, ok := ecdh.Unmarshal(ai.randPubKey)
+	copy(ai.randPubKey[:], hidden[0:32])
+	ephPub, ok := ecdh.Unmarshal(ai.randPubKey[:])
 	if !ok {
 		err = ErrInvalidPubKey
 		return
 	}
 
-	ai.sharedSecret = ecdh.GenerateSharedSecret(staticPv, ephPub)
+	copy(ai.sharedSecret[:], ecdh.GenerateSharedSecret(staticPv, ephPub))
 
-	ai.ciphertextWithTag = hidden[32:]
-	if len(ai.ciphertextWithTag) != 64 {
-		err = fmt.Errorf("%v: %v", ErrCiphertextLength, len(ai.ciphertextWithTag))
+	if len(hidden[32:]) != 64 {
+		err = fmt.Errorf("%v: %v", ErrCiphertextLength, len(hidden[32:]))
 		return
 	}
+
+	copy(ai.ciphertextWithTag[:], hidden[32:])
 	return
 }
