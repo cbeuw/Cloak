@@ -73,13 +73,13 @@ func unmarshalHidden(hidden []byte, staticPv crypto.PrivateKey) (ai authenticati
 		err = ErrBadGET
 		return
 	}
-	ephPub, ok := ecdh.Unmarshal(hidden[0:32])
+
+	ai.randPubKey = hidden[0:32]
+	ephPub, ok := ecdh.Unmarshal(ai.randPubKey)
 	if !ok {
 		err = ErrInvalidPubKey
 		return
 	}
-
-	ai.nonce = hidden[:12]
 
 	ai.sharedSecret = ecdh.GenerateSharedSecret(staticPv, ephPub)
 

@@ -23,7 +23,7 @@ type ClientInfo struct {
 
 type authenticationInfo struct {
 	sharedSecret      []byte
-	nonce             []byte
+	randPubKey        []byte
 	ciphertextWithTag []byte
 }
 
@@ -37,7 +37,7 @@ var ErrUnreconisedProtocol = errors.New("unreconised protocol")
 // touchStone checks if a the authenticationInfo are valid. It doesn't check if the UID is authorised
 func touchStone(ai authenticationInfo, now func() time.Time) (info ClientInfo, err error) {
 	var plaintext []byte
-	plaintext, err = util.AESGCMDecrypt(ai.nonce, ai.sharedSecret, ai.ciphertextWithTag)
+	plaintext, err = util.AESGCMDecrypt(ai.randPubKey[0:12], ai.sharedSecret, ai.ciphertextWithTag)
 	if err != nil {
 		return
 	}
@@ -87,7 +87,7 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 		return
 	}
 
-	if sta.registerRandom(ai.nonce) {
+	if sta.registerRandom(ai.randPubKey) {
 		err = ErrReplay
 		return
 	}

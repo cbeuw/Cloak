@@ -54,13 +54,12 @@ func (TLS) handshake(clientHello []byte, privateKey crypto.PrivateKey, originalC
 }
 
 func unmarshalClientHello(ch *ClientHello, staticPv crypto.PrivateKey) (ai authenticationInfo, err error) {
-	ephPub, ok := ecdh.Unmarshal(ch.random)
+	ai.randPubKey = ch.random
+	ephPub, ok := ecdh.Unmarshal(ai.randPubKey)
 	if !ok {
 		err = ErrInvalidPubKey
 		return
 	}
-
-	ai.nonce = ch.random[:12]
 
 	ai.sharedSecret = ecdh.GenerateSharedSecret(staticPv, ephPub)
 	var keyShare []byte
