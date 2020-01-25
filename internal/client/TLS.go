@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/util"
 	"net"
@@ -45,6 +46,8 @@ func addExtRec(typ []byte, data []byte) []byte {
 }
 
 func unmarshalAuthenticationInfo(ai authenticationPayload, serverName string) (ret clientHelloFields) {
+	// random is marshalled ephemeral pub key 32 bytes
+	// The authentication ciphertext and its tag are then distributed among SessionId and X25519KeyShare
 	ret.random = ai.randPubKey[:]
 	ret.sessionId = ai.ciphertextWithTag[0:32]
 	ret.x25519KeyShare = ai.ciphertextWithTag[32:64]
@@ -63,7 +66,7 @@ func (DirectTLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return uti
 // if the server proceed with Cloak authentication
 func (DirectTLS) PrepareConnection(sta *State, conn net.Conn) (preparedConn net.Conn, sessionKey []byte, err error) {
 	preparedConn = conn
-	payload, sharedSecret := makeAuthenticationPayload(sta)
+	payload, sharedSecret := makeAuthenticationPayload(sta, rand.Reader)
 	chOnly := sta.browser.composeClientHello(unmarshalAuthenticationInfo(payload, sta.ServerName))
 	chWithRecordLayer := util.AddRecordLayer(chOnly, []byte{0x16}, []byte{0x03, 0x01})
 	_, err = preparedConn.Write(chWithRecordLayer)

@@ -1,12 +1,10 @@
 package client
 
 import (
-	"crypto/rand"
 	"encoding/binary"
-	"encoding/hex"
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
-	"log"
+	"io"
 	"sync/atomic"
 )
 
@@ -20,9 +18,8 @@ type authenticationPayload struct {
 }
 
 // makeAuthenticationPayload generates the ephemeral key pair, calculates the shared secret, and then compose and
-// encrypt the Authentication data. It also composes SNI extension.
-func makeAuthenticationPayload(sta *State) (ret authenticationPayload, sharedSecret []byte) {
-	// random is marshalled ephemeral pub key 32 bytes
+// encrypt the authenticationPayload
+func makeAuthenticationPayload(sta *State, randReader io.Reader) (ret authenticationPayload, sharedSecret []byte) {
 	/*
 		Authentication data:
 		+----------+----------------+---------------------+-------------+--------------+--------+------------+
@@ -31,8 +28,7 @@ func makeAuthenticationPayload(sta *State) (ret authenticationPayload, sharedSec
 		| 16 bytes | 12 bytes       | 1 byte              | 8 bytes     | 4 bytes      | 1 byte | 6 bytes    |
 		+----------+----------------+---------------------+-------------+--------------+--------+------------+
 	*/
-	// The authentication ciphertext and its tag are then distributed among SessionId and X25519KeyShare
-	ephPv, ephPub, _ := ecdh.GenerateKey(rand.Reader)
+	ephPv, ephPub, _ := ecdh.GenerateKey(randReader)
 	copy(ret.randPubKey[:], ecdh.Marshal(ephPub))
 
 	plaintext := make([]byte, 48)
@@ -48,7 +44,6 @@ func makeAuthenticationPayload(sta *State) (ret authenticationPayload, sharedSec
 
 	sharedSecret = ecdh.GenerateSharedSecret(ephPv, sta.staticPub)
 	ciphertextWithTag, _ := util.AESGCMEncrypt(ret.randPubKey[:12], sharedSecret, plaintext)
-	log.Print(hex.EncodeToString(sharedSecret))
 	copy(ret.ciphertextWithTag[:], ciphertextWithTag[:])
 	return
 }

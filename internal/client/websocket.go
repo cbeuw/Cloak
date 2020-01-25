@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -37,7 +38,7 @@ func (WSOverTLS) PrepareConnection(sta *State, conn net.Conn) (preparedConn net.
 		return preparedConn, nil, fmt.Errorf("failed to parse ws url: %v", err)
 	}
 
-	payload, sharedSecret := makeAuthenticationPayload(sta)
+	payload, sharedSecret := makeAuthenticationPayload(sta, rand.Reader)
 	header := http.Header{}
 	header.Add("hidden", base64.StdEncoding.EncodeToString(append(payload.randPubKey[:], payload.ciphertextWithTag[:]...)))
 	c, _, err := websocket.NewClient(preparedConn, u, header, 16480, 16480)
