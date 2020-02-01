@@ -3,9 +3,9 @@
 package client
 
 import (
-	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
+	"github.com/cbeuw/Cloak/internal/util"
 )
 
 type Firefox struct{}
@@ -19,7 +19,7 @@ func (f *Firefox) composeExtensions(SNI []byte, keyShare []byte) []byte {
 		copy(ret[6:38], hidden)
 		ret[38], ret[39] = 0x00, 0x17 // group secp256r1
 		ret[40], ret[41] = 0x00, 0x41 // length 65
-		rand.Read(ret[42:107])
+		util.CryptoRandRead(ret[42:107])
 		return ret
 	}
 	// extension length is always 399, and server name length is variable

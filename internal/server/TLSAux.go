@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -164,7 +163,7 @@ func parseClientHello(data []byte) (ret *ClientHello, err error) {
 
 func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte) ([]byte, error) {
 	nonce := make([]byte, 12)
-	rand.Read(nonce)
+	util.CryptoRandRead(nonce)
 
 	encryptedKey, err := util.AESGCMEncrypt(nonce, sharedSecret, sessionKey) // 32 + 16 = 48 bytes
 	if err != nil {
@@ -185,7 +184,7 @@ func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte
 	keyShare, _ := hex.DecodeString("00330024001d0020")
 	keyExchange := make([]byte, 32)
 	copy(keyExchange, encryptedKey[20:48])
-	rand.Read(keyExchange[28:32])
+	util.CryptoRandRead(keyExchange[28:32])
 	serverHello[9] = append(keyShare, keyExchange...)
 
 	serverHello[10], _ = hex.DecodeString("002b00020304")
@@ -207,7 +206,7 @@ func composeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) ([]by
 	shBytes := addRecordLayer(sh, []byte{0x16}, TLS12)
 	ccsBytes := addRecordLayer([]byte{0x01}, []byte{0x14}, TLS12)
 	cert := make([]byte, 68) // TODO: add some different lengths maybe?
-	rand.Read(cert)
+	util.CryptoRandRead(cert)
 	encryptedCertBytes := addRecordLayer(cert, []byte{0x17}, TLS12)
 	ret := append(shBytes, ccsBytes...)
 	ret = append(ret, encryptedCertBytes...)

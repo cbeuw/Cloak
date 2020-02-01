@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/base64"
 	"flag"
 	"fmt"
@@ -71,7 +70,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	}
 
 	sessionKey := make([]byte, 32)
-	rand.Read(sessionKey)
+	util.CryptoRandRead(sessionKey)
 	obfuscator, err := mux.GenerateObfs(ci.EncryptionMethod, sessionKey, ci.Transport.HasRecordLayer())
 	if err != nil {
 		log.Error(err)

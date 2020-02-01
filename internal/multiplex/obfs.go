@@ -3,10 +3,10 @@ package multiplex
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/util"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/salsa20"
 )
@@ -64,7 +64,7 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD, hasRecordLayer bool)
 		if payloadCipher == nil {
 			copy(encryptedPayloadWithExtra, f.Payload)
 			if extraLen != 0 {
-				rand.Read(encryptedPayloadWithExtra[len(encryptedPayloadWithExtra)-int(extraLen):])
+				util.CryptoRandRead(encryptedPayloadWithExtra[len(encryptedPayloadWithExtra)-int(extraLen):])
 			}
 		} else {
 			ciphertext := payloadCipher.Seal(nil, header[:12], f.Payload, nil)

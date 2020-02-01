@@ -3,7 +3,6 @@
 package main
 
 import (
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
 	"flag"
@@ -29,7 +28,7 @@ func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 		// sessionID is limited to its UID.
 		quad := make([]byte, 4)
-		rand.Read(quad)
+		util.CryptoRandRead(quad)
 		atomic.StoreUint32(&sta.SessionID, binary.BigEndian.Uint32(quad))
 	}
 

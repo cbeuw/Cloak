@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"crypto"
-	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -45,7 +44,7 @@ func (WebSocket) handshake(reqPacket []byte, privateKey crypto.PrivateKey, origi
 		<-handler.finished
 		preparedConn = handler.conn
 		nonce := make([]byte, 12)
-		rand.Read(nonce)
+		util.CryptoRandRead(nonce)
 
 		// reply: [12 bytes nonce][32 bytes encrypted session key][16 bytes authentication tag]
 		encryptedKey, err := util.AESGCMEncrypt(nonce, ai.sharedSecret[:], sessionKey) // 32 + 16 = 48 bytes
