@@ -172,7 +172,7 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		log.Tracef("stream %v passively closed", s.id)
 	}
 
-	sesh.streams.Store(s.id, nil)
+	sesh.streams.Store(s.id, nil) // id may or may not exist. if we use Delete(s.id) here it will panic
 	if sesh.streamCountDecr() == 0 {
 		log.Debugf("session %v has no active stream left", sesh.id)
 		go sesh.timeoutAfter(30 * time.Second)
@@ -205,6 +205,7 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 		}
 		return existingStreamI.(*Stream).writeFrame(*frame)
 	} else {
+		// new stream
 		sesh.streamCountIncr()
 		sesh.acceptCh <- newStream
 		return newStream.writeFrame(*frame)
