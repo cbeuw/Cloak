@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/util"
+	"math/rand"
 )
 
 // ClientHello contains every field in a ClientHello message
@@ -205,7 +206,12 @@ func composeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) ([]by
 	}
 	shBytes := addRecordLayer(sh, []byte{0x16}, TLS12)
 	ccsBytes := addRecordLayer([]byte{0x01}, []byte{0x14}, TLS12)
-	cert := make([]byte, 68) // TODO: add some different lengths maybe?
+
+	// the cert length needs to be the same for all handshakes belonging to the same session
+	// we can use sessionKey as a seed here to ensure consistency
+	possibleCertLengths := []int{42, 27, 68, 59, 36, 44, 46}
+	rand.Seed(int64(sessionKey[0]))
+	cert := make([]byte, rand.Intn(len(possibleCertLengths)))
 	util.CryptoRandRead(cert)
 	encryptedCertBytes := addRecordLayer(cert, []byte{0x17}, TLS12)
 	ret := append(shBytes, ccsBytes...)
