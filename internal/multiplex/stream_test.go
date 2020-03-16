@@ -127,24 +127,12 @@ func TestStream_Close(t *testing.T) {
 		0,
 		testPayload,
 	}
-	ch := make(chan []byte)
-	l, _ := net.Listen("tcp", "127.0.0.1:0")
-	go func() {
-		conn, _ := net.Dial("tcp", l.Addr().String())
-		for {
-			data := <-ch
-			_, err := conn.Write(data)
-			if err != nil {
-				t.Error("cannot write to connection", err)
-				return
-			}
-		}
-	}()
-	conn, _ := l.Accept()
+
+	conn, writingEnd := util.GetMockConn()
 	sesh.AddConnection(conn)
 	obfsBuf := make([]byte, 512)
 	i, _ := sesh.Obfs(f, obfsBuf)
-	ch <- obfsBuf[:i]
+	writingEnd <- obfsBuf[:i]
 	time.Sleep(100 * time.Microsecond)
 	stream, err := sesh.Accept()
 	if err != nil {
@@ -175,20 +163,7 @@ func TestStream_Read(t *testing.T) {
 		testPayload,
 	}
 
-	ch := make(chan []byte)
-	l, _ := net.Listen("tcp", "127.0.0.1:0")
-	go func() {
-		conn, _ := net.Dial("tcp", l.Addr().String())
-		for {
-			data := <-ch
-			_, err := conn.Write(data)
-			if err != nil {
-				t.Error("cannot write to connection", err)
-				return
-			}
-		}
-	}()
-	conn, _ := l.Accept()
+	conn, writingEnd := util.GetMockConn()
 	sesh.AddConnection(conn)
 
 	var streamID uint32
@@ -199,7 +174,7 @@ func TestStream_Read(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsBuf[:i]
+		writingEnd <- obfsBuf[:i]
 		time.Sleep(100 * time.Microsecond)
 		stream, err := sesh.Accept()
 		if err != nil {
@@ -225,7 +200,7 @@ func TestStream_Read(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsBuf[:i]
+		writingEnd <- obfsBuf[:i]
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		i, err := stream.Read(nil)
@@ -246,7 +221,7 @@ func TestStream_Read(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsBuf[:i]
+		writingEnd <- obfsBuf[:i]
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		stream.Close()
@@ -271,7 +246,7 @@ func TestStream_Read(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsBuf[:i]
+		writingEnd <- obfsBuf[:i]
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		sesh.Close()
@@ -307,19 +282,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 		testPayload,
 	}
 
-	ch := make(chan []byte)
-	l, _ := net.Listen("tcp", "127.0.0.1:0")
-	go func() {
-		conn, _ := net.Dial("tcp", l.Addr().String())
-		for {
-			data := <-ch
-			_, err := conn.Write(data)
-			if err != nil {
-				t.Error("cannot write to connection", err)
-			}
-		}
-	}()
-	conn, _ := l.Accept()
+	conn, writingEnd := util.GetMockConn()
 	sesh.AddConnection(conn)
 
 	var streamID uint32
@@ -330,7 +293,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsBuf[:i]
+		writingEnd <- obfsBuf[:i]
 		time.Sleep(100 * time.Microsecond)
 		stream, err := sesh.Accept()
 		if err != nil {
@@ -352,7 +315,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsBuf[:i]
+		writingEnd <- obfsBuf[:i]
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		i, err := stream.Read(nil)
@@ -373,7 +336,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsBuf[:i]
+		writingEnd <- obfsBuf[:i]
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		stream.Close()
@@ -398,7 +361,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		ch <- obfsBuf[:i]
+		writingEnd <- obfsBuf[:i]
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		sesh.Close()
