@@ -241,6 +241,15 @@ func main() {
 		remoteHost = os.Getenv("SS_REMOTE_HOST")
 		remotePort = os.Getenv("SS_REMOTE_PORT")
 		config = os.Getenv("SS_PLUGIN_OPTIONS")
+
+		verbosity := flag.String("verbosity", "debug", "verbosity level")
+		flag.Parse()
+
+		lvl, err := log.ParseLevel(*verbosity)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.SetLevel(lvl)
 	} else {
 		flag.StringVar(&localHost, "i", "127.0.0.1", "localHost: Cloak listens to proxy clients on this ip")
 		flag.StringVar(&localPort, "l", "1984", "localPort: Cloak listens to proxy clients on this port")
