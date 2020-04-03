@@ -77,13 +77,14 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 		return 0, errBrokenSwitchboard
 	}
 
-	if sb.strategy == UNIFORM_SPREAD {
+	switch sb.strategy {
+	case UNIFORM_SPREAD:
 		_, conn, err := sb.pickRandConn()
 		if err != nil {
 			return 0, errBrokenSwitchboard
 		}
 		return writeAndRegUsage(conn, data)
-	} else {
+	case FIXED_CONN_MAPPING:
 		connI, ok := sb.conns.Load(*connId)
 		conn := connI.(net.Conn)
 		if ok {
@@ -96,8 +97,9 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 			connId = &newConnId
 			return writeAndRegUsage(conn, data)
 		}
+	default:
+		return 0, errors.New("unsupported traffic distribution strategy")
 	}
-
 }
 
 // returns a random connId
@@ -123,6 +125,10 @@ func (sb *switchboard) pickRandConn() (uint32, net.Conn, error) {
 		c++
 		return true
 	})
+	// if len(sb.conns) is 0
+	if conn == nil {
+		return 0, nil, errBrokenSwitchboard
+	}
 	return id, conn, nil
 }
 
