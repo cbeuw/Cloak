@@ -24,6 +24,7 @@ type rawConfig struct {
 	Transport        string
 	NumConn          int
 	StreamTimeout    int
+	RemoteHost       string
 	RemotePort       int
 }
 
@@ -128,6 +129,7 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		sta.Transport = DirectTLS{}
 	}
 
+	sta.RemoteHost = preParse.RemoteHost
 	sta.ProxyMethod = preParse.ProxyMethod
 	sta.ServerName = preParse.ServerName
 	sta.NumConn = preParse.NumConn

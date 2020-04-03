@@ -277,7 +277,6 @@ func main() {
 	sta := &client.State{
 		LocalHost:  localHost,
 		LocalPort:  localPort,
-		RemoteHost: remoteHost,
 		RemotePort: remotePort,
 		Now:        time.Now,
 	}
@@ -289,6 +288,10 @@ func main() {
 
 	if proxyMethod != "" {
 		sta.ProxyMethod = proxyMethod
+	}
+
+	if remoteHost != "" {
+		sta.RemoteHost = remoteHost
 	}
 
 	if os.Getenv("SS_LOCAL_HOST") != "" {
