@@ -73,7 +73,7 @@ Then run `make client` or `make server`. Output binary will be in `build` folder
 ## Setup
 ### For the administrator of the server
 
-0. Set up the underlying proxy server. Note that if you are using OpenVPN, you must change the protocol to TCP as Cloak does not support UDP
+0. Set up the underlying proxy server.
 1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo.
 2. Run ck-server -k. The base64 string before the comma is the **public** key to be given to users, the one after the comma is the **private** key to be kept secret
 3. Run `ck-server -u`. This will be used as the AdminUID

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ type rawConfig struct {
 	Transport        string
 	NumConn          int
 	StreamTimeout    int
+	RemotePort       int
 }
 
 // State stores the parsed configuration fields
@@ -141,6 +143,16 @@ func (sta *State) ParseConfig(conf string) (err error) {
 		return errors.New("Failed to unmarshal Public key")
 	}
 	sta.staticPub = pub
+
+	// OPTIONAL: set RemotePort via JSON
+	// if RemotePort is specified in the JSON we overwrite sta.RemotePort
+	// if not, don't do anything, since sta.RemotePort is already initialised in ck-client.go
+	if preParse.RemotePort != 0 {
+		// basic validity check
+		if preParse.RemotePort >= 1 && preParse.RemotePort <= 65535 {
+			sta.RemotePort = strconv.Itoa(preParse.RemotePort)
+		}
+	}
 
 	return nil
 }
