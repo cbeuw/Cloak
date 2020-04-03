@@ -40,12 +40,7 @@ func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 		wg.Add(1)
 		go func() {
 		makeconn:
-			connectingIP := sta.RemoteHost
-			if net.ParseIP(connectingIP).To4() == nil {
-				// IPv6 needs square brackets
-				connectingIP = "[" + connectingIP + "]"
-			}
-			remoteConn, err := d.Dial("tcp", connectingIP+":"+sta.RemotePort)
+			remoteConn, err := d.Dial("tcp", net.JoinHostPort(sta.RemoteHost, sta.RemotePort))
 			if err != nil {
 				log.Errorf("Failed to establish new connections to remote: %v", err)
 				// TODO increase the interval if failed multiple times
@@ -93,7 +88,7 @@ func makeSession(sta *client.State, isAdmin bool) *mux.Session {
 
 func routeUDP(sta *client.State, adminUID []byte) {
 	var sesh *mux.Session
-	localUDPAddr, err := net.ResolveUDPAddr("udp", sta.LocalHost+":"+sta.LocalPort)
+	localUDPAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(sta.LocalHost, sta.LocalPort))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -181,7 +176,7 @@ start:
 }
 
 func routeTCP(sta *client.State, adminUID []byte) {
-	tcpListener, err := net.Listen("tcp", sta.LocalHost+":"+sta.LocalPort)
+	tcpListener, err := net.Listen("tcp", net.JoinHostPort(sta.LocalHost, sta.LocalPort))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -307,12 +302,6 @@ func main() {
 		log.Fatal("Must specify remoteHost")
 	}
 
-	listeningIP := sta.LocalHost
-	if net.ParseIP(listeningIP).To4() == nil {
-		// IPv6 needs square brackets
-		listeningIP = "[" + listeningIP + "]"
-	}
-
 	var adminUID []byte
 	if b64AdminUID != "" {
 		adminUID, err = base64.StdEncoding.DecodeString(b64AdminUID)
@@ -322,7 +311,7 @@ func main() {
 	}
 
 	if adminUID != nil {
-		log.Infof("API base is %v:%v", listeningIP, sta.LocalPort)
+		log.Infof("API base is %v", net.JoinHostPort(sta.LocalHost, sta.LocalPort))
 		sta.SessionID = 0
 		sta.UID = adminUID
 		sta.NumConn = 1
@@ -335,7 +324,7 @@ func main() {
 			network = "TCP"
 			sta.Unordered = false
 		}
-		log.Infof("Listening on %v %v:%v for %v client", network, listeningIP, sta.LocalPort, sta.ProxyMethod)
+		log.Infof("Listening on %v %v for %v client", network, net.JoinHostPort(sta.LocalHost, sta.LocalPort), sta.ProxyMethod)
 	}
 
 	if udp {
