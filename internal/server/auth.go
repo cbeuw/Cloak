@@ -95,7 +95,7 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 	info, err = touchStone(ai, sta.Now)
 	if err != nil {
 		log.Debug(err)
-		err = fmt.Errorf("transport %v in correct format but not Cloak: %v", info.Transport, err)
+		err = fmt.Errorf("transport %v in correct format but not Cloak: %v", transport, err)
 		return
 	}
 	if _, ok := sta.ProxyBook[info.ProxyMethod]; !ok {
