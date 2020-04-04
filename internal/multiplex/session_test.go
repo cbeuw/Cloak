@@ -172,7 +172,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("receiving normal frame for stream 1: %v", err)
 	}
-	s1I, ok := sesh.streams.Load(f1.StreamID)
+	_, ok := sesh.streams.Load(f1.StreamID)
 	if !ok {
 		t.Fatal("failed to fetch stream 1 after receiving it")
 	}

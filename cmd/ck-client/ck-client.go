@@ -138,7 +138,7 @@ start:
 				stream.Close()
 				break
 			}
-			i, err = localConn.WriteToUDP(buf[:i], otherEnd.Load().(*net.UDPAddr))
+			_, err = localConn.WriteToUDP(buf[:i], otherEnd.Load().(*net.UDPAddr))
 			if err != nil {
 				log.Print(err)
 				localConn.Close()
@@ -164,7 +164,7 @@ start:
 			break
 		}
 		otherEnd.Store(oe)
-		i, err = stream.Write(buf[:i])
+		_, err = stream.Write(buf[:i])
 		if err != nil {
 			localConn.Close()
 			stream.Close()

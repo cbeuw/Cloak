@@ -68,7 +68,7 @@ func ReadTLS(conn net.Conn, buffer []byte) (n int, err error) {
 	// a single message can also be segmented due to MTU of the IP layer.
 	// This function guareentees a single TLS message to be read and everything
 	// else is left in the buffer.
-	i, err := io.ReadFull(conn, buffer[:5])
+	_, err = io.ReadFull(conn, buffer[:5])
 	if err != nil {
 		return
 	}
@@ -87,7 +87,7 @@ func ReadTLS(conn net.Conn, buffer []byte) (n int, err error) {
 		// if left < buffer size (i.e. multiple messages came together),
 		// only the message we want is read
 
-		i, err = conn.Read(buffer[readPtr : readPtr+left])
+		i, err := conn.Read(buffer[readPtr : readPtr+left])
 		if err != nil {
 			return
 		}
@@ -129,7 +129,7 @@ func Pipe(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) {
 			src.Close()
 			return
 		}
-		i, err = dst.Write(buf[:i])
+		_, err = dst.Write(buf[:i])
 		if err != nil {
 			dst.Close()
 			src.Close()
