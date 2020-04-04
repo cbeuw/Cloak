@@ -183,8 +183,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		}
 		log.Tracef("%v endpoint has been successfully connected", ci.ProxyMethod)
 
-		go util.Pipe(localConn, newStream, 0)
-		go util.Pipe(newStream, localConn, sta.Timeout)
+		go util.Pipe(localConn, newStream, sta.Timeout)
+		go util.Pipe(newStream, localConn, 0)
 
 	}
 
