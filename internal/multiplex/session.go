@@ -143,7 +143,7 @@ func (sesh *Session) Accept() (net.Conn, error) {
 
 func (sesh *Session) closeStream(s *Stream, active bool) error {
 	if s.isClosed() {
-		return errors.New("Already Closed")
+		return fmt.Errorf("stream %v is already closed", s.id)
 	}
 	atomic.StoreUint32(&s.closed, 1)
 	_ = s.recvBuf.Close() // both datagramBuffer and streamBuffer won't return err on Close()
