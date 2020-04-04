@@ -2,7 +2,7 @@ go get github.com/mitchellh/gox
 
 mkdir -p release
 
-read -p "Cleaning $PWD/release directory. Proceed? [y/n]" res
+read -rp "Cleaning $PWD/release directory. Proceed? [y/n]" res
 if [ ! "$res" == "y" ]; then
 	echo "Abort"
 	exit 1
@@ -23,14 +23,14 @@ echo "Compiling:"
 
 os="windows linux darwin"
 arch="amd64 386 arm arm64 mips mips64 mipsle mips64le"
-pushd cmd/ck-client
+pushd cmd/ck-client || exit 1
 gox -ldflags "-X main.version=${v}" -os="$os" -arch="$arch" -osarch="$osarch" -output="$output"
-GOOS="linux" GOARCH="mips" GOMIPS="softfloat" go build -ldflags "-X main.version=${v}" -o ck-client-linux-mips_softfloat-${v}
-GOOS="linux" GOARCH="mipsle" GOMIPS="softfloat" go build -ldflags "-X main.version=${v}" -o ck-client-linux-mipsle_softfloat-${v}
+GOOS="linux" GOARCH="mips" GOMIPS="softfloat" go build -ldflags "-X main.version=${v}" -o ck-client-linux-mips_softfloat-"${v}"
+GOOS="linux" GOARCH="mipsle" GOMIPS="softfloat" go build -ldflags "-X main.version=${v}" -o ck-client-linux-mipsle_softfloat-"${v}"
 mv ck-client-* ../../release
 
 os="linux"
 arch="amd64 386 arm arm64"
-pushd ../ck-server
+pushd ../ck-server || exit 1
 gox -ldflags "-X main.version=${v}" -os="$os" -arch="$arch" -osarch="$osarch" -output="$output"
 mv ck-server-* ../../release

@@ -16,7 +16,7 @@ func makeGREASE() []byte {
 	var one [1]byte
 	util.CryptoRandRead(one[:])
 	sixteenth := one[0] % 16
-	monoGREASE := byte(sixteenth*16 + 0xA)
+	monoGREASE := sixteenth*16 + 0xA
 	doubleGREASE := []byte{monoGREASE, monoGREASE}
 	return doubleGREASE
 }

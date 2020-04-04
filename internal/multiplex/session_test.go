@@ -212,7 +212,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("receiving stream closing frame for stream 1: %v", err)
 	}
-	s1I, _ = sesh.streams.Load(f1.StreamID)
+	s1I, _ := sesh.streams.Load(f1.StreamID)
 	if s1I != nil {
 		t.Fatal("stream 1 still exist after receiving stream close")
 	}
@@ -349,7 +349,7 @@ func TestParallel(t *testing.T) {
 
 	numStreams := 10
 	seqs := make([]*uint64, numStreams)
-	for i, _ := range seqs {
+	for i := range seqs {
 		seqs[i] = new(uint64)
 	}
 	randFrame := func() *Frame {
@@ -367,7 +367,7 @@ func TestParallel(t *testing.T) {
 		name  string
 		frame *Frame
 	}, numOfTests)
-	for i, _ := range tests {
+	for i := range tests {
 		tests[i].name = strconv.Itoa(i)
 		tests[i].frame = randFrame()
 	}

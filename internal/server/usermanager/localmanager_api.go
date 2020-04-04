@@ -59,7 +59,7 @@ func (manager *localManager) getUserInfoHlr(w http.ResponseWriter, r *http.Reque
 
 	var uinfo UserInfo
 	err = manager.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(UID))
+		bucket := tx.Bucket(UID)
 		if bucket == nil {
 			return ErrUserNotFound
 		}

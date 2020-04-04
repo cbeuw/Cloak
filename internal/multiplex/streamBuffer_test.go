@@ -45,7 +45,7 @@ func TestRecvNewFrame(t *testing.T) {
 		copy(targetSorted, set)
 		sort.Slice(targetSorted, func(i, j int) bool { return targetSorted[i] < targetSorted[j] })
 
-		for i, _ := range targetSorted {
+		for i := range targetSorted {
 			if sortedResult[i] != targetSorted[i] {
 				goto fail
 			}
