@@ -233,8 +233,8 @@ func main() {
 	var b64AdminUID string
 
 	log_init()
-	log.SetLevel(log.DebugLevel)
 
+	verbosity := flag.String("verbosity", "info", "verbosity level")
 	if os.Getenv("SS_LOCAL_HOST") != "" {
 		localHost = os.Getenv("SS_LOCAL_HOST")
 		localPort = os.Getenv("SS_LOCAL_PORT")
@@ -242,14 +242,8 @@ func main() {
 		remotePort = os.Getenv("SS_REMOTE_PORT")
 		config = os.Getenv("SS_PLUGIN_OPTIONS")
 
-		verbosity := flag.String("verbosity", "debug", "verbosity level")
-		flag.Parse()
+		flag.Parse() // for verbosity only
 
-		lvl, err := log.ParseLevel(*verbosity)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.SetLevel(lvl)
 	} else {
 		flag.StringVar(&localHost, "i", "127.0.0.1", "localHost: Cloak listens to proxy clients on this ip")
 		flag.StringVar(&localPort, "l", "1984", "localPort: Cloak listens to proxy clients on this port")
@@ -261,7 +255,6 @@ func main() {
 		flag.StringVar(&b64AdminUID, "a", "", "adminUID: enter the adminUID to serve the admin api")
 		askVersion := flag.Bool("v", false, "Print the version number")
 		printUsage := flag.Bool("h", false, "Print this message")
-		verbosity := flag.String("verbosity", "info", "verbosity level")
 		flag.Parse()
 
 		if *askVersion {
@@ -274,14 +267,14 @@ func main() {
 			return
 		}
 
-		lvl, err := log.ParseLevel(*verbosity)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.SetLevel(lvl)
-
 		log.Info("Starting standalone mode")
 	}
+
+	lvl, err := log.ParseLevel(*verbosity)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.SetLevel(lvl)
 
 	sta := &client.State{
 		LocalHost:  localHost,
@@ -290,7 +283,7 @@ func main() {
 		Now:        time.Now,
 	}
 
-	err := sta.ParseConfig(config)
+	err = sta.ParseConfig(config)
 	if err != nil {
 		log.Fatal(err)
 	}
