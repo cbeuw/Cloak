@@ -166,4 +166,30 @@ func TestPrepareConnection(t *testing.T) {
 			return
 		}
 	})
+	t.Run("Websocket correct", func(t *testing.T) {
+		sta, _ := InitState(func() time.Time { return time.Unix(1584358419, 0) })
+		sta.staticPv = p.(crypto.PrivateKey)
+		sta.ProxyBook["shadowsocks"] = nil
+
+		req := `GET / HTTP/1.1
+Host: d2jkinvisak5y9.cloudfront.net:443
+User-Agent: Go-http-client/1.1
+Connection: Upgrade
+Hidden: oJxeEwfDWg5k5Jbl8ttZD1sc0fHp8VjEtXHsqEoSrnaLRe/M+KGXkOzpc/2fRRg9Vk+wIWRsfv8IpoBPLbqO+ZfGsPXTjUJGiI9BqxrcJfkxncXA7FAHGpTc84tzBtZZ
+Sec-WebSocket-Key: lJYh7X8DRXW1U0h9WKwVMA==
+Sec-WebSocket-Version: 13
+Upgrade: websocket
+
+`
+		info, _, err := PrepareConnection([]byte(req), sta, nil)
+		if err != nil {
+			t.Errorf("failed to get client info: %v", err)
+			return
+		}
+		if info.Transport.(fmt.Stringer).String() != "WebSocket" {
+			t.Errorf("wrong transport: %v", info.Transport)
+			return
+		}
+	})
+
 }
