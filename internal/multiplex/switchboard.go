@@ -94,7 +94,7 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 			if err != nil {
 				return 0, errBrokenSwitchboard
 			}
-			connId = &newConnId
+			*connId = newConnId
 			return writeAndRegUsage(conn, data)
 		}
 	default:
