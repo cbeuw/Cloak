@@ -89,7 +89,7 @@ func ReadTLS(conn net.Conn, buffer []byte) (n int, err error) {
 
 		i, err := conn.Read(buffer[readPtr : readPtr+left])
 		if err != nil {
-			return
+			return i, err
 		}
 		left -= i
 		readPtr += i
