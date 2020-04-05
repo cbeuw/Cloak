@@ -32,7 +32,9 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	i, err := io.ReadAtLeast(conn, buf, 1)
 	if err != nil {
-		go conn.Close()
+		log.WithField("remoteAddr", remoteAddr).
+			Infof("failed to read anything after connection is established: %v", err)
+		conn.Close()
 		return
 	}
 	conn.SetReadDeadline(time.Time{})

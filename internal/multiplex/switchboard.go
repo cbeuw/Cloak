@@ -152,6 +152,7 @@ func (sb *switchboard) closeAll() {
 
 // deplex function costantly reads from a TCP connection
 func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
+	defer conn.Close()
 	buf := make([]byte, 20480)
 	for {
 		n, err := sb.session.UnitRead(conn, buf)
@@ -159,7 +160,6 @@ func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 		sb.Valve.AddRx(int64(n))
 		if err != nil {
 			log.Debugf("a connection for session %v has closed: %v", sb.session.id, err)
-			go conn.Close()
 			sb.close("a connection has dropped unexpectedly")
 			return
 		}
