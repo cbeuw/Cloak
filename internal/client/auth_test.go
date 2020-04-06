@@ -10,33 +10,34 @@ import (
 
 func TestMakeAuthenticationPayload(t *testing.T) {
 	tests := []struct {
-		state      *State
+		authInfo   *authInfo
 		seed       io.Reader
+		time       time.Time
 		expPayload authenticationPayload
 		expSecret  []byte
 	}{
 		{
-			&State{
+			&authInfo{
 				Unordered: false,
-				SessionID: 3421516597,
+				SessionId: 3421516597,
 				UID: []byte{
 					0x4c, 0xd8, 0xcc, 0x15, 0x60, 0x0d, 0x7e,
 					0xb6, 0x81, 0x31, 0xfd, 0x80, 0x97, 0x67, 0x37, 0x46},
-				staticPub: &[32]byte{
+				ServerPubKey: &[32]byte{
 					0x21, 0x8a, 0x14, 0xce, 0x49, 0x5e, 0xfd, 0x3f,
 					0xe4, 0xae, 0x21, 0x3e, 0x51, 0xf7, 0x66, 0xec,
 					0x01, 0xd0, 0xb4, 0x87, 0x86, 0x9c, 0x15, 0x9b,
 					0x86, 0x19, 0x53, 0x6e, 0x60, 0xe9, 0x51, 0x42},
-				Now:              func() time.Time { return time.Unix(1579908372, 0) },
 				ProxyMethod:      "shadowsocks",
 				EncryptionMethod: multiplex.E_METHOD_PLAIN,
-				ServerName:       "d2jkinvisak5y9.cloudfront.net",
+				MockDomain:       "d2jkinvisak5y9.cloudfront.net",
 			},
 			bytes.NewBuffer([]byte{
 				0xf1, 0x1e, 0x42, 0xe1, 0x84, 0x22, 0x07, 0xc5,
 				0xc3, 0x5c, 0x0f, 0x7b, 0x01, 0xf3, 0x65, 0x2d,
 				0xd7, 0x9b, 0xad, 0xb0, 0xb2, 0x77, 0xa2, 0x06,
 				0x6b, 0x78, 0x1b, 0x74, 0x1f, 0x43, 0xc9, 0x80}),
+			time.Unix(1579908372, 0),
 			authenticationPayload{
 				randPubKey: [32]byte{
 					0xee, 0x9e, 0x41, 0x4e, 0xb3, 0x3b, 0x85, 0x03,
@@ -62,7 +63,7 @@ func TestMakeAuthenticationPayload(t *testing.T) {
 	}
 	for _, tc := range tests {
 		func() {
-			payload, sharedSecret := makeAuthenticationPayload(tc.state, tc.seed)
+			payload, sharedSecret := makeAuthenticationPayload(tc.authInfo, tc.seed, tc.time)
 			if payload != tc.expPayload {
 				t.Errorf("payload doesn't match:\nexp %v\ngot %v", tc.expPayload, payload)
 			}
