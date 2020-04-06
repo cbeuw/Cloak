@@ -106,6 +106,8 @@ func main() {
 				rawConfig.RemoteHost = remoteHost
 			case "p":
 				rawConfig.RemotePort = remotePort
+			case "u":
+				rawConfig.UDP = udp
 			case "proxy":
 				rawConfig.ProxyMethod = proxyMethod
 			}
@@ -148,12 +150,10 @@ func main() {
 		}
 	} else {
 		var network string
-		if udp {
+		if authInfo.Unordered {
 			network = "UDP"
-			authInfo.Unordered = true
 		} else {
 			network = "TCP"
-			authInfo.Unordered = false
 		}
 		log.Infof("Listening on %v %v for %v client", network, localConfig.LocalAddr, authInfo.ProxyMethod)
 		seshMaker = func() *mux.Session {
@@ -161,7 +161,7 @@ func main() {
 		}
 	}
 
-	if udp {
+	if authInfo.Unordered {
 		client.RouteUDP(localConfig, seshMaker)
 	} else {
 		client.RouteTCP(localConfig, seshMaker)

@@ -27,9 +27,9 @@ type rawConfig struct {
 	LocalPort        string // jsonOptional
 	RemoteHost       string // jsonOptional
 	RemotePort       string // jsonOptional
-	//TODO: udp
 
 	// defaults set in SplitConfigs
+	UDP           bool   // nullable
 	BrowserSig    string // nullable
 	Transport     string // nullable
 	StreamTimeout int    // nullable
@@ -57,7 +57,7 @@ func ssvToJson(ssv string) (ret []byte) {
 		r = strings.Replace(r, `\;`, `;`, -1)
 		return r
 	}
-	unquoted := []string{"NumConn", "StreamTimeout", "KeepAlive"}
+	unquoted := []string{"NumConn", "StreamTimeout", "KeepAlive", "UDP"}
 	lines := strings.Split(unescape(ssv), ";")
 	ret = []byte("{")
 	for _, ln := range lines {
@@ -107,6 +107,8 @@ func (raw *rawConfig) SplitConfigs() (local *localConnConfig, remote *remoteConn
 	}
 
 	auth = new(authInfo)
+	auth.UID = raw.UID
+	auth.Unordered = raw.UDP
 	if raw.ServerName == "" {
 		return nullErr("ServerName")
 	}
@@ -118,7 +120,6 @@ func (raw *rawConfig) SplitConfigs() (local *localConnConfig, remote *remoteConn
 	if len(raw.UID) == 0 {
 		return nullErr("UID")
 	}
-	auth.UID = raw.UID
 
 	// static public key
 	if len(raw.PublicKey) == 0 {
