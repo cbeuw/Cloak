@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// userPanel is used to authenticate new users and book keep active users
 type userPanel struct {
 	Manager usermanager.UserManager
 

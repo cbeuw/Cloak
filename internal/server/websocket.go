@@ -13,9 +13,7 @@ import (
 	"net/http"
 )
 
-type WebSocket struct {
-	requestPacket []byte
-}
+type WebSocket struct{}
 
 func (WebSocket) String() string                                    { return "WebSocket" }
 func (WebSocket) HasRecordLayer() bool                              { return false }
