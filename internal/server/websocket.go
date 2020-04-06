@@ -19,7 +19,7 @@ func (WebSocket) String() string                                    { return "We
 func (WebSocket) HasRecordLayer() bool                              { return false }
 func (WebSocket) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadWebSocket }
 
-func (WebSocket) handshake(reqPacket []byte, privateKey crypto.PrivateKey, originalConn net.Conn) (ai authenticationInfo, finisher func([]byte) (net.Conn, error), err error) {
+func (WebSocket) handshake(reqPacket []byte, privateKey crypto.PrivateKey, originalConn net.Conn) (fragments authFragments, finisher func([]byte) (net.Conn, error), err error) {
 	var req *http.Request
 	req, err = http.ReadRequest(bufio.NewReader(bytes.NewBuffer(reqPacket)))
 	if err != nil {
@@ -29,9 +29,9 @@ func (WebSocket) handshake(reqPacket []byte, privateKey crypto.PrivateKey, origi
 	var hiddenData []byte
 	hiddenData, err = base64.StdEncoding.DecodeString(req.Header.Get("hidden"))
 
-	ai, err = unmarshalHidden(hiddenData, privateKey)
+	fragments, err = unmarshalHidden(hiddenData, privateKey)
 	if err != nil {
-		err = fmt.Errorf("failed to unmarshal hidden data from WS into authenticationInfo: %v", err)
+		err = fmt.Errorf("failed to unmarshal hidden data from WS into authFragments: %v", err)
 		return
 	}
 
@@ -47,7 +47,7 @@ func (WebSocket) handshake(reqPacket []byte, privateKey crypto.PrivateKey, origi
 		util.CryptoRandRead(nonce)
 
 		// reply: [12 bytes nonce][32 bytes encrypted session key][16 bytes authentication tag]
-		encryptedKey, err := util.AESGCMEncrypt(nonce, ai.sharedSecret[:], sessionKey) // 32 + 16 = 48 bytes
+		encryptedKey, err := util.AESGCMEncrypt(nonce, fragments.sharedSecret[:], sessionKey) // 32 + 16 = 48 bytes
 		if err != nil {
 			err = fmt.Errorf("failed to encrypt reply: %v", err)
 			return
@@ -67,26 +67,26 @@ func (WebSocket) handshake(reqPacket []byte, privateKey crypto.PrivateKey, origi
 
 var ErrBadGET = errors.New("non (or malformed) HTTP GET")
 
-func unmarshalHidden(hidden []byte, staticPv crypto.PrivateKey) (ai authenticationInfo, err error) {
+func unmarshalHidden(hidden []byte, staticPv crypto.PrivateKey) (fragments authFragments, err error) {
 	if len(hidden) < 96 {
 		err = ErrBadGET
 		return
 	}
 
-	copy(ai.randPubKey[:], hidden[0:32])
-	ephPub, ok := ecdh.Unmarshal(ai.randPubKey[:])
+	copy(fragments.randPubKey[:], hidden[0:32])
+	ephPub, ok := ecdh.Unmarshal(fragments.randPubKey[:])
 	if !ok {
 		err = ErrInvalidPubKey
 		return
 	}
 
-	copy(ai.sharedSecret[:], ecdh.GenerateSharedSecret(staticPv, ephPub))
+	copy(fragments.sharedSecret[:], ecdh.GenerateSharedSecret(staticPv, ephPub))
 
 	if len(hidden[32:]) != 64 {
 		err = fmt.Errorf("%v: %v", ErrCiphertextLength, len(hidden[32:]))
 		return
 	}
 
-	copy(ai.ciphertextWithTag[:], hidden[32:])
+	copy(fragments.ciphertextWithTag[:], hidden[32:])
 	return
 }

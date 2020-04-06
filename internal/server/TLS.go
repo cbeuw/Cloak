@@ -19,7 +19,7 @@ func (TLS) String() string                                    { return "TLS" }
 func (TLS) HasRecordLayer() bool                              { return true }
 func (TLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadTLS }
 
-func (TLS) handshake(clientHello []byte, privateKey crypto.PrivateKey, originalConn net.Conn) (ai authenticationInfo, finisher func([]byte) (net.Conn, error), err error) {
+func (TLS) handshake(clientHello []byte, privateKey crypto.PrivateKey, originalConn net.Conn) (fragments authFragments, finisher func([]byte) (net.Conn, error), err error) {
 	var ch *ClientHello
 	ch, err = parseClientHello(clientHello)
 	if err != nil {
@@ -28,15 +28,15 @@ func (TLS) handshake(clientHello []byte, privateKey crypto.PrivateKey, originalC
 		return
 	}
 
-	ai, err = unmarshalClientHello(ch, privateKey)
+	fragments, err = unmarshalClientHello(ch, privateKey)
 	if err != nil {
-		err = fmt.Errorf("failed to unmarshal ClientHello into authenticationInfo: %v", err)
+		err = fmt.Errorf("failed to unmarshal ClientHello into authFragments: %v", err)
 		return
 	}
 
 	finisher = func(sessionKey []byte) (preparedConn net.Conn, err error) {
 		preparedConn = originalConn
-		reply, err := composeReply(ch, ai.sharedSecret[:], sessionKey)
+		reply, err := composeReply(ch, fragments.sharedSecret[:], sessionKey)
 		if err != nil {
 			err = fmt.Errorf("failed to compose TLS reply: %v", err)
 			return
@@ -53,15 +53,15 @@ func (TLS) handshake(clientHello []byte, privateKey crypto.PrivateKey, originalC
 	return
 }
 
-func unmarshalClientHello(ch *ClientHello, staticPv crypto.PrivateKey) (ai authenticationInfo, err error) {
-	copy(ai.randPubKey[:], ch.random)
-	ephPub, ok := ecdh.Unmarshal(ai.randPubKey[:])
+func unmarshalClientHello(ch *ClientHello, staticPv crypto.PrivateKey) (fragments authFragments, err error) {
+	copy(fragments.randPubKey[:], ch.random)
+	ephPub, ok := ecdh.Unmarshal(fragments.randPubKey[:])
 	if !ok {
 		err = ErrInvalidPubKey
 		return
 	}
 
-	copy(ai.sharedSecret[:], ecdh.GenerateSharedSecret(staticPv, ephPub))
+	copy(fragments.sharedSecret[:], ecdh.GenerateSharedSecret(staticPv, ephPub))
 	var keyShare []byte
 	keyShare, err = parseKeyShare(ch.extensions[[2]byte{0x00, 0x33}])
 	if err != nil {
@@ -73,6 +73,6 @@ func unmarshalClientHello(ch *ClientHello, staticPv crypto.PrivateKey) (ai authe
 		err = fmt.Errorf("%v: %v", ErrCiphertextLength, len(ctxTag))
 		return
 	}
-	copy(ai.ciphertextWithTag[:], ctxTag)
+	copy(fragments.ciphertextWithTag[:], ctxTag)
 	return
 }

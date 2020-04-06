@@ -21,7 +21,7 @@ type ClientInfo struct {
 	Transport        Transport
 }
 
-type authenticationInfo struct {
+type authFragments struct {
 	sharedSecret      [32]byte
 	randPubKey        [32]byte
 	ciphertextWithTag [64]byte
@@ -34,10 +34,10 @@ const (
 var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
 var ErrUnreconisedProtocol = errors.New("unreconised protocol")
 
-// touchStone checks if a the authenticationInfo are valid. It doesn't check if the UID is authorised
-func touchStone(ai authenticationInfo, now func() time.Time) (info ClientInfo, err error) {
+// touchStone checks if a the authFragments are valid. It doesn't check if the UID is authorised
+func touchStone(fragments authFragments, now func() time.Time) (info ClientInfo, err error) {
 	var plaintext []byte
-	plaintext, err = util.AESGCMDecrypt(ai.randPubKey[0:12], ai.sharedSecret[:], ai.ciphertextWithTag[:])
+	plaintext, err = util.AESGCMDecrypt(fragments.randPubKey[0:12], fragments.sharedSecret[:], fragments.ciphertextWithTag[:])
 	if err != nil {
 		return
 	}
@@ -80,19 +80,19 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 		return
 	}
 
-	var ai authenticationInfo
-	ai, finisher, err = transport.handshake(firstPacket, sta.staticPv, conn)
+	var fragments authFragments
+	fragments, finisher, err = transport.handshake(firstPacket, sta.staticPv, conn)
 
 	if err != nil {
 		return
 	}
 
-	if sta.registerRandom(ai.randPubKey) {
+	if sta.registerRandom(fragments.randPubKey) {
 		err = ErrReplay
 		return
 	}
 
-	info, err = touchStone(ai, sta.Now)
+	info, err = touchStone(fragments, sta.Now)
 	if err != nil {
 		log.Debug(err)
 		err = fmt.Errorf("transport %v in correct format but not Cloak: %v", transport, err)

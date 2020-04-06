@@ -9,7 +9,7 @@ import (
 type Transport interface {
 	HasRecordLayer() bool
 	UnitReadFunc() func(net.Conn, []byte) (int, error)
-	handshake(reqPacket []byte, privateKey crypto.PrivateKey, originalConn net.Conn) (authenticationInfo, func([]byte) (net.Conn, error), error)
+	handshake(reqPacket []byte, privateKey crypto.PrivateKey, originalConn net.Conn) (authFragments, func([]byte) (net.Conn, error), error)
 }
 
 var ErrInvalidPubKey = errors.New("public key has invalid format")
