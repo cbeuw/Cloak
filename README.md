@@ -39,11 +39,21 @@ Then run `make client` or `make server`. Output binary will be in `build` folder
 ## Configuration
 
 ### Server
-`RedirAddr` is the redirection address when the incoming traffic is not from a Cloak client. It should either be the same as, or correspond to the IP record of the `ServerName` field set in `ckclient.json`.
+`RedirAddr` is the redirection address when the incoming traffic is not from a Cloak client. It should be the IP and port of a webserver that responds to HTTPS (eg: `localhost:10443`), preferably with a real SSL certificate.
 
 `BindAddr` is a list of addresses Cloak will bind and listen to (e.g. `[":443",":80"]` to listen to port 443 and 80 on all interfaces)
 
-`ProxyBook` is a nested JSON section which defines the address of different proxy server ends. For instance, if OpenVPN server is listening on 127.0.0.1:1194, the pair should be `"openvpn":"127.0.0.1:1194"`. There can be multiple pairs. You can add any other proxy server in a similar fashion, as long as the name matches the `ProxyMethod` in the client config exactly (case-sensitive).
+`ProxyBook` is an object whose key is the name of the ProxyMethod used on the client-side (case-sensitive). Its value is an array whose first element is the protocol and the second element is an `IP:PORT` string of the upstream proxy server that Cloak will forward the traffic to.
+
+Example:
+```json
+{
+    "ProxyBook": {
+        "shadowsocks": [ "tcp", "localhost:51443" ],
+        "openvpn": [ "tcp", "localhost:12345" ]
+    }
+}
+```
 
 `PrivateKey` is the static curve25519 Diffie-Hellman private key encoded in base64.
 
@@ -52,6 +62,10 @@ Then run `make client` or `make server`. Output binary will be in `build` folder
 `BypassUID` is a list of UIDs that are authorised without any bandwidth or credit limit restrictions
 
 `DatabasePath` is the path to userinfo.db. If userinfo.db doesn't exist in this directory, Cloak will create one automatically. **If Cloak is started as a Shadowsocks plugin and Shadowsocks is started with its working directory as / (e.g. starting ss-server with systemctl), you need to set this field as an absolute path to a desired folder. If you leave it as default then Cloak will attempt to create userinfo.db under /, which it doesn't have the permission to do so and will raise an error. See Issue #13.**
+
+`KeepAlive` is the number of seconds to tell the OS to wait after no activity before sending TCP KeepAlive probes to the upstream proxy server. Zero or negative value disables it. Default is 0 (disabled).
+
+`StreamTimeout` is the number of seconds of no sent data after which the incoming Cloak client connection will be terminated. Default is 300 seconds.
 
 ### Client
 `UID` is your UID in base64.
@@ -69,6 +83,10 @@ Then run `make client` or `make server`. Output binary will be in `build` folder
 `NumConn` is the amount of underlying TCP connections you want to use. The default of 4 should be appropriate for most people. Setting it too high will hinder the performance. 
 
 `BrowserSig` is the browser you want to **appear** to be using. It's not relevant to the browser you are actually using. Currently, `chrome` and `firefox` are supported.
+
+`KeepAlive` is the number of seconds to tell the OS to wait after no activity before sending TCP KeepAlive probes to the Cloak server. Zero or negative value disables it. Default is 0 (disabled). Warning: Enabling it might make your server more detectable as a proxy, but it will make the Cloak client detect internet interruption more quickly.
+
+`StreamTimeout` is the number of seconds of no sent data after which the incoming proxy connection will be terminated. Default is 300 seconds.
 
 ## Setup
 ### For the administrator of the server
