@@ -1,11 +1,10 @@
 package client
 
 import (
-	"crypto"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io/ioutil"
-	"strconv"
+	"net"
 	"strings"
 	"time"
 
@@ -14,54 +13,51 @@ import (
 )
 
 // rawConfig represents the fields in the config json file
+// nullable means if it's empty, a default value will be chosen in SplitConfigs
+// jsonOptional means if the json's empty, its value will be set from environment variables or commandline args
+// but it mustn't be empty when SplitConfigs is called
 type rawConfig struct {
 	ServerName       string
 	ProxyMethod      string
 	EncryptionMethod string
 	UID              []byte
 	PublicKey        []byte
-	BrowserSig       string
-	Transport        string
 	NumConn          int
-	StreamTimeout    int
-	KeepAlive        int
-	RemoteHost       string
-	RemotePort       int
+	LocalHost        string // jsonOptional
+	LocalPort        string // jsonOptional
+	RemoteHost       string // jsonOptional
+	RemotePort       string // jsonOptional
+	//TODO: udp
+
+	// defaults set in SplitConfigs
+	BrowserSig    string // nullable
+	Transport     string // nullable
+	StreamTimeout int    // nullable
+	KeepAlive     int    // nullable
 }
 
-// State stores the parsed configuration fields
-type State struct {
-	LocalHost  string
-	LocalPort  string
-	RemoteHost string
-	RemotePort string
-	Unordered  bool
-
-	Transport Transport
-
-	SessionID uint32
-	UID       []byte
-
-	staticPub crypto.PublicKey
-	Now       func() time.Time // for easier testing
-	browser   browser
-
-	ProxyMethod      string
-	EncryptionMethod byte
-	ServerName       string
-	NumConn          int
-	Timeout          time.Duration
-	KeepAlive        time.Duration
+type localConnConfig struct {
+	LocalAddr string
+	Timeout   time.Duration
 }
 
 // semi-colon separated value. This is for Android plugin options
 func ssvToJson(ssv string) (ret []byte) {
+	elem := func(val string, lst []string) bool {
+		for _, v := range lst {
+			if val == v {
+				return true
+			}
+		}
+		return false
+	}
 	unescape := func(s string) string {
 		r := strings.Replace(s, `\\`, `\`, -1)
 		r = strings.Replace(r, `\=`, `=`, -1)
 		r = strings.Replace(r, `\;`, `;`, -1)
 		return r
 	}
+	unquoted := []string{"NumConn", "StreamTimeout", "KeepAlive"}
 	lines := strings.Split(unescape(ssv), ";")
 	ret = []byte("{")
 	for _, ln := range lines {
@@ -73,7 +69,7 @@ func ssvToJson(ssv string) (ret []byte) {
 		value := sp[1]
 		// JSON doesn't like quotation marks around int and bool
 		// This is extremely ugly but it's still better than writing a tokeniser
-		if key == "NumConn" || key == "Unordered" || key == "StreamTimeout" {
+		if elem(key, unquoted) {
 			ret = append(ret, []byte(`"`+key+`":`+value+`,`)...)
 		} else {
 			ret = append(ret, []byte(`"`+key+`":"`+value+`",`)...)
@@ -84,8 +80,7 @@ func ssvToJson(ssv string) (ret []byte) {
 	return ret
 }
 
-// ParseConfig parses the config (either a path to json or Android config) into a State variable
-func (sta *State) ParseConfig(conf string) (err error) {
+func ParseConfig(conf string) (raw *rawConfig, err error) {
 	var content []byte
 	// Checking if it's a path to json or a ssv string
 	if strings.Contains(conf, ";") && strings.Contains(conf, "=") {
@@ -93,75 +88,116 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	} else {
 		content, err = ioutil.ReadFile(conf)
 		if err != nil {
-			return err
+			return
 		}
 	}
-	var preParse rawConfig
-	err = json.Unmarshal(content, &preParse)
+
+	raw = new(rawConfig)
+	err = json.Unmarshal(content, &raw)
 	if err != nil {
-		return err
+		return
+	}
+	return
+}
+
+func (raw *rawConfig) SplitConfigs() (local *localConnConfig, remote *remoteConnConfig, auth *authInfo, err error) {
+	nullErr := func(field string) (local *localConnConfig, remote *remoteConnConfig, auth *authInfo, err error) {
+		err = fmt.Errorf("%v cannot be empty", field)
+		return
 	}
 
-	switch strings.ToLower(preParse.EncryptionMethod) {
-	case "plain":
-		sta.EncryptionMethod = mux.E_METHOD_PLAIN
-	case "aes-gcm":
-		sta.EncryptionMethod = mux.E_METHOD_AES_GCM
-	case "chacha20-poly1305":
-		sta.EncryptionMethod = mux.E_METHOD_CHACHA20_POLY1305
-	default:
-		return errors.New("Unknown encryption method")
+	auth = new(authInfo)
+	if raw.ServerName == "" {
+		return nullErr("ServerName")
 	}
+	auth.MockDomain = raw.ServerName
+	if raw.ProxyMethod == "" {
+		return nullErr("ServerName")
+	}
+	auth.ProxyMethod = raw.ProxyMethod
+	if len(raw.UID) == 0 {
+		return nullErr("UID")
+	}
+	auth.UID = raw.UID
 
-	switch strings.ToLower(preParse.BrowserSig) {
-	case "chrome":
-		sta.browser = &Chrome{}
-	case "firefox":
-		sta.browser = &Firefox{}
-	default:
-		return errors.New("unsupported browser signature")
+	// static public key
+	if len(raw.PublicKey) == 0 {
+		return nullErr("PublicKey")
 	}
-
-	switch strings.ToLower(preParse.Transport) {
-	case "direct":
-		sta.Transport = DirectTLS{}
-	case "cdn":
-		sta.Transport = WSOverTLS{}
-	default:
-		sta.Transport = DirectTLS{}
-	}
-
-	sta.RemoteHost = preParse.RemoteHost
-	sta.ProxyMethod = preParse.ProxyMethod
-	sta.ServerName = preParse.ServerName
-	sta.NumConn = preParse.NumConn
-	if preParse.StreamTimeout == 0 {
-		sta.Timeout = 300 * time.Second
-	} else {
-		sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
-	}
-	if preParse.KeepAlive <= 0 {
-		sta.KeepAlive = -1
-	} else {
-		sta.KeepAlive = time.Duration(preParse.KeepAlive) * time.Second
-	}
-	sta.UID = preParse.UID
-
-	pub, ok := ecdh.Unmarshal(preParse.PublicKey)
+	pub, ok := ecdh.Unmarshal(raw.PublicKey)
 	if !ok {
-		return errors.New("Failed to unmarshal Public key")
+		err = fmt.Errorf("failed to unmarshal Public key")
+		return
 	}
-	sta.staticPub = pub
+	auth.ServerPubKey = pub
 
-	// OPTIONAL: set RemotePort via JSON
-	// if RemotePort is specified in the JSON we overwrite sta.RemotePort
-	// if not, don't do anything, since sta.RemotePort is already initialised in ck-client.go
-	if preParse.RemotePort != 0 {
-		// basic validity check
-		if preParse.RemotePort >= 1 && preParse.RemotePort <= 65535 {
-			sta.RemotePort = strconv.Itoa(preParse.RemotePort)
+	// Encryption method
+	switch strings.ToLower(raw.EncryptionMethod) {
+	case "plain":
+		auth.EncryptionMethod = mux.E_METHOD_PLAIN
+	case "aes-gcm":
+		auth.EncryptionMethod = mux.E_METHOD_AES_GCM
+	case "chacha20-poly1305":
+		auth.EncryptionMethod = mux.E_METHOD_CHACHA20_POLY1305
+	default:
+		err = fmt.Errorf("unknown encryption method %v", raw.EncryptionMethod)
+		return
+	}
+
+	remote = new(remoteConnConfig)
+	if raw.RemoteHost == "" {
+		return nullErr("RemoteHost")
+	}
+	if raw.RemotePort == "" {
+		return nullErr("RemotePort")
+	}
+	remote.RemoteAddr = net.JoinHostPort(raw.RemoteHost, raw.RemotePort)
+	if raw.NumConn == 0 {
+		return nullErr("NumConn")
+	}
+	remote.NumConn = raw.NumConn
+
+	// Transport and (if TLS mode), browser
+	switch strings.ToLower(raw.Transport) {
+	case "cdn":
+		remote.Transport = WSOverTLS{remote.RemoteAddr}
+	case "direct":
+		fallthrough
+	default:
+		var browser browser
+		switch strings.ToLower(raw.BrowserSig) {
+		case "firefox":
+			browser = &Firefox{}
+		case "chrome":
+			fallthrough
+		default:
+			browser = &Chrome{}
 		}
+		remote.Transport = DirectTLS{browser}
 	}
 
-	return nil
+	// KeepAlive
+	if raw.KeepAlive <= 0 {
+		remote.KeepAlive = -1
+	} else {
+		remote.KeepAlive = remote.KeepAlive * time.Second
+	}
+
+	local = new(localConnConfig)
+
+	if raw.LocalHost == "" {
+		return nullErr("LocalHost")
+	}
+	if raw.LocalPort == "" {
+		return nullErr("LocalPort")
+	}
+	local.LocalAddr = net.JoinHostPort(raw.LocalHost, raw.LocalPort)
+	// stream no write timeout
+	if raw.StreamTimeout == 0 {
+		local.Timeout = 300 * time.Second
+	} else {
+		local.Timeout = time.Duration(raw.StreamTimeout) * time.Second
+	}
+
+	return
 }

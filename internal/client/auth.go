@@ -1,11 +1,12 @@
 package client
 
 import (
+	"crypto"
 	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
 	"io"
-	"sync/atomic"
+	"time"
 )
 
 const (
@@ -17,9 +18,19 @@ type authenticationPayload struct {
 	ciphertextWithTag [64]byte
 }
 
+type authInfo struct {
+	UID              []byte
+	SessionId        uint32
+	ProxyMethod      string
+	EncryptionMethod byte
+	Unordered        bool
+	ServerPubKey     crypto.PublicKey
+	MockDomain       string
+}
+
 // makeAuthenticationPayload generates the ephemeral key pair, calculates the shared secret, and then compose and
 // encrypt the authenticationPayload
-func makeAuthenticationPayload(sta *State, randReader io.Reader) (ret authenticationPayload, sharedSecret []byte) {
+func makeAuthenticationPayload(authInfo *authInfo, randReader io.Reader, time time.Time) (ret authenticationPayload, sharedSecret []byte) {
 	/*
 		Authentication data:
 		+----------+----------------+---------------------+-------------+--------------+--------+------------+
@@ -32,17 +43,17 @@ func makeAuthenticationPayload(sta *State, randReader io.Reader) (ret authentica
 	copy(ret.randPubKey[:], ecdh.Marshal(ephPub))
 
 	plaintext := make([]byte, 48)
-	copy(plaintext, sta.UID)
-	copy(plaintext[16:28], sta.ProxyMethod)
-	plaintext[28] = sta.EncryptionMethod
-	binary.BigEndian.PutUint64(plaintext[29:37], uint64(sta.Now().Unix()))
-	binary.BigEndian.PutUint32(plaintext[37:41], atomic.LoadUint32(&sta.SessionID))
+	copy(plaintext, authInfo.UID)
+	copy(plaintext[16:28], authInfo.ProxyMethod)
+	plaintext[28] = authInfo.EncryptionMethod
+	binary.BigEndian.PutUint64(plaintext[29:37], uint64(time.Unix()))
+	binary.BigEndian.PutUint32(plaintext[37:41], authInfo.SessionId)
 
-	if sta.Unordered {
+	if authInfo.Unordered {
 		plaintext[41] |= UNORDERED_FLAG
 	}
 
-	sharedSecret = ecdh.GenerateSharedSecret(ephPv, sta.staticPub)
+	sharedSecret = ecdh.GenerateSharedSecret(ephPv, authInfo.ServerPubKey)
 	ciphertextWithTag, _ := util.AESGCMEncrypt(ret.randPubKey[:12], sharedSecret, plaintext)
 	copy(ret.ciphertextWithTag[:], ciphertextWithTag[:])
 	return

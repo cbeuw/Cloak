@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/util"
 	"net"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -45,7 +46,7 @@ func addExtRec(typ []byte, data []byte) []byte {
 	return ret
 }
 
-func unmarshalAuthenticationInfo(ai authenticationPayload, serverName string) (ret clientHelloFields) {
+func genStegClientHello(ai authenticationPayload, serverName string) (ret clientHelloFields) {
 	// random is marshalled ephemeral pub key 32 bytes
 	// The authentication ciphertext and its tag are then distributed among SessionId and X25519KeyShare
 	ret.random = ai.randPubKey[:]
@@ -56,7 +57,7 @@ func unmarshalAuthenticationInfo(ai authenticationPayload, serverName string) (r
 }
 
 type DirectTLS struct {
-	Transport
+	browser
 }
 
 func (DirectTLS) HasRecordLayer() bool                              { return true }
@@ -64,10 +65,10 @@ func (DirectTLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return uti
 
 // PrepareConnection handles the TLS handshake for a given conn and returns the sessionKey
 // if the server proceed with Cloak authentication
-func (DirectTLS) PrepareConnection(sta *State, conn net.Conn) (preparedConn net.Conn, sessionKey []byte, err error) {
+func (tls DirectTLS) PrepareConnection(authInfo *authInfo, conn net.Conn) (preparedConn net.Conn, sessionKey []byte, err error) {
 	preparedConn = conn
-	payload, sharedSecret := makeAuthenticationPayload(sta, rand.Reader)
-	chOnly := sta.browser.composeClientHello(unmarshalAuthenticationInfo(payload, sta.ServerName))
+	payload, sharedSecret := makeAuthenticationPayload(authInfo, rand.Reader, time.Now())
+	chOnly := tls.browser.composeClientHello(genStegClientHello(payload, authInfo.MockDomain))
 	chWithRecordLayer := util.AddRecordLayer(chOnly, []byte{0x16}, []byte{0x03, 0x01})
 	_, err = preparedConn.Write(chWithRecordLayer)
 	if err != nil {
