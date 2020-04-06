@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/util"
-	"net"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -34,8 +33,8 @@ const (
 var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
 var ErrUnreconisedProtocol = errors.New("unreconised protocol")
 
-// touchStone checks if a the authFragments are valid. It doesn't check if the UID is authorised
-func touchStone(fragments authFragments, now func() time.Time) (info ClientInfo, err error) {
+// decryptClientInfo checks if a the authFragments are valid. It doesn't check if the UID is authorised
+func decryptClientInfo(fragments authFragments, now func() time.Time) (info ClientInfo, err error) {
 	var plaintext []byte
 	plaintext, err = util.AESGCMDecrypt(fragments.randPubKey[0:12], fragments.sharedSecret[:], fragments.ciphertextWithTag[:])
 	if err != nil {
@@ -64,25 +63,23 @@ func touchStone(fragments authFragments, now func() time.Time) (info ClientInfo,
 var ErrReplay = errors.New("duplicate random")
 var ErrBadProxyMethod = errors.New("invalid proxy method")
 
-// PrepareConnection checks if the first packet of data is ClientHello or HTTP GET, and checks if it was from a Cloak client
+// AuthFirstPacket checks if the first packet of data is ClientHello or HTTP GET, and checks if it was from a Cloak client
 // if it is from a Cloak client, it returns the ClientInfo with the decrypted fields. It doesn't check if the user
 // is authorised. It also returns a finisher callback function to be called when the caller wishes to proceed with
 // the handshake
-func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info ClientInfo, finisher func([]byte) (net.Conn, error), err error) {
+func AuthFirstPacket(firstPacket []byte, sta *State) (info ClientInfo, finisher Responder, err error) {
 	var transport Transport
 	switch firstPacket[0] {
 	case 0x47:
-		transport = WebSocket{}
+		transport = &WebSocket{}
 	case 0x16:
-		transport = TLS{}
+		transport = &TLS{}
 	default:
 		err = ErrUnreconisedProtocol
 		return
 	}
 
-	var fragments authFragments
-	fragments, finisher, err = transport.handshake(firstPacket, sta.staticPv, conn)
-
+	fragments, finisher, err := transport.processFirstPacket(firstPacket, sta.staticPv)
 	if err != nil {
 		return
 	}
@@ -92,7 +89,7 @@ func PrepareConnection(firstPacket []byte, sta *State, conn net.Conn) (info Clie
 		return
 	}
 
-	info, err = touchStone(fragments, sta.Now)
+	info, err = decryptClientInfo(fragments, sta.Now)
 	if err != nil {
 		log.Debug(err)
 		err = fmt.Errorf("transport %v in correct format but not Cloak: %v", transport, err)

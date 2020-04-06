@@ -58,7 +58,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		go util.Pipe(conn, webConn, 0)
 	}
 
-	ci, finishHandshake, err := server.PrepareConnection(data, sta, conn)
+	ci, finishHandshake, err := server.AuthFirstPacket(data, sta)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"remoteAddr":       remoteAddr,
@@ -84,7 +84,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	// added to the userinfo database. The distinction between going into the admin mode
 	// and normal proxy mode is that sessionID needs == 0 for admin mode
 	if bytes.Equal(ci.UID, sta.AdminUID) && ci.SessionId == 0 {
-		preparedConn, err := finishHandshake(sessionKey)
+		preparedConn, err := finishHandshake(conn, sessionKey)
 		if err != nil {
 			log.Error(err)
 			return
@@ -136,7 +136,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	}
 
 	if existing {
-		preparedConn, err := finishHandshake(sesh.SessionKey)
+		preparedConn, err := finishHandshake(conn, sesh.SessionKey)
 		if err != nil {
 			log.Error(err)
 			return
@@ -146,7 +146,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	preparedConn, err := finishHandshake(sessionKey)
+	preparedConn, err := finishHandshake(conn, sessionKey)
 	if err != nil {
 		log.Error(err)
 		return

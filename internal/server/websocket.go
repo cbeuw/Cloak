@@ -13,13 +13,15 @@ import (
 	"net/http"
 )
 
-type WebSocket struct{}
+type WebSocket struct {
+	requestPacket []byte
+}
 
 func (WebSocket) String() string                                    { return "WebSocket" }
 func (WebSocket) HasRecordLayer() bool                              { return false }
 func (WebSocket) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadWebSocket }
 
-func (WebSocket) handshake(reqPacket []byte, privateKey crypto.PrivateKey, originalConn net.Conn) (fragments authFragments, finisher func([]byte) (net.Conn, error), err error) {
+func (WebSocket) processFirstPacket(reqPacket []byte, privateKey crypto.PrivateKey) (fragments authFragments, respond Responder, err error) {
 	var req *http.Request
 	req, err = http.ReadRequest(bufio.NewReader(bytes.NewBuffer(reqPacket)))
 	if err != nil {
@@ -29,13 +31,19 @@ func (WebSocket) handshake(reqPacket []byte, privateKey crypto.PrivateKey, origi
 	var hiddenData []byte
 	hiddenData, err = base64.StdEncoding.DecodeString(req.Header.Get("hidden"))
 
-	fragments, err = unmarshalHidden(hiddenData, privateKey)
+	fragments, err = WebSocket{}.unmarshalHidden(hiddenData, privateKey)
 	if err != nil {
 		err = fmt.Errorf("failed to unmarshal hidden data from WS into authFragments: %v", err)
 		return
 	}
 
-	finisher = func(sessionKey []byte) (preparedConn net.Conn, err error) {
+	respond = WebSocket{}.makeResponder(reqPacket, fragments.sharedSecret[:])
+
+	return
+}
+
+func (WebSocket) makeResponder(reqPacket []byte, sharedSecret []byte) Responder {
+	respond := func(originalConn net.Conn, sessionKey []byte) (preparedConn net.Conn, err error) {
 		handler := newWsHandshakeHandler()
 
 		// For an explanation of the following 3 lines, see the comments in websocketAux.go
@@ -47,7 +55,7 @@ func (WebSocket) handshake(reqPacket []byte, privateKey crypto.PrivateKey, origi
 		util.CryptoRandRead(nonce)
 
 		// reply: [12 bytes nonce][32 bytes encrypted session key][16 bytes authentication tag]
-		encryptedKey, err := util.AESGCMEncrypt(nonce, fragments.sharedSecret[:], sessionKey) // 32 + 16 = 48 bytes
+		encryptedKey, err := util.AESGCMEncrypt(nonce, sharedSecret, sessionKey) // 32 + 16 = 48 bytes
 		if err != nil {
 			err = fmt.Errorf("failed to encrypt reply: %v", err)
 			return
@@ -61,13 +69,12 @@ func (WebSocket) handshake(reqPacket []byte, privateKey crypto.PrivateKey, origi
 		}
 		return
 	}
-
-	return
+	return respond
 }
 
 var ErrBadGET = errors.New("non (or malformed) HTTP GET")
 
-func unmarshalHidden(hidden []byte, staticPv crypto.PrivateKey) (fragments authFragments, err error) {
+func (WebSocket) unmarshalHidden(hidden []byte, staticPv crypto.PrivateKey) (fragments authFragments, err error) {
 	if len(hidden) < 96 {
 		err = ErrBadGET
 		return

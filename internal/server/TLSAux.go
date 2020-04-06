@@ -198,9 +198,9 @@ func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte
 
 // composeReply composes the ServerHello, ChangeCipherSpec and an ApplicationData messages
 // together with their respective record layers into one byte slice.
-func composeReply(ch *ClientHello, sharedSecret []byte, sessionKey []byte) ([]byte, error) {
+func composeReply(clientHelloSessionId []byte, sharedSecret []byte, sessionKey []byte) ([]byte, error) {
 	TLS12 := []byte{0x03, 0x03}
-	sh, err := composeServerHello(ch.sessionId, sharedSecret, sessionKey)
+	sh, err := composeServerHello(clientHelloSessionId, sharedSecret, sessionKey)
 	if err != nil {
 		return nil, err
 	}

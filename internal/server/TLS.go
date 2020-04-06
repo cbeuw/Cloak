@@ -19,24 +19,29 @@ func (TLS) String() string                                    { return "TLS" }
 func (TLS) HasRecordLayer() bool                              { return true }
 func (TLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadTLS }
 
-func (TLS) handshake(clientHello []byte, privateKey crypto.PrivateKey, originalConn net.Conn) (fragments authFragments, finisher func([]byte) (net.Conn, error), err error) {
-	var ch *ClientHello
-	ch, err = parseClientHello(clientHello)
+func (TLS) processFirstPacket(clientHello []byte, privateKey crypto.PrivateKey) (fragments authFragments, respond Responder, err error) {
+	ch, err := parseClientHello(clientHello)
 	if err != nil {
 		log.Debug(err)
 		err = ErrBadClientHello
 		return
 	}
 
-	fragments, err = unmarshalClientHello(ch, privateKey)
+	fragments, err = TLS{}.unmarshalClientHello(ch, privateKey)
 	if err != nil {
 		err = fmt.Errorf("failed to unmarshal ClientHello into authFragments: %v", err)
 		return
 	}
 
-	finisher = func(sessionKey []byte) (preparedConn net.Conn, err error) {
+	respond = TLS{}.makeResponder(ch.sessionId, fragments.sharedSecret[:])
+
+	return
+}
+
+func (TLS) makeResponder(clientHelloSessionId []byte, sharedSecret []byte) Responder {
+	respond := func(originalConn net.Conn, sessionKey []byte) (preparedConn net.Conn, err error) {
 		preparedConn = originalConn
-		reply, err := composeReply(ch, fragments.sharedSecret[:], sessionKey)
+		reply, err := composeReply(clientHelloSessionId, sharedSecret, sessionKey)
 		if err != nil {
 			err = fmt.Errorf("failed to compose TLS reply: %v", err)
 			return
@@ -49,11 +54,10 @@ func (TLS) handshake(clientHello []byte, privateKey crypto.PrivateKey, originalC
 		}
 		return
 	}
-
-	return
+	return respond
 }
 
-func unmarshalClientHello(ch *ClientHello, staticPv crypto.PrivateKey) (fragments authFragments, err error) {
+func (TLS) unmarshalClientHello(ch *ClientHello, staticPv crypto.PrivateKey) (fragments authFragments, err error) {
 	copy(fragments.randPubKey[:], ch.random)
 	ephPub, ok := ecdh.Unmarshal(fragments.randPubKey[:])
 	if !ok {
