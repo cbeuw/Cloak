@@ -211,7 +211,7 @@ func composeReply(clientHelloSessionId []byte, sharedSecret []byte, sessionKey [
 	// we can use sessionKey as a seed here to ensure consistency
 	possibleCertLengths := []int{42, 27, 68, 59, 36, 44, 46}
 	rand.Seed(int64(sessionKey[0]))
-	cert := make([]byte, rand.Intn(len(possibleCertLengths)))
+	cert := make([]byte, possibleCertLengths[rand.Intn(len(possibleCertLengths))])
 	util.CryptoRandRead(cert)
 	encryptedCertBytes := addRecordLayer(cert, []byte{0x17}, TLS12)
 	ret := append(shBytes, ccsBytes...)
