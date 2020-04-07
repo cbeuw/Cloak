@@ -65,7 +65,7 @@ func (DirectTLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return uti
 
 // PrepareConnection handles the TLS handshake for a given conn and returns the sessionKey
 // if the server proceed with Cloak authentication
-func (tls DirectTLS) PrepareConnection(authInfo *authInfo, conn net.Conn) (preparedConn net.Conn, sessionKey []byte, err error) {
+func (tls DirectTLS) PrepareConnection(authInfo *authInfo, conn net.Conn) (preparedConn net.Conn, sessionKey [32]byte, err error) {
 	preparedConn = conn
 	payload, sharedSecret := makeAuthenticationPayload(authInfo, rand.Reader, time.Now())
 	chOnly := tls.browser.composeClientHello(genStegClientHello(payload, authInfo.MockDomain))
@@ -86,10 +86,11 @@ func (tls DirectTLS) PrepareConnection(authInfo *authInfo, conn net.Conn) (prepa
 	encrypted := append(buf[11:43], buf[89:121]...)
 	nonce := encrypted[0:12]
 	ciphertextWithTag := encrypted[12:60]
-	sessionKey, err = util.AESGCMDecrypt(nonce, sharedSecret, ciphertextWithTag)
+	sessionKeySlice, err := util.AESGCMDecrypt(nonce, sharedSecret[:], ciphertextWithTag)
 	if err != nil {
 		return
 	}
+	copy(sessionKey[:], sessionKeySlice)
 
 	for i := 0; i < 2; i++ {
 		// ChangeCipherSpec and EncryptedCert (in the format of application data)

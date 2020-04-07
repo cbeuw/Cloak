@@ -33,13 +33,13 @@ func (TLS) processFirstPacket(clientHello []byte, privateKey crypto.PrivateKey) 
 		return
 	}
 
-	respond = TLS{}.makeResponder(ch.sessionId, fragments.sharedSecret[:])
+	respond = TLS{}.makeResponder(ch.sessionId, fragments.sharedSecret)
 
 	return
 }
 
-func (TLS) makeResponder(clientHelloSessionId []byte, sharedSecret []byte) Responder {
-	respond := func(originalConn net.Conn, sessionKey []byte) (preparedConn net.Conn, err error) {
+func (TLS) makeResponder(clientHelloSessionId []byte, sharedSecret [32]byte) Responder {
+	respond := func(originalConn net.Conn, sessionKey [32]byte) (preparedConn net.Conn, err error) {
 		preparedConn = originalConn
 		reply, err := composeReply(clientHelloSessionId, sharedSecret, sessionKey)
 		if err != nil {

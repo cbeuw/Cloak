@@ -35,13 +35,13 @@ func (WebSocket) processFirstPacket(reqPacket []byte, privateKey crypto.PrivateK
 		return
 	}
 
-	respond = WebSocket{}.makeResponder(reqPacket, fragments.sharedSecret[:])
+	respond = WebSocket{}.makeResponder(reqPacket, fragments.sharedSecret)
 
 	return
 }
 
-func (WebSocket) makeResponder(reqPacket []byte, sharedSecret []byte) Responder {
-	respond := func(originalConn net.Conn, sessionKey []byte) (preparedConn net.Conn, err error) {
+func (WebSocket) makeResponder(reqPacket []byte, sharedSecret [32]byte) Responder {
+	respond := func(originalConn net.Conn, sessionKey [32]byte) (preparedConn net.Conn, err error) {
 		handler := newWsHandshakeHandler()
 
 		// For an explanation of the following 3 lines, see the comments in websocketAux.go
@@ -53,7 +53,7 @@ func (WebSocket) makeResponder(reqPacket []byte, sharedSecret []byte) Responder 
 		util.CryptoRandRead(nonce)
 
 		// reply: [12 bytes nonce][32 bytes encrypted session key][16 bytes authentication tag]
-		encryptedKey, err := util.AESGCMEncrypt(nonce, sharedSecret, sessionKey) // 32 + 16 = 48 bytes
+		encryptedKey, err := util.AESGCMEncrypt(nonce, sharedSecret[:], sessionKey[:]) // 32 + 16 = 48 bytes
 		if err != nil {
 			err = fmt.Errorf("failed to encrypt reply: %v", err)
 			return

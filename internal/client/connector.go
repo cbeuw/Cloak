@@ -48,7 +48,7 @@ func MakeSession(connConfig *remoteConnConfig, authInfo *authInfo, isAdmin bool)
 				time.Sleep(time.Second * 3)
 				goto makeconn
 			}
-			var sk []byte
+			var sk [32]byte
 			remoteConn, sk, err = connConfig.Transport.PrepareConnection(authInfo, remoteConn)
 			if err != nil {
 				remoteConn.Close()
@@ -64,7 +64,7 @@ func MakeSession(connConfig *remoteConnConfig, authInfo *authInfo, isAdmin bool)
 	wg.Wait()
 	log.Debug("All underlying connections established")
 
-	sessionKey := _sessionKey.Load().([]byte)
+	sessionKey := _sessionKey.Load().([32]byte)
 	obfuscator, err := mux.GenerateObfs(authInfo.EncryptionMethod, sessionKey, connConfig.Transport.HasRecordLayer())
 	if err != nil {
 		log.Fatal(err)

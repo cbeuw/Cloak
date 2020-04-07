@@ -162,11 +162,11 @@ func parseClientHello(data []byte) (ret *ClientHello, err error) {
 	return
 }
 
-func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte) ([]byte, error) {
+func composeServerHello(sessionId []byte, sharedSecret [32]byte, sessionKey [32]byte) ([]byte, error) {
 	nonce := make([]byte, 12)
 	util.CryptoRandRead(nonce)
 
-	encryptedKey, err := util.AESGCMEncrypt(nonce, sharedSecret, sessionKey) // 32 + 16 = 48 bytes
+	encryptedKey, err := util.AESGCMEncrypt(nonce, sharedSecret[:], sessionKey[:]) // 32 + 16 = 48 bytes
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func composeServerHello(sessionId []byte, sharedSecret []byte, sessionKey []byte
 
 // composeReply composes the ServerHello, ChangeCipherSpec and an ApplicationData messages
 // together with their respective record layers into one byte slice.
-func composeReply(clientHelloSessionId []byte, sharedSecret []byte, sessionKey []byte) ([]byte, error) {
+func composeReply(clientHelloSessionId []byte, sharedSecret [32]byte, sessionKey [32]byte) ([]byte, error) {
 	TLS12 := []byte{0x03, 0x03}
 	sh, err := composeServerHello(clientHelloSessionId, sharedSecret, sessionKey)
 	if err != nil {

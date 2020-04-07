@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-type Responder = func(originalConn net.Conn, sessionKey []byte) (preparedConn net.Conn, err error)
+type Responder = func(originalConn net.Conn, sessionKey [32]byte) (preparedConn net.Conn, err error)
 type Transport interface {
 	HasRecordLayer() bool
 	UnitReadFunc() func(net.Conn, []byte) (int, error)

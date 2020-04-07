@@ -71,8 +71,8 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	sessionKey := make([]byte, 32)
-	util.CryptoRandRead(sessionKey)
+	var sessionKey [32]byte
+	util.CryptoRandRead(sessionKey[:])
 	obfuscator, err := mux.GenerateObfs(ci.EncryptionMethod, sessionKey, ci.Transport.HasRecordLayer())
 	if err != nil {
 		log.Error(err)

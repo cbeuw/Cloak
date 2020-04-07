@@ -25,7 +25,7 @@ type Obfuscator struct {
 	Obfs Obfser
 	// Remove TLS header, decrypt and unmarshall frames
 	Deobfs     Deobfser
-	SessionKey []byte
+	SessionKey [32]byte
 }
 
 type switchboardStrategy int

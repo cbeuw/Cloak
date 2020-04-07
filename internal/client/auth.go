@@ -30,7 +30,7 @@ type authInfo struct {
 
 // makeAuthenticationPayload generates the ephemeral key pair, calculates the shared secret, and then compose and
 // encrypt the authenticationPayload
-func makeAuthenticationPayload(authInfo *authInfo, randReader io.Reader, time time.Time) (ret authenticationPayload, sharedSecret []byte) {
+func makeAuthenticationPayload(authInfo *authInfo, randReader io.Reader, time time.Time) (ret authenticationPayload, sharedSecret [32]byte) {
 	/*
 		Authentication data:
 		+----------+----------------+---------------------+-------------+--------------+--------+------------+
@@ -53,8 +53,8 @@ func makeAuthenticationPayload(authInfo *authInfo, randReader io.Reader, time ti
 		plaintext[41] |= UNORDERED_FLAG
 	}
 
-	sharedSecret = ecdh.GenerateSharedSecret(ephPv, authInfo.ServerPubKey)
-	ciphertextWithTag, _ := util.AESGCMEncrypt(ret.randPubKey[:12], sharedSecret, plaintext)
+	copy(sharedSecret[:], ecdh.GenerateSharedSecret(ephPv, authInfo.ServerPubKey))
+	ciphertextWithTag, _ := util.AESGCMEncrypt(ret.randPubKey[:12], sharedSecret[:], plaintext)
 	copy(ret.ciphertextWithTag[:], ciphertextWithTag[:])
 	return
 }

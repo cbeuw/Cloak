@@ -144,21 +144,14 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD, hasRecordLayer boo
 	return deobfs
 }
 
-func GenerateObfs(encryptionMethod byte, sessionKey []byte, hasRecordLayer bool) (obfuscator *Obfuscator, err error) {
-	if len(sessionKey) != 32 {
-		err = errors.New("sessionKey size must be 32 bytes")
-	}
-
-	var salsaKey [32]byte
-	copy(salsaKey[:], sessionKey)
-
+func GenerateObfs(encryptionMethod byte, sessionKey [32]byte, hasRecordLayer bool) (obfuscator *Obfuscator, err error) {
 	var payloadCipher cipher.AEAD
 	switch encryptionMethod {
 	case E_METHOD_PLAIN:
 		payloadCipher = nil
 	case E_METHOD_AES_GCM:
 		var c cipher.Block
-		c, err = aes.NewCipher(sessionKey)
+		c, err = aes.NewCipher(sessionKey[:])
 		if err != nil {
 			return
 		}
@@ -167,7 +160,7 @@ func GenerateObfs(encryptionMethod byte, sessionKey []byte, hasRecordLayer bool)
 			return
 		}
 	case E_METHOD_CHACHA20_POLY1305:
-		payloadCipher, err = chacha20poly1305.New(sessionKey)
+		payloadCipher, err = chacha20poly1305.New(sessionKey[:])
 		if err != nil {
 			return
 		}
@@ -176,8 +169,8 @@ func GenerateObfs(encryptionMethod byte, sessionKey []byte, hasRecordLayer bool)
 	}
 
 	obfuscator = &Obfuscator{
-		MakeObfs(salsaKey, payloadCipher, hasRecordLayer),
-		MakeDeobfs(salsaKey, payloadCipher, hasRecordLayer),
+		MakeObfs(sessionKey, payloadCipher, hasRecordLayer),
+		MakeDeobfs(sessionKey, payloadCipher, hasRecordLayer),
 		sessionKey,
 	}
 	return
