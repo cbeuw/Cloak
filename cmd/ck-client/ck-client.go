@@ -6,10 +6,11 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/cbeuw/Cloak/internal/client"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	log "github.com/sirupsen/logrus"
-	"os"
 )
 
 var version string
@@ -84,7 +85,7 @@ func main() {
 			rawConfig.RemoteHost = os.Getenv("SS_REMOTE_HOST")
 		}
 		if rawConfig.RemotePort == "" {
-			rawConfig.RemoteHost = os.Getenv("SS_REMOTE_PORT")
+			rawConfig.RemotePort = os.Getenv("SS_REMOTE_PORT")
 		}
 		if rawConfig.LocalHost == "" {
 			rawConfig.LocalHost = os.Getenv("SS_LOCAL_HOST")
