@@ -34,8 +34,8 @@ func TestRecvDataFromRemote(t *testing.T) {
 	}
 	obfsBuf := make([]byte, 17000)
 
-	sessionKey := make([]byte, 32)
-	rand.Read(sessionKey)
+	var sessionKey [32]byte
+	rand.Read(sessionKey[:])
 	t.Run("plain ordered", func(t *testing.T) {
 		obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey, true)
 		seshConfigOrdered.Obfuscator = obfuscator
@@ -153,11 +153,12 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 	rand.Read(testPayload)
 	obfsBuf := make([]byte, 17000)
 
-	sessionKey := make([]byte, 32)
+	var sessionKey [32]byte
+	rand.Read(sessionKey[:])
+
 	obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey, true)
 	seshConfigOrdered.Obfuscator = obfuscator
 
-	rand.Read(sessionKey)
 	sesh := MakeSession(0, seshConfigOrdered)
 
 	f1 := &Frame{
@@ -283,11 +284,12 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 	rand.Read(testPayload)
 	obfsBuf := make([]byte, 17000)
 
-	sessionKey := make([]byte, 32)
+	var sessionKey [32]byte
+	rand.Read(sessionKey[:])
+
 	obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey, true)
 	seshConfigOrdered.Obfuscator = obfuscator
 
-	rand.Read(sessionKey)
 	sesh := MakeSession(0, seshConfigOrdered)
 
 	// receive stream 1 closing first
@@ -341,10 +343,11 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 func TestParallel(t *testing.T) {
 	rand.Seed(0)
 
-	sessionKey := make([]byte, 32)
+	var sessionKey [32]byte
+	rand.Read(sessionKey[:])
+
 	obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey, true)
 	seshConfigOrdered.Obfuscator = obfuscator
-	rand.Read(sessionKey)
 	sesh := MakeSession(0, seshConfigOrdered)
 
 	numStreams := 10
@@ -410,8 +413,8 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 	}
 	obfsBuf := make([]byte, 17000)
 
-	sessionKey := make([]byte, 32)
-	rand.Read(sessionKey)
+	var sessionKey [32]byte
+	rand.Read(sessionKey[:])
 
 	b.Run("plain", func(b *testing.B) {
 		obfuscator, _ := GenerateObfs(E_METHOD_PLAIN, sessionKey, true)

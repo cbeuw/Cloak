@@ -12,8 +12,8 @@ import (
 )
 
 func TestGenerateObfs(t *testing.T) {
-	sessionKey := make([]byte, 32)
-	rand.Read(sessionKey)
+	var sessionKey [32]byte
+	rand.Read(sessionKey[:])
 
 	run := func(obfuscator *Obfuscator, ct *testing.T) {
 		obfsBuf := make([]byte, 512)
@@ -82,12 +82,6 @@ func TestGenerateObfs(t *testing.T) {
 		_, err := GenerateObfs(0xff, sessionKey, true)
 		if err == nil {
 			t.Errorf("unknown encryption mehtod error expected")
-		}
-	})
-	t.Run("bad key length", func(t *testing.T) {
-		_, err := GenerateObfs(0xff, sessionKey[:31], true)
-		if err == nil {
-			t.Errorf("bad key length error expected")
 		}
 	})
 }

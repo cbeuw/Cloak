@@ -12,8 +12,8 @@ import (
 )
 
 func setupSesh(unordered bool) *Session {
-	sessionKey := make([]byte, 32)
-	rand.Read(sessionKey)
+	var sessionKey [32]byte
+	rand.Read(sessionKey[:])
 	obfuscator, _ := GenerateObfs(0x00, sessionKey, true)
 
 	seshConfig := &SessionConfig{

@@ -14,7 +14,7 @@ func TestMakeAuthenticationPayload(t *testing.T) {
 		seed       io.Reader
 		time       time.Time
 		expPayload authenticationPayload
-		expSecret  []byte
+		expSecret  [32]byte
 	}{
 		{
 			&authInfo{
@@ -54,7 +54,7 @@ func TestMakeAuthenticationPayload(t *testing.T) {
 					0x3b, 0xb8, 0x8b, 0xfb, 0xb6, 0x40, 0xf0, 0x2c,
 					0x6c, 0x55, 0xb9, 0xfc, 0x5d, 0x34, 0x89, 0x41},
 			},
-			[]byte{
+			[32]byte{
 				0xc7, 0xc6, 0x9b, 0xbe, 0xec, 0xf8, 0x35, 0x55,
 				0x67, 0x20, 0xcd, 0xeb, 0x74, 0x16, 0xc5, 0x60,
 				0xee, 0x9d, 0x63, 0x1a, 0x44, 0xc5, 0x09, 0xf6,
@@ -67,7 +67,7 @@ func TestMakeAuthenticationPayload(t *testing.T) {
 			if payload != tc.expPayload {
 				t.Errorf("payload doesn't match:\nexp %v\ngot %v", tc.expPayload, payload)
 			}
-			if !bytes.Equal(sharedSecret, tc.expSecret) {
+			if sharedSecret != tc.expSecret {
 				t.Errorf("secret doesn't match:\nexp %x\ngot %x", tc.expPayload, payload)
 			}
 		}()
