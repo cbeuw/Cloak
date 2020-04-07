@@ -83,22 +83,22 @@ func (c *firstBuffedConn) Read(buf []byte) (int, error) {
 	return c.Conn.Read(buf)
 }
 
-type wsAcceptor struct {
+type wsOnceListener struct {
 	done bool
 	c    *firstBuffedConn
 }
 
 // net/http provides no method to serve an existing connection, we must feed in a net.Accept interface to get an
 // http.Server. This is an acceptor that accepts only one Conn
-func newWsAcceptor(conn net.Conn, first []byte) *wsAcceptor {
+func newWsAcceptor(conn net.Conn, first []byte) *wsOnceListener {
 	f := make([]byte, len(first))
 	copy(f, first)
-	return &wsAcceptor{
+	return &wsOnceListener{
 		c: &firstBuffedConn{Conn: conn, firstPacket: f},
 	}
 }
 
-func (w *wsAcceptor) Accept() (net.Conn, error) {
+func (w *wsOnceListener) Accept() (net.Conn, error) {
 	if w.done {
 		return nil, errors.New("already accepted")
 	}
@@ -106,12 +106,12 @@ func (w *wsAcceptor) Accept() (net.Conn, error) {
 	return w.c, nil
 }
 
-func (w *wsAcceptor) Close() error {
+func (w *wsOnceListener) Close() error {
 	w.done = true
 	return nil
 }
 
-func (w *wsAcceptor) Addr() net.Addr {
+func (w *wsOnceListener) Addr() net.Addr {
 	return w.c.LocalAddr()
 }
 
