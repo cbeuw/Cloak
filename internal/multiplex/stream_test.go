@@ -7,6 +7,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/cbeuw/connutil"
 )
 
 func setupSesh(unordered bool) *Session {
@@ -25,7 +27,7 @@ func setupSesh(unordered bool) *Session {
 
 func BenchmarkStream_Write_Ordered(b *testing.B) {
 	const PAYLOAD_LEN = 1000
-	hole := newBlackHole()
+	hole := connutil.Discard()
 	sesh := setupSesh(false)
 	sesh.AddConnection(hole)
 	testData := make([]byte, PAYLOAD_LEN)
@@ -100,7 +102,7 @@ func BenchmarkStream_Read_Ordered(b *testing.B) {
 
 func TestStream_Write(t *testing.T) {
 	const PAYLOAD_LEN = 1000
-	hole := newBlackHole()
+	hole := connutil.Discard()
 	sesh := setupSesh(false)
 	sesh.AddConnection(hole)
 	testData := make([]byte, PAYLOAD_LEN)
@@ -128,11 +130,11 @@ func TestStream_Close(t *testing.T) {
 		testPayload,
 	}
 
-	conn, writingEnd := util.GetMockConn()
+	conn, writingEnd := connutil.AsyncPipe()
 	sesh.AddConnection(conn)
 	obfsBuf := make([]byte, 512)
 	i, _ := sesh.Obfs(f, obfsBuf)
-	writingEnd <- obfsBuf[:i]
+	writingEnd.Write(obfsBuf[:i])
 	time.Sleep(100 * time.Microsecond)
 	stream, err := sesh.Accept()
 	if err != nil {
@@ -163,7 +165,7 @@ func TestStream_Read(t *testing.T) {
 		testPayload,
 	}
 
-	conn, writingEnd := util.GetMockConn()
+	conn, writingEnd := connutil.AsyncPipe()
 	sesh.AddConnection(conn)
 
 	var streamID uint32
@@ -174,7 +176,7 @@ func TestStream_Read(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		writingEnd <- obfsBuf[:i]
+		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
 		stream, err := sesh.Accept()
 		if err != nil {
@@ -200,7 +202,7 @@ func TestStream_Read(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		writingEnd <- obfsBuf[:i]
+		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		i, err := stream.Read(nil)
@@ -221,7 +223,7 @@ func TestStream_Read(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		writingEnd <- obfsBuf[:i]
+		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		stream.Close()
@@ -246,7 +248,7 @@ func TestStream_Read(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		writingEnd <- obfsBuf[:i]
+		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		sesh.Close()
@@ -282,7 +284,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 		testPayload,
 	}
 
-	conn, writingEnd := util.GetMockConn()
+	conn, writingEnd := connutil.AsyncPipe()
 	sesh.AddConnection(conn)
 
 	var streamID uint32
@@ -293,7 +295,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		writingEnd <- obfsBuf[:i]
+		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
 		stream, err := sesh.Accept()
 		if err != nil {
@@ -315,7 +317,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		writingEnd <- obfsBuf[:i]
+		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		i, err := stream.Read(nil)
@@ -336,7 +338,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		writingEnd <- obfsBuf[:i]
+		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		stream.Close()
@@ -361,7 +363,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 		f.StreamID = streamID
 		i, _ := sesh.Obfs(f, obfsBuf)
 		streamID++
-		writingEnd <- obfsBuf[:i]
+		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
 		stream, _ := sesh.Accept()
 		sesh.Close()

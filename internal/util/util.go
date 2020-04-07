@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -136,22 +135,4 @@ func Pipe(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) {
 			return
 		}
 	}
-}
-
-func GetMockConn() (net.Conn, chan []byte) {
-	ch := make(chan []byte)
-	l, _ := net.Listen("tcp", "127.0.0.1:0")
-	go func() {
-		conn, _ := net.Dial("tcp", l.Addr().String())
-		for {
-			data := <-ch
-			_, err := conn.Write(data)
-			if err != nil {
-				fmt.Println("cannot write to connection", err)
-			}
-		}
-	}()
-	conn, _ := l.Accept()
-
-	return conn, ch
 }

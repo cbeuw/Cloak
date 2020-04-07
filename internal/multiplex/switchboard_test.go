@@ -2,6 +2,7 @@ package multiplex
 
 import (
 	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/connutil"
 	"math/rand"
 	"net"
 	"testing"
@@ -80,7 +81,7 @@ func TestSwitchboard_Send(t *testing.T) {
 }
 
 func BenchmarkSwitchboard_Send(b *testing.B) {
-	hole := newBlackHole()
+	hole := connutil.Discard()
 	seshConfig := &SessionConfig{
 		Obfuscator: nil,
 		Valve:      nil,
@@ -113,7 +114,7 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 		UnitRead:   util.ReadTLS,
 	}
 	sesh := MakeSession(0, seshConfig)
-	hole := newBlackHole()
+	hole := connutil.Discard()
 	sesh.sb.addConn(hole)
 	connId, _, err := sesh.sb.pickRandConn()
 	if err != nil {
