@@ -1,11 +1,13 @@
 package client
 
 import (
+	"crypto"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/cbeuw/Cloak/internal/ecdh"
@@ -36,9 +38,27 @@ type rawConfig struct {
 	KeepAlive     int    // nullable
 }
 
+type remoteConnConfig struct {
+	NumConn        int
+	KeepAlive      time.Duration
+	Protector      func(string, string, syscall.RawConn) error
+	RemoteAddr     string
+	TransportMaker func() Transport
+}
+
 type localConnConfig struct {
 	LocalAddr string
 	Timeout   time.Duration
+}
+
+type authInfo struct {
+	UID              []byte
+	SessionId        uint32
+	ProxyMethod      string
+	EncryptionMethod byte
+	Unordered        bool
+	ServerPubKey     crypto.PublicKey
+	MockDomain       string
 }
 
 // semi-colon separated value. This is for Android plugin options

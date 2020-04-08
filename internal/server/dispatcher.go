@@ -1,0 +1,182 @@
+package server
+
+import (
+	"bytes"
+	"encoding/base64"
+	"github.com/cbeuw/Cloak/internal/util"
+	"io"
+	"net"
+	"net/http"
+	"time"
+
+	mux "github.com/cbeuw/Cloak/internal/multiplex"
+	log "github.com/sirupsen/logrus"
+)
+
+var b64 = base64.StdEncoding.EncodeToString
+
+func DispatchConnection(conn net.Conn, sta *State) {
+	remoteAddr := conn.RemoteAddr()
+	var err error
+	buf := make([]byte, 1500)
+
+	// TODO: potential fingerprint for active probers here
+	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	i, err := io.ReadAtLeast(conn, buf, 1)
+	if err != nil {
+		log.WithField("remoteAddr", remoteAddr).
+			Infof("failed to read anything after connection is established: %v", err)
+		conn.Close()
+		return
+	}
+	conn.SetReadDeadline(time.Time{})
+	data := buf[:i]
+
+	goWeb := func() {
+		redirPort := sta.RedirPort
+		if redirPort == "" {
+			_, redirPort, _ = net.SplitHostPort(conn.LocalAddr().String())
+		}
+		webConn, err := net.Dial("tcp", net.JoinHostPort(sta.RedirHost.String(), redirPort))
+		if err != nil {
+			log.Errorf("Making connection to redirection server: %v", err)
+			return
+		}
+		_, err = webConn.Write(data)
+		if err != nil {
+			log.Error("Failed to send first packet to redirection server", err)
+		}
+		go util.Pipe(webConn, conn, 0)
+		go util.Pipe(conn, webConn, 0)
+	}
+
+	ci, finishHandshake, err := AuthFirstPacket(data, sta)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"remoteAddr":       remoteAddr,
+			"UID":              b64(ci.UID),
+			"sessionId":        ci.SessionId,
+			"proxyMethod":      ci.ProxyMethod,
+			"encryptionMethod": ci.EncryptionMethod,
+		}).Warn(err)
+		goWeb()
+		return
+	}
+
+	var sessionKey [32]byte
+	util.CryptoRandRead(sessionKey[:])
+	obfuscator, err := mux.MakeObfuscator(ci.EncryptionMethod, sessionKey)
+	if err != nil {
+		log.Error(err)
+		goWeb()
+		return
+	}
+
+	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
+	// added to the userinfo database. The distinction between going into the admin mode
+	// and normal proxy mode is that sessionID needs == 0 for admin mode
+	if bytes.Equal(ci.UID, sta.AdminUID) && ci.SessionId == 0 {
+		preparedConn, err := finishHandshake(conn, sessionKey)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		log.Trace("finished handshake")
+		seshConfig := mux.SessionConfig{
+			Obfuscator: obfuscator,
+			Valve:      nil,
+		}
+		sesh := mux.MakeSession(0, seshConfig)
+		sesh.AddConnection(preparedConn)
+		//TODO: Router could be nil in cnc mode
+		log.WithField("remoteAddr", preparedConn.RemoteAddr()).Info("New admin session")
+		err = http.Serve(sesh, sta.LocalAPIRouter)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+	}
+
+	var user *ActiveUser
+	if sta.IsBypass(ci.UID) {
+		user, err = sta.Panel.GetBypassUser(ci.UID)
+	} else {
+		user, err = sta.Panel.GetUser(ci.UID)
+	}
+	if err != nil {
+		log.WithFields(log.Fields{
+			"UID":        b64(ci.UID),
+			"remoteAddr": remoteAddr,
+			"error":      err,
+		}).Warn("+1 unauthorised UID")
+		goWeb()
+		return
+	}
+
+	sesh, existing, err := user.GetSession(ci.SessionId, mux.SessionConfig{
+		Obfuscator: obfuscator,
+		Valve:      nil,
+		Unordered:  ci.Unordered,
+	})
+	if err != nil {
+		user.CloseSession(ci.SessionId, "")
+		log.Error(err)
+		return
+	}
+
+	if existing {
+		preparedConn, err := finishHandshake(conn, sesh.SessionKey)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		log.Trace("finished handshake")
+		sesh.AddConnection(preparedConn)
+		return
+	}
+
+	preparedConn, err := finishHandshake(conn, sessionKey)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	log.Trace("finished handshake")
+
+	log.WithFields(log.Fields{
+		"UID":       b64(ci.UID),
+		"sessionID": ci.SessionId,
+	}).Info("New session")
+	sesh.AddConnection(preparedConn)
+
+	for {
+		newStream, err := sesh.Accept()
+		if err != nil {
+			if err == mux.ErrBrokenSession {
+				log.WithFields(log.Fields{
+					"UID":       b64(ci.UID),
+					"sessionID": ci.SessionId,
+					"reason":    sesh.TerminalMsg(),
+				}).Info("Session closed")
+				user.CloseSession(ci.SessionId, "")
+				return
+			} else {
+				// TODO: other errors
+				continue
+			}
+		}
+		proxyAddr := sta.ProxyBook[ci.ProxyMethod]
+		d := net.Dialer{KeepAlive: sta.KeepAlive}
+		localConn, err := d.Dial(proxyAddr.Network(), proxyAddr.String())
+		if err != nil {
+			log.Errorf("Failed to connect to %v: %v", ci.ProxyMethod, err)
+			user.CloseSession(ci.SessionId, "Failed to connect to proxy server")
+			continue
+		}
+		log.Tracef("%v endpoint has been successfully connected", ci.ProxyMethod)
+
+		go util.Pipe(localConn, newStream, sta.Timeout)
+		go util.Pipe(newStream, localConn, 0)
+
+	}
+
+}

@@ -18,16 +18,6 @@ type authenticationPayload struct {
 	ciphertextWithTag [64]byte
 }
 
-type authInfo struct {
-	UID              []byte
-	SessionId        uint32
-	ProxyMethod      string
-	EncryptionMethod byte
-	Unordered        bool
-	ServerPubKey     crypto.PublicKey
-	MockDomain       string
-}
-
 // makeAuthenticationPayload generates the ephemeral key pair, calculates the shared secret, and then compose and
 // encrypt the authenticationPayload
 func makeAuthenticationPayload(authInfo authInfo, randReader io.Reader, time time.Time) (ret authenticationPayload, sharedSecret [32]byte) {

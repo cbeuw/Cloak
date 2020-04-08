@@ -13,14 +13,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type remoteConnConfig struct {
-	NumConn        int
-	KeepAlive      time.Duration
-	Protector      func(string, string, syscall.RawConn) error
-	RemoteAddr     string
-	TransportMaker func() Transport
-}
-
 func MakeSession(connConfig remoteConnConfig, authInfo authInfo, isAdmin bool) *mux.Session {
 	log.Info("Attempting to start a new session")
 	if !isAdmin {
