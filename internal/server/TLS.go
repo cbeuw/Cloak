@@ -15,9 +15,7 @@ type TLS struct{}
 
 var ErrBadClientHello = errors.New("non (or malformed) ClientHello")
 
-func (TLS) String() string                                    { return "TLS" }
-func (TLS) HasRecordLayer() bool                              { return true }
-func (TLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadTLS }
+func (TLS) String() string { return "TLS" }
 
 func (TLS) processFirstPacket(clientHello []byte, privateKey crypto.PrivateKey) (fragments authFragments, respond Responder, err error) {
 	ch, err := parseClientHello(clientHello)
@@ -40,18 +38,18 @@ func (TLS) processFirstPacket(clientHello []byte, privateKey crypto.PrivateKey) 
 
 func (TLS) makeResponder(clientHelloSessionId []byte, sharedSecret [32]byte) Responder {
 	respond := func(originalConn net.Conn, sessionKey [32]byte) (preparedConn net.Conn, err error) {
-		preparedConn = originalConn
 		reply, err := composeReply(clientHelloSessionId, sharedSecret, sessionKey)
 		if err != nil {
 			err = fmt.Errorf("failed to compose TLS reply: %v", err)
 			return
 		}
-		_, err = preparedConn.Write(reply)
+		_, err = originalConn.Write(reply)
 		if err != nil {
 			err = fmt.Errorf("failed to write TLS reply: %v", err)
-			go preparedConn.Close()
+			go originalConn.Close()
 			return
 		}
+		preparedConn = &util.TLSConn{Conn: originalConn}
 		return
 	}
 	return respond

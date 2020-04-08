@@ -73,7 +73,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 
 	var sessionKey [32]byte
 	util.CryptoRandRead(sessionKey[:])
-	obfuscator, err := mux.MakeObfuscator(ci.EncryptionMethod, sessionKey, ci.Transport.HasRecordLayer())
+	obfuscator, err := mux.MakeObfuscator(ci.EncryptionMethod, sessionKey)
 	if err != nil {
 		log.Error(err)
 		goWeb()
@@ -93,7 +93,6 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		seshConfig := mux.SessionConfig{
 			Obfuscator: obfuscator,
 			Valve:      nil,
-			UnitRead:   ci.Transport.UnitReadFunc(),
 		}
 		sesh := mux.MakeSession(0, seshConfig)
 		sesh.AddConnection(preparedConn)
@@ -125,7 +124,6 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 	seshConfig := mux.SessionConfig{
 		Obfuscator: obfuscator,
 		Valve:      nil,
-		UnitRead:   ci.Transport.UnitReadFunc(),
 		Unordered:  ci.Unordered,
 	}
 	sesh, existing, err := user.GetSession(ci.SessionId, seshConfig)

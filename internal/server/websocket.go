@@ -15,9 +15,7 @@ import (
 
 type WebSocket struct{}
 
-func (WebSocket) String() string                                    { return "WebSocket" }
-func (WebSocket) HasRecordLayer() bool                              { return false }
-func (WebSocket) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadWebSocket }
+func (WebSocket) String() string { return "WebSocket" }
 
 func (WebSocket) processFirstPacket(reqPacket []byte, privateKey crypto.PrivateKey) (fragments authFragments, respond Responder, err error) {
 	var req *http.Request
