@@ -10,12 +10,12 @@ import (
 	"testing"
 )
 
-func getSeshConfig(unordered bool) *mux.SessionConfig {
+func getSeshConfig(unordered bool) mux.SessionConfig {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
 	obfuscator, _ := mux.MakeObfuscator(0x00, sessionKey, true)
 
-	seshConfig := &mux.SessionConfig{
+	seshConfig := mux.SessionConfig{
 		Obfuscator: obfuscator,
 		Valve:      nil,
 		UnitRead:   util.ReadTLS,
@@ -49,7 +49,7 @@ func TestActiveUser_Bypass(t *testing.T) {
 	}
 
 	// get first session again
-	seshx, existing, err := user.GetSession(0, &mux.SessionConfig{})
+	seshx, existing, err := user.GetSession(0, mux.SessionConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}

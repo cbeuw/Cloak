@@ -87,8 +87,8 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 		return writeAndRegUsage(conn, data)
 	case FIXED_CONN_MAPPING:
 		connI, ok := sb.conns.Load(*connId)
-		conn := connI.(net.Conn)
 		if ok {
+			conn := connI.(net.Conn)
 			return writeAndRegUsage(conn, data)
 		} else {
 			newConnId, conn, err := sb.pickRandConn()
@@ -161,7 +161,9 @@ func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 		sb.valve.AddRx(int64(n))
 		if err != nil {
 			log.Debugf("a connection for session %v has closed: %v", sb.session.id, err)
-			sb.close("a connection has dropped unexpectedly")
+			//sb.close("a connection has dropped unexpectedly")
+			//return
+			sb.conns.Delete(connId)
 			return
 		}
 

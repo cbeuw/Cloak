@@ -103,9 +103,11 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD, hasRecordLayer boo
 	if hasRecordLayer {
 		rlLen = 5
 	}
+	// record layer length + stream header length + minimum data size (i.e. nonce size of salsa20)
+	minInputLen := rlLen + HEADER_LEN + 8
 	deobfs := func(in []byte) (*Frame, error) {
-		if len(in) < rlLen+HEADER_LEN+8 {
-			return nil, fmt.Errorf("Input cannot be shorter than %v bytes", rlLen+HEADER_LEN+8)
+		if len(in) < minInputLen {
+			return nil, fmt.Errorf("input size %v, but it cannot be shorter than %v bytes", len(in), minInputLen)
 		}
 
 		peeled := make([]byte, len(in)-rlLen)
