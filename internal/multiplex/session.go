@@ -27,9 +27,6 @@ type SessionConfig struct {
 
 	Valve
 
-	// This is supposed to read one TLS message.
-	UnitRead func(net.Conn, []byte) (int, error)
-
 	Unordered bool
 
 	SendBufferSize    int

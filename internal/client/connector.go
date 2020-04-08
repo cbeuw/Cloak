@@ -14,14 +14,14 @@ import (
 )
 
 type remoteConnConfig struct {
-	NumConn    int
-	KeepAlive  time.Duration
-	Protector  func(string, string, syscall.RawConn) error
-	RemoteAddr string
-	Transport  Transport
+	NumConn        int
+	KeepAlive      time.Duration
+	Protector      func(string, string, syscall.RawConn) error
+	RemoteAddr     string
+	TransportMaker func() Transport
 }
 
-func MakeSession(connConfig *remoteConnConfig, authInfo *authInfo, isAdmin bool) *mux.Session {
+func MakeSession(connConfig remoteConnConfig, authInfo authInfo, isAdmin bool) *mux.Session {
 	log.Info("Attempting to start a new session")
 	if !isAdmin {
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
@@ -48,16 +48,17 @@ func MakeSession(connConfig *remoteConnConfig, authInfo *authInfo, isAdmin bool)
 				time.Sleep(time.Second * 3)
 				goto makeconn
 			}
-			var sk [32]byte
-			remoteConn, sk, err = connConfig.Transport.PrepareConnection(authInfo, remoteConn)
+
+			transportConn := connConfig.TransportMaker()
+			sk, err := transportConn.Handshake(remoteConn, authInfo)
 			if err != nil {
-				remoteConn.Close()
+				transportConn.Close()
 				log.Errorf("Failed to prepare connection to remote: %v", err)
 				time.Sleep(time.Second * 3)
 				goto makeconn
 			}
 			_sessionKey.Store(sk)
-			connsCh <- remoteConn
+			connsCh <- transportConn
 			wg.Done()
 		}()
 	}
@@ -65,7 +66,7 @@ func MakeSession(connConfig *remoteConnConfig, authInfo *authInfo, isAdmin bool)
 	log.Debug("All underlying connections established")
 
 	sessionKey := _sessionKey.Load().([32]byte)
-	obfuscator, err := mux.MakeObfuscator(authInfo.EncryptionMethod, sessionKey, connConfig.Transport.HasRecordLayer())
+	obfuscator, err := mux.MakeObfuscator(authInfo.EncryptionMethod, sessionKey)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,7 +74,6 @@ func MakeSession(connConfig *remoteConnConfig, authInfo *authInfo, isAdmin bool)
 	seshConfig := mux.SessionConfig{
 		Obfuscator: obfuscator,
 		Valve:      nil,
-		UnitRead:   connConfig.Transport.UnitReadFunc(),
 		Unordered:  authInfo.Unordered,
 	}
 	sesh := mux.MakeSession(authInfo.SessionId, seshConfig)

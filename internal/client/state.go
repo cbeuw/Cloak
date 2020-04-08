@@ -100,13 +100,12 @@ func ParseConfig(conf string) (raw *rawConfig, err error) {
 	return
 }
 
-func (raw *rawConfig) SplitConfigs() (local *localConnConfig, remote *remoteConnConfig, auth *authInfo, err error) {
-	nullErr := func(field string) (local *localConnConfig, remote *remoteConnConfig, auth *authInfo, err error) {
+func (raw *rawConfig) SplitConfigs() (local localConnConfig, remote remoteConnConfig, auth authInfo, err error) {
+	nullErr := func(field string) (local localConnConfig, remote remoteConnConfig, auth authInfo, err error) {
 		err = fmt.Errorf("%v cannot be empty", field)
 		return
 	}
 
-	auth = new(authInfo)
 	auth.UID = raw.UID
 	auth.Unordered = raw.UDP
 	if raw.ServerName == "" {
@@ -145,7 +144,6 @@ func (raw *rawConfig) SplitConfigs() (local *localConnConfig, remote *remoteConn
 		return
 	}
 
-	remote = new(remoteConnConfig)
 	if raw.RemoteHost == "" {
 		return nullErr("RemoteHost")
 	}
@@ -161,7 +159,11 @@ func (raw *rawConfig) SplitConfigs() (local *localConnConfig, remote *remoteConn
 	// Transport and (if TLS mode), browser
 	switch strings.ToLower(raw.Transport) {
 	case "cdn":
-		remote.Transport = WSOverTLS{remote.RemoteAddr}
+		remote.TransportMaker = func() Transport {
+			return &WSOverTLS{
+				cdnDomainPort: remote.RemoteAddr,
+			}
+		}
 	case "direct":
 		fallthrough
 	default:
@@ -174,7 +176,11 @@ func (raw *rawConfig) SplitConfigs() (local *localConnConfig, remote *remoteConn
 		default:
 			browser = &Chrome{}
 		}
-		remote.Transport = DirectTLS{browser}
+		remote.TransportMaker = func() Transport {
+			return &DirectTLS{
+				browser: browser,
+			}
+		}
 	}
 
 	// KeepAlive
@@ -183,8 +189,6 @@ func (raw *rawConfig) SplitConfigs() (local *localConnConfig, remote *remoteConn
 	} else {
 		remote.KeepAlive = remote.KeepAlive * time.Second
 	}
-
-	local = new(localConnConfig)
 
 	if raw.LocalHost == "" {
 		return nullErr("LocalHost")

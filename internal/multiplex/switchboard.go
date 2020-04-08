@@ -156,7 +156,7 @@ func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 	defer conn.Close()
 	buf := make([]byte, sb.recvBufferSize)
 	for {
-		n, err := sb.session.UnitRead(conn, buf)
+		n, err := conn.Read(buf)
 		sb.valve.rxWait(n)
 		sb.valve.AddRx(int64(n))
 		if err != nil {

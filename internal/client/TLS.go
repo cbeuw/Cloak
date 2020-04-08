@@ -46,17 +46,6 @@ func addExtRec(typ []byte, data []byte) []byte {
 	return ret
 }
 
-func addRecordLayer(input []byte, typ []byte, ver []byte) []byte {
-	length := make([]byte, 2)
-	binary.BigEndian.PutUint16(length, uint16(len(input)))
-	ret := make([]byte, 5+len(input))
-	copy(ret[0:1], typ)
-	copy(ret[1:3], ver)
-	copy(ret[3:5], length)
-	copy(ret[5:], input)
-	return ret
-}
-
 func genStegClientHello(ai authenticationPayload, serverName string) (ret clientHelloFields) {
 	// random is marshalled ephemeral pub key 32 bytes
 	// The authentication ciphertext and its tag are then distributed among SessionId and X25519KeyShare
@@ -68,33 +57,31 @@ func genStegClientHello(ai authenticationPayload, serverName string) (ret client
 }
 
 type DirectTLS struct {
-	browser
+	*util.TLSConn
+	browser browser
 }
 
-func (DirectTLS) HasRecordLayer() bool                              { return true }
-func (DirectTLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadTLS }
-
-// PrepareConnection handles the TLS handshake for a given conn and returns the sessionKey
+// NewClientTransport handles the TLS handshake for a given conn and returns the sessionKey
 // if the server proceed with Cloak authentication
-func (tls DirectTLS) PrepareConnection(authInfo *authInfo, conn net.Conn) (preparedConn net.Conn, sessionKey [32]byte, err error) {
-	preparedConn = conn
+func (tls *DirectTLS) Handshake(rawConn net.Conn, authInfo authInfo) (sessionKey [32]byte, err error) {
 	payload, sharedSecret := makeAuthenticationPayload(authInfo, rand.Reader, time.Now())
 	chOnly := tls.browser.composeClientHello(genStegClientHello(payload, authInfo.MockDomain))
-	chWithRecordLayer := addRecordLayer(chOnly, []byte{0x16}, []byte{0x03, 0x01})
-	_, err = preparedConn.Write(chWithRecordLayer)
+	chWithRecordLayer := util.AddRecordLayer(chOnly, util.Handshake, util.VersionTLS11)
+	_, err = rawConn.Write(chWithRecordLayer)
 	if err != nil {
 		return
 	}
 	log.Trace("client hello sent successfully")
+	tls.TLSConn = &util.TLSConn{Conn: rawConn}
 
 	buf := make([]byte, 1024)
 	log.Trace("waiting for ServerHello")
-	_, err = util.ReadTLS(preparedConn, buf)
+	_, err = tls.Read(buf)
 	if err != nil {
 		return
 	}
 
-	encrypted := append(buf[11:43], buf[89:121]...)
+	encrypted := append(buf[6:38], buf[84:116]...)
 	nonce := encrypted[0:12]
 	ciphertextWithTag := encrypted[12:60]
 	sessionKeySlice, err := util.AESGCMDecrypt(nonce, sharedSecret[:], ciphertextWithTag)
@@ -105,12 +92,11 @@ func (tls DirectTLS) PrepareConnection(authInfo *authInfo, conn net.Conn) (prepa
 
 	for i := 0; i < 2; i++ {
 		// ChangeCipherSpec and EncryptedCert (in the format of application data)
-		_, err = util.ReadTLS(preparedConn, buf)
+		_, err = tls.Read(buf)
 		if err != nil {
 			return
 		}
 	}
-
-	return preparedConn, sessionKey, nil
+	return sessionKey, nil
 
 }

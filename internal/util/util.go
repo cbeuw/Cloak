@@ -4,7 +4,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"encoding/binary"
 	"io"
 	"net"
 	"time"
@@ -60,24 +59,8 @@ func CryptoRandRead(buf []byte) {
 }
 
 // ReadTLS reads TLS data according to its record layer
-func ReadTLS(conn net.Conn, buffer []byte) (n int, err error) {
-	// TCP is a stream. Multiple TLS messages can arrive at the same time,
-	// a single message can also be segmented due to MTU of the IP layer.
-	// This function guareentees a single TLS message to be read and everything
-	// else is left in the buffer.
-	_, err = io.ReadFull(conn, buffer[:5])
-	if err != nil {
-		return
-	}
-
-	dataLength := int(binary.BigEndian.Uint16(buffer[3:5]))
-	if dataLength > len(buffer) {
-		err = io.ErrShortBuffer
-		return
-	}
-	n, err = io.ReadFull(conn, buffer[5:dataLength+5])
-	return n + 5, err
-}
+//func ReadTLS(conn net.Conn, buffer []byte) (n int, err error) {
+//}
 
 func Pipe(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) {
 	// The maximum size of TLS message will be 16380+14+16. 14 because of the stream header and 16

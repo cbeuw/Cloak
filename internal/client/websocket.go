@@ -16,47 +16,44 @@ import (
 )
 
 type WSOverTLS struct {
+	*util.WebSocketConn
 	cdnDomainPort string
 }
 
-func (WSOverTLS) HasRecordLayer() bool                              { return false }
-func (WSOverTLS) UnitReadFunc() func(net.Conn, []byte) (int, error) { return util.ReadWebSocket }
-
-func (ws WSOverTLS) PrepareConnection(authInfo *authInfo, cdnConn net.Conn) (preparedConn net.Conn, sessionKey [32]byte, err error) {
+func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo authInfo) (sessionKey [32]byte, err error) {
 	utlsConfig := &utls.Config{
 		ServerName:         authInfo.MockDomain,
 		InsecureSkipVerify: true,
 	}
-	uconn := utls.UClient(cdnConn, utlsConfig, utls.HelloChrome_Auto)
+	uconn := utls.UClient(rawConn, utlsConfig, utls.HelloChrome_Auto)
 	err = uconn.Handshake()
-	preparedConn = uconn
 	if err != nil {
 		return
 	}
 
 	u, err := url.Parse("ws://" + ws.cdnDomainPort)
 	if err != nil {
-		return preparedConn, sessionKey, fmt.Errorf("failed to parse ws url: %v", err)
+		return sessionKey, fmt.Errorf("failed to parse ws url: %v", err)
 	}
 
 	payload, sharedSecret := makeAuthenticationPayload(authInfo, rand.Reader, time.Now())
 	header := http.Header{}
 	header.Add("hidden", base64.StdEncoding.EncodeToString(append(payload.randPubKey[:], payload.ciphertextWithTag[:]...)))
-	c, _, err := websocket.NewClient(preparedConn, u, header, 16480, 16480)
+	c, _, err := websocket.NewClient(uconn, u, header, 16480, 16480)
 	if err != nil {
-		return preparedConn, sessionKey, fmt.Errorf("failed to handshake: %v", err)
+		return sessionKey, fmt.Errorf("failed to handshake: %v", err)
 	}
 
-	preparedConn = &util.WebSocketConn{Conn: c}
+	ws.WebSocketConn = &util.WebSocketConn{Conn: c}
 
 	buf := make([]byte, 128)
-	n, err := preparedConn.Read(buf)
+	n, err := ws.Read(buf)
 	if err != nil {
-		return preparedConn, sessionKey, fmt.Errorf("failed to read reply: %v", err)
+		return sessionKey, fmt.Errorf("failed to read reply: %v", err)
 	}
 
 	if n != 60 {
-		return preparedConn, sessionKey, errors.New("reply must be 60 bytes")
+		return sessionKey, errors.New("reply must be 60 bytes")
 	}
 
 	reply := buf[:60]

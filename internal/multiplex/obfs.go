@@ -37,11 +37,7 @@ type Obfuscator struct {
 	SessionKey [32]byte
 }
 
-func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD, hasRecordLayer bool) Obfser {
-	var rlLen int
-	if hasRecordLayer {
-		rlLen = 5
-	}
+func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 	obfs := func(f *Frame, buf []byte) (int, error) {
 		// we need the encrypted data to be at least 8 bytes to be used as nonce for salsa20 stream header encryption
 		// this will be the case if the encryption method is an AEAD cipher, however for plain, it's well possible
@@ -56,15 +52,15 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD, hasRecordLayer bool)
 		}
 
 		// usefulLen is the amount of bytes that will be eventually sent off
-		usefulLen := rlLen + HEADER_LEN + len(f.Payload) + int(extraLen)
+		usefulLen := HEADER_LEN + len(f.Payload) + int(extraLen)
 		if len(buf) < usefulLen {
 			return 0, io.ErrShortBuffer
 
 		}
 		// we do as much in-place as possible to save allocation
-		useful := buf[:usefulLen] // (tls header) + payload + potential overhead
-		header := useful[rlLen : rlLen+HEADER_LEN]
-		encryptedPayloadWithExtra := useful[rlLen+HEADER_LEN:]
+		useful := buf[:usefulLen] // stream header + payload + potential overhead
+		header := useful[:HEADER_LEN]
+		encryptedPayloadWithExtra := useful[HEADER_LEN:]
 
 		putU32(header[0:4], f.StreamID)
 		putU64(header[4:12], f.Seq)
@@ -84,39 +80,23 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD, hasRecordLayer bool)
 		nonce := encryptedPayloadWithExtra[len(encryptedPayloadWithExtra)-8:]
 		salsa20.XORKeyStream(header, header, nonce, &salsaKey)
 
-		if hasRecordLayer {
-			recordLayer := useful[0:5]
-			// We don't use util.AddRecordLayer here to avoid unnecessary malloc
-			recordLayer[0] = 0x17
-			recordLayer[1] = 0x03
-			recordLayer[2] = 0x03
-			binary.BigEndian.PutUint16(recordLayer[3:5], uint16(HEADER_LEN+len(encryptedPayloadWithExtra)))
-		}
-		// Composing final obfsed message
 		return usefulLen, nil
 	}
 	return obfs
 }
 
-func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD, hasRecordLayer bool) Deobfser {
-	var rlLen int
-	if hasRecordLayer {
-		rlLen = 5
-	}
-	// record layer length + stream header length + minimum data size (i.e. nonce size of salsa20)
-	minInputLen := rlLen + HEADER_LEN + 8
+func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
+	// stream header length + minimum data size (i.e. nonce size of salsa20)
+	minInputLen := HEADER_LEN + 8
 	deobfs := func(in []byte) (*Frame, error) {
 		if len(in) < minInputLen {
 			return nil, fmt.Errorf("input size %v, but it cannot be shorter than %v bytes", len(in), minInputLen)
 		}
 
-		peeled := make([]byte, len(in)-rlLen)
-		copy(peeled, in[rlLen:])
+		header := in[:HEADER_LEN]
+		pldWithOverHead := in[HEADER_LEN:] // payload + potential overhead
 
-		header := peeled[:HEADER_LEN]
-		pldWithOverHead := peeled[HEADER_LEN:] // payload + potential overhead
-
-		nonce := peeled[len(peeled)-8:]
+		nonce := in[len(in)-8:]
 		salsa20.XORKeyStream(header, header, nonce, &salsaKey)
 
 		streamID := u32(header[0:4])
@@ -156,7 +136,7 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD, hasRecordLayer boo
 	return deobfs
 }
 
-func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte, hasRecordLayer bool) (obfuscator *Obfuscator, err error) {
+func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator *Obfuscator, err error) {
 	var payloadCipher cipher.AEAD
 	switch encryptionMethod {
 	case E_METHOD_PLAIN:
@@ -181,8 +161,8 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte, hasRecordLayer b
 	}
 
 	obfuscator = &Obfuscator{
-		MakeObfs(sessionKey, payloadCipher, hasRecordLayer),
-		MakeDeobfs(sessionKey, payloadCipher, hasRecordLayer),
+		MakeObfs(sessionKey, payloadCipher),
+		MakeDeobfs(sessionKey, payloadCipher),
 		sessionKey,
 	}
 	return

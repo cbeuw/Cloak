@@ -30,7 +30,7 @@ type authInfo struct {
 
 // makeAuthenticationPayload generates the ephemeral key pair, calculates the shared secret, and then compose and
 // encrypt the authenticationPayload
-func makeAuthenticationPayload(authInfo *authInfo, randReader io.Reader, time time.Time) (ret authenticationPayload, sharedSecret [32]byte) {
+func makeAuthenticationPayload(authInfo authInfo, randReader io.Reader, time time.Time) (ret authenticationPayload, sharedSecret [32]byte) {
 	/*
 		Authentication data:
 		+----------+----------------+---------------------+-------------+--------------+--------+------------+
