@@ -161,9 +161,7 @@ func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 		sb.valve.AddRx(int64(n))
 		if err != nil {
 			log.Debugf("a connection for session %v has closed: %v", sb.session.id, err)
-			//sb.close("a connection has dropped unexpectedly")
-			//return
-			sb.conns.Delete(connId)
+			sb.close("a connection has dropped unexpectedly")
 			return
 		}
 

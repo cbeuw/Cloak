@@ -4,23 +4,14 @@ import (
 	"github.com/cbeuw/Cloak/internal/util"
 	"github.com/cbeuw/connutil"
 	"math/rand"
-	"net"
 	"testing"
 	"time"
 )
 
 func TestSwitchboard_Send(t *testing.T) {
-	getHole := func() net.Conn {
-		l, _ := net.Listen("tcp", "127.0.0.1:0")
-		go func() {
-			net.Dial("tcp", l.Addr().String())
-		}()
-		hole, _ := l.Accept()
-		return hole
-	}
 	doTest := func(seshConfig SessionConfig) {
 		sesh := MakeSession(0, seshConfig)
-		hole0 := getHole()
+		hole0 := connutil.Discard()
 		sesh.sb.addConn(hole0)
 		connId, _, err := sesh.sb.pickRandConn()
 		if err != nil {
@@ -35,7 +26,7 @@ func TestSwitchboard_Send(t *testing.T) {
 			return
 		}
 
-		hole1 := getHole()
+		hole1 := connutil.Discard()
 		sesh.sb.addConn(hole1)
 		connId, _, err = sesh.sb.pickRandConn()
 		if err != nil {
@@ -161,35 +152,19 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 func TestSwitchboard_CloseOnOneDisconn(t *testing.T) {
 	sesh := setupSesh(false)
 
-	l, _ := net.Listen("tcp", "127.0.0.1:0")
-	addRemoteConn := func(close chan struct{}) {
-		conn, _ := net.Dial("tcp", l.Addr().String())
-		for {
-			conn.Write([]byte{0x00})
-			<-close
-			conn.Close()
-		}
-	}
+	conn0client, conn0server := connutil.AsyncPipe()
+	sesh.AddConnection(conn0client)
 
-	close0 := make(chan struct{})
-	go addRemoteConn(close0)
-	conn0, _ := l.Accept()
-	sesh.AddConnection(conn0)
+	conn1client, _ := connutil.AsyncPipe()
+	sesh.AddConnection(conn1client)
 
-	close1 := make(chan struct{})
-	go addRemoteConn(close1)
-	conn1, _ := l.Accept()
-	sesh.AddConnection(conn1)
-
-	close0 <- struct{}{}
-
-	time.Sleep(100 * time.Millisecond)
-
+	conn0server.Close()
+	time.Sleep(500 * time.Millisecond)
 	if !sesh.IsClosed() {
 		t.Error("session not closed after one conn is disconnected")
 		return
 	}
-	if _, err := conn1.Write([]byte{0x00}); err == nil {
+	if _, err := conn1client.Write([]byte{0x00}); err == nil {
 		t.Error("the other conn is still connected")
 		return
 	}
