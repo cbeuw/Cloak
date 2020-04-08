@@ -72,20 +72,20 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	sesh.addrs.Store([]net.Addr{nil, nil})
 
 	if config.Valve == nil {
-		config.Valve = UNLIMITED_VALVE
+		sesh.Valve = UNLIMITED_VALVE
 	}
 	if config.SendBufferSize <= 0 {
-		config.SendBufferSize = defaultSendRecvBufSize
+		sesh.SendBufferSize = defaultSendRecvBufSize
 	}
 	if config.ReceiveBufferSize <= 0 {
-		config.ReceiveBufferSize = defaultSendRecvBufSize
+		sesh.ReceiveBufferSize = defaultSendRecvBufSize
 	}
 
 	sbConfig := switchboardConfig{
-		Valve:          config.Valve,
-		recvBufferSize: config.ReceiveBufferSize,
+		Valve:          sesh.Valve,
+		recvBufferSize: sesh.ReceiveBufferSize,
 	}
-	if config.Unordered {
+	if sesh.Unordered {
 		log.Debug("Connection is unordered")
 		sbConfig.strategy = UNIFORM_SPREAD
 	} else {
