@@ -5,10 +5,8 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
-	"errors"
 	"io"
 	"net"
-	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -74,28 +72,11 @@ func ReadTLS(conn net.Conn, buffer []byte) (n int, err error) {
 
 	dataLength := int(binary.BigEndian.Uint16(buffer[3:5]))
 	if dataLength > len(buffer) {
-		err = errors.New("Reading TLS message: message size greater than buffer. message size: " + strconv.Itoa(dataLength))
+		err = io.ErrShortBuffer
 		return
 	}
-	left := dataLength
-	readPtr := 5
-
-	for left != 0 {
-		// If left > buffer size (i.e. our message got segmented), the entire MTU is read
-		// if left = buffer size, the entire buffer is all there left to read
-		// if left < buffer size (i.e. multiple messages came together),
-		// only the message we want is read
-
-		i, err := conn.Read(buffer[readPtr : readPtr+left])
-		if err != nil {
-			return i, err
-		}
-		left -= i
-		readPtr += i
-	}
-
-	n = 5 + dataLength
-	return
+	n, err = io.ReadFull(conn, buffer[5:dataLength+5])
+	return n + 5, err
 }
 
 // AddRecordLayer adds record layer to data
