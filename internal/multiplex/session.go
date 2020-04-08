@@ -19,20 +19,9 @@ const (
 var ErrBrokenSession = errors.New("broken session")
 var errRepeatSessionClosing = errors.New("trying to close a closed session")
 
-// Obfuscator is responsible for the obfuscation and deobfuscation of frames
-type Obfuscator struct {
-	// Used in Stream.Write. Add multiplexing headers, encrypt and add TLS header
-	Obfs Obfser
-	// Remove TLS header, decrypt and unmarshall frames
-	Deobfs     Deobfser
-	SessionKey [32]byte
-}
-
 type switchboardStrategy int
 
 type SessionConfig struct {
-	NoRecordLayer bool
-
 	*Obfuscator
 
 	Valve

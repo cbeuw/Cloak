@@ -13,7 +13,7 @@ import (
 func getSeshConfig(unordered bool) *mux.SessionConfig {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	obfuscator, _ := mux.GenerateObfs(0x00, sessionKey, true)
+	obfuscator, _ := mux.MakeObfuscator(0x00, sessionKey, true)
 
 	seshConfig := &mux.SessionConfig{
 		Obfuscator: obfuscator,

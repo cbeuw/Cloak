@@ -2,8 +2,8 @@ github.com/Yawning/chacha20 v0.0.0-20170904085104-e3b1f968fc63 h1:I6/SJSN9wJMJ+Z
 github.com/Yawning/chacha20 v0.0.0-20170904085104-e3b1f968fc63/go.mod h1:nf+Komq6fVP4SwmKEaVGxHTyQGKREVlwjQKpvOV39yE=
 github.com/boltdb/bolt v1.3.1 h1:JQmyP4ZBrce+ZQu0dY660FMfatumYDLun9hBCUVIkF4=
 github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
-github.com/cbeuw/connutil v0.0.0-20200407140739-52c0cf88d537 h1:7SLpz2OuAX3cQQKzxnHQ5+sYy5roT9etJTa7EHxYraQ=
-github.com/cbeuw/connutil v0.0.0-20200407140739-52c0cf88d537/go.mod h1:6jR2SzckGv8hIIS9zWJ160mzGVVOYp4AXZMDtacL6LE=
+github.com/cbeuw/connutil v0.0.0-20200407195302-dc6b6ca97482 h1:FHwIeZZdzILmajXl+o1ac3vjoOtaWKLR9wzw2eAELGU=
+github.com/cbeuw/connutil v0.0.0-20200407195302-dc6b6ca97482/go.mod h1:6jR2SzckGv8hIIS9zWJ160mzGVVOYp4AXZMDtacL6LE=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/gorilla/mux v1.7.3 h1:gnP5JzjVOuiZD07fKKToCAOjS0yOpj/qPETTXCCS6hw=

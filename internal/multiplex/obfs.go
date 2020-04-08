@@ -27,6 +27,15 @@ const (
 	E_METHOD_CHACHA20_POLY1305
 )
 
+// Obfuscator is responsible for the obfuscation and deobfuscation of frames
+type Obfuscator struct {
+	// Used in Stream.Write. Add multiplexing headers, encrypt and add TLS header
+	Obfs Obfser
+	// Remove TLS header, decrypt and unmarshall frames
+	Deobfs     Deobfser
+	SessionKey [32]byte
+}
+
 func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD, hasRecordLayer bool) Obfser {
 	var rlLen int
 	if hasRecordLayer {
@@ -144,7 +153,7 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD, hasRecordLayer boo
 	return deobfs
 }
 
-func GenerateObfs(encryptionMethod byte, sessionKey [32]byte, hasRecordLayer bool) (obfuscator *Obfuscator, err error) {
+func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte, hasRecordLayer bool) (obfuscator *Obfuscator, err error) {
 	var payloadCipher cipher.AEAD
 	switch encryptionMethod {
 	case E_METHOD_PLAIN:

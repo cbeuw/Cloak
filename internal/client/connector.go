@@ -65,7 +65,7 @@ func MakeSession(connConfig *remoteConnConfig, authInfo *authInfo, isAdmin bool)
 	log.Debug("All underlying connections established")
 
 	sessionKey := _sessionKey.Load().([32]byte)
-	obfuscator, err := mux.GenerateObfs(authInfo.EncryptionMethod, sessionKey, connConfig.Transport.HasRecordLayer())
+	obfuscator, err := mux.MakeObfuscator(authInfo.EncryptionMethod, sessionKey, connConfig.Transport.HasRecordLayer())
 	if err != nil {
 		log.Fatal(err)
 	}
