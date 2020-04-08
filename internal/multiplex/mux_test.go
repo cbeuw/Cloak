@@ -2,7 +2,7 @@ package multiplex
 
 import (
 	"bytes"
-	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/connutil"
 	"io"
 	"math/rand"
@@ -51,8 +51,8 @@ func makeSessionPair(numConn int) (*Session, *Session, []*connPair) {
 	paris := make([]*connPair, numConn)
 	for i := 0; i < numConn; i++ {
 		c, s := connutil.AsyncPipe()
-		clientConn := &util.TLSConn{Conn: c}
-		serverConn := &util.TLSConn{Conn: s}
+		clientConn := &common.TLSConn{Conn: c}
+		serverConn := &common.TLSConn{Conn: s}
 		paris[i] = &connPair{
 			clientConn: clientConn,
 			serverConn: serverConn,

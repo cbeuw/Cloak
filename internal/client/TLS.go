@@ -3,6 +3,7 @@ package client
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/util"
 	"net"
 	"time"
@@ -57,7 +58,7 @@ func genStegClientHello(ai authenticationPayload, serverName string) (ret client
 }
 
 type DirectTLS struct {
-	*util.TLSConn
+	*common.TLSConn
 	browser browser
 }
 
@@ -66,13 +67,13 @@ type DirectTLS struct {
 func (tls *DirectTLS) Handshake(rawConn net.Conn, authInfo authInfo) (sessionKey [32]byte, err error) {
 	payload, sharedSecret := makeAuthenticationPayload(authInfo, rand.Reader, time.Now())
 	chOnly := tls.browser.composeClientHello(genStegClientHello(payload, authInfo.MockDomain))
-	chWithRecordLayer := util.AddRecordLayer(chOnly, util.Handshake, util.VersionTLS11)
+	chWithRecordLayer := common.AddRecordLayer(chOnly, common.Handshake, common.VersionTLS11)
 	_, err = rawConn.Write(chWithRecordLayer)
 	if err != nil {
 		return
 	}
 	log.Trace("client hello sent successfully")
-	tls.TLSConn = &util.TLSConn{Conn: rawConn}
+	tls.TLSConn = &common.TLSConn{Conn: rawConn}
 
 	buf := make([]byte, 1024)
 	log.Trace("waiting for ServerHello")

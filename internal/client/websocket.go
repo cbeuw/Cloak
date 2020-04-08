@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/util"
 	"github.com/gorilla/websocket"
 	"net"
@@ -16,7 +17,7 @@ import (
 )
 
 type WSOverTLS struct {
-	*util.WebSocketConn
+	*common.WebSocketConn
 	cdnDomainPort string
 }
 
@@ -44,7 +45,7 @@ func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo authInfo) (sessionKey 
 		return sessionKey, fmt.Errorf("failed to handshake: %v", err)
 	}
 
-	ws.WebSocketConn = &util.WebSocketConn{Conn: c}
+	ws.WebSocketConn = &common.WebSocketConn{Conn: c}
 
 	buf := make([]byte, 128)
 	n, err := ws.Read(buf)

@@ -2,7 +2,7 @@ package server
 
 import (
 	"errors"
-	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/gorilla/websocket"
 	"net"
 	"net/http"
@@ -132,6 +132,6 @@ func (ws *wsHandshakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		log.Errorf("failed to upgrade connection to ws: %v", err)
 		return
 	}
-	ws.conn = &util.WebSocketConn{Conn: c}
+	ws.conn = &common.WebSocketConn{Conn: c}
 	ws.finished <- struct{}{}
 }

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
-	"github.com/cbeuw/Cloak/internal/util"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -33,7 +33,7 @@ type rawConfig struct {
 type State struct {
 	BindAddr    []net.Addr
 	ProxyBook   map[string]net.Addr
-	ProxyDialer util.Dialer
+	ProxyDialer common.Dialer
 
 	Now      func() time.Time
 	AdminUID []byte
@@ -46,7 +46,7 @@ type State struct {
 	// TODO: this doesn't have to be a net.Addr; resolution is done in Dial automatically
 	RedirHost   net.Addr
 	RedirPort   string
-	RedirDialer util.Dialer
+	RedirDialer common.Dialer
 
 	usedRandomM sync.RWMutex
 	usedRandom  map[[32]byte]int64

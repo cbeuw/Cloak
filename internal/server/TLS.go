@@ -4,8 +4,8 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/ecdh"
-	"github.com/cbeuw/Cloak/internal/util"
 	"net"
 
 	log "github.com/sirupsen/logrus"
@@ -49,7 +49,7 @@ func (TLS) makeResponder(clientHelloSessionId []byte, sharedSecret [32]byte) Res
 			go originalConn.Close()
 			return
 		}
-		preparedConn = &util.TLSConn{Conn: originalConn}
+		preparedConn = &common.TLSConn{Conn: originalConn}
 		return
 	}
 	return respond

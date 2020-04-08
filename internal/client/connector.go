@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/binary"
+	"github.com/cbeuw/Cloak/internal/common"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -12,7 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func MakeSession(connConfig remoteConnConfig, authInfo authInfo, dialer util.Dialer, isAdmin bool) *mux.Session {
+func MakeSession(connConfig remoteConnConfig, authInfo authInfo, dialer common.Dialer, isAdmin bool) *mux.Session {
 	log.Info("Attempting to start a new session")
 	if !isAdmin {
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
