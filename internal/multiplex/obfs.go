@@ -9,6 +9,7 @@ import (
 	"github.com/cbeuw/Cloak/internal/util"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/salsa20"
+	"io"
 )
 
 type Obfser func(*Frame, []byte) (int, error)
@@ -57,7 +58,7 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD, hasRecordLayer bool)
 		// usefulLen is the amount of bytes that will be eventually sent off
 		usefulLen := rlLen + HEADER_LEN + len(f.Payload) + int(extraLen)
 		if len(buf) < usefulLen {
-			return 0, errors.New("buffer is too small")
+			return 0, io.ErrShortBuffer
 
 		}
 		// we do as much in-place as possible to save allocation

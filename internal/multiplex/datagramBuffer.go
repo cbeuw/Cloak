@@ -3,7 +3,6 @@
 package multiplex
 
 import (
-	"errors"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -43,7 +42,7 @@ func (d *datagramBuffer) Read(target []byte) (int, error) {
 	}
 	data := d.buf[0]
 	if len(target) < len(data) {
-		return 0, errors.New("buffer is too small")
+		return 0, io.ErrShortBuffer
 	}
 	d.buf = d.buf[1:]
 	copy(target, data)
