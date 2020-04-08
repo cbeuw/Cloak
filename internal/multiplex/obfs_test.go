@@ -39,7 +39,7 @@ func TestGenerateObfs(t *testing.T) {
 	}
 
 	t.Run("plain", func(t *testing.T) {
-		obfuscator, err := MakeObfuscator(E_METHOD_PLAIN, sessionKey, true)
+		obfuscator, err := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		} else {
@@ -47,7 +47,7 @@ func TestGenerateObfs(t *testing.T) {
 		}
 	})
 	t.Run("plain no record layer", func(t *testing.T) {
-		obfuscator, err := MakeObfuscator(E_METHOD_PLAIN, sessionKey, false)
+		obfuscator, err := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		} else {
@@ -55,7 +55,7 @@ func TestGenerateObfs(t *testing.T) {
 		}
 	})
 	t.Run("aes-gcm", func(t *testing.T) {
-		obfuscator, err := MakeObfuscator(E_METHOD_AES_GCM, sessionKey, true)
+		obfuscator, err := MakeObfuscator(E_METHOD_AES_GCM, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		} else {
@@ -63,7 +63,7 @@ func TestGenerateObfs(t *testing.T) {
 		}
 	})
 	t.Run("aes-gcm no record layer", func(t *testing.T) {
-		obfuscator, err := MakeObfuscator(E_METHOD_AES_GCM, sessionKey, false)
+		obfuscator, err := MakeObfuscator(E_METHOD_AES_GCM, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		} else {
@@ -71,7 +71,7 @@ func TestGenerateObfs(t *testing.T) {
 		}
 	})
 	t.Run("chacha20-poly1305", func(t *testing.T) {
-		obfuscator, err := MakeObfuscator(E_METHOD_CHACHA20_POLY1305, sessionKey, true)
+		obfuscator, err := MakeObfuscator(E_METHOD_CHACHA20_POLY1305, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		} else {
@@ -79,7 +79,7 @@ func TestGenerateObfs(t *testing.T) {
 		}
 	})
 	t.Run("unknown encryption method", func(t *testing.T) {
-		_, err := MakeObfuscator(0xff, sessionKey, true)
+		_, err := MakeObfuscator(0xff, sessionKey)
 		if err == nil {
 			t.Errorf("unknown encryption mehtod error expected")
 		}
@@ -104,7 +104,7 @@ func BenchmarkObfs(b *testing.B) {
 		c, _ := aes.NewCipher(key[:])
 		payloadCipher, _ := cipher.NewGCM(c)
 
-		obfs := MakeObfs(key, payloadCipher, true)
+		obfs := MakeObfs(key, payloadCipher)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			n, err := obfs(testFrame, obfsBuf)
@@ -119,7 +119,7 @@ func BenchmarkObfs(b *testing.B) {
 		c, _ := aes.NewCipher(key[:16])
 		payloadCipher, _ := cipher.NewGCM(c)
 
-		obfs := MakeObfs(key, payloadCipher, true)
+		obfs := MakeObfs(key, payloadCipher)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			n, err := obfs(testFrame, obfsBuf)
@@ -131,7 +131,7 @@ func BenchmarkObfs(b *testing.B) {
 		}
 	})
 	b.Run("plain", func(b *testing.B) {
-		obfs := MakeObfs(key, nil, true)
+		obfs := MakeObfs(key, nil)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			n, err := obfs(testFrame, obfsBuf)
@@ -145,7 +145,7 @@ func BenchmarkObfs(b *testing.B) {
 	b.Run("chacha20Poly1305", func(b *testing.B) {
 		payloadCipher, _ := chacha20poly1305.New(key[:16])
 
-		obfs := MakeObfs(key, payloadCipher, true)
+		obfs := MakeObfs(key, payloadCipher)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			n, err := obfs(testFrame, obfsBuf)
@@ -176,9 +176,9 @@ func BenchmarkDeobfs(b *testing.B) {
 		c, _ := aes.NewCipher(key[:])
 		payloadCipher, _ := cipher.NewGCM(c)
 
-		obfs := MakeObfs(key, payloadCipher, true)
+		obfs := MakeObfs(key, payloadCipher)
 		n, _ := obfs(testFrame, obfsBuf)
-		deobfs := MakeDeobfs(key, payloadCipher, true)
+		deobfs := MakeDeobfs(key, payloadCipher)
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -194,9 +194,9 @@ func BenchmarkDeobfs(b *testing.B) {
 		c, _ := aes.NewCipher(key[:16])
 		payloadCipher, _ := cipher.NewGCM(c)
 
-		obfs := MakeObfs(key, payloadCipher, true)
+		obfs := MakeObfs(key, payloadCipher)
 		n, _ := obfs(testFrame, obfsBuf)
-		deobfs := MakeDeobfs(key, payloadCipher, true)
+		deobfs := MakeDeobfs(key, payloadCipher)
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -209,9 +209,9 @@ func BenchmarkDeobfs(b *testing.B) {
 		}
 	})
 	b.Run("plain", func(b *testing.B) {
-		obfs := MakeObfs(key, nil, true)
+		obfs := MakeObfs(key, nil)
 		n, _ := obfs(testFrame, obfsBuf)
-		deobfs := MakeDeobfs(key, nil, true)
+		deobfs := MakeDeobfs(key, nil)
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -226,9 +226,9 @@ func BenchmarkDeobfs(b *testing.B) {
 	b.Run("chacha20Poly1305", func(b *testing.B) {
 		payloadCipher, _ := chacha20poly1305.New(key[:16])
 
-		obfs := MakeObfs(key, payloadCipher, true)
+		obfs := MakeObfs(key, payloadCipher)
 		n, _ := obfs(testFrame, obfsBuf)
-		deobfs := MakeDeobfs(key, payloadCipher, true)
+		deobfs := MakeDeobfs(key, payloadCipher)
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {

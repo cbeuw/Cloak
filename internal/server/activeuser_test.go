@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
-	"github.com/cbeuw/Cloak/internal/util"
 	"os"
 	"testing"
 )
@@ -13,12 +12,11 @@ import (
 func getSeshConfig(unordered bool) mux.SessionConfig {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	obfuscator, _ := mux.MakeObfuscator(0x00, sessionKey, true)
+	obfuscator, _ := mux.MakeObfuscator(0x00, sessionKey)
 
 	seshConfig := mux.SessionConfig{
 		Obfuscator: obfuscator,
 		Valve:      nil,
-		UnitRead:   util.ReadTLS,
 		Unordered:  unordered,
 	}
 	return seshConfig

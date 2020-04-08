@@ -2,7 +2,6 @@ package multiplex
 
 import (
 	"bytes"
-	"github.com/cbeuw/Cloak/internal/util"
 	"math/rand"
 	"strconv"
 	"sync/atomic"
@@ -12,13 +11,11 @@ import (
 var seshConfigOrdered = SessionConfig{
 	Obfuscator: nil,
 	Valve:      nil,
-	UnitRead:   util.ReadTLS,
 }
 
 var seshConfigUnordered = SessionConfig{
 	Obfuscator: nil,
 	Valve:      nil,
-	UnitRead:   util.ReadTLS,
 	Unordered:  true,
 }
 
@@ -37,7 +34,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
 	t.Run("plain ordered", func(t *testing.T) {
-		obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey, true)
+		obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -64,7 +61,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 		}
 	})
 	t.Run("aes-gcm ordered", func(t *testing.T) {
-		obfuscator, _ := MakeObfuscator(E_METHOD_AES_GCM, sessionKey, true)
+		obfuscator, _ := MakeObfuscator(E_METHOD_AES_GCM, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -91,7 +88,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 		}
 	})
 	t.Run("chacha20-poly1305 ordered", func(t *testing.T) {
-		obfuscator, _ := MakeObfuscator(E_METHOD_CHACHA20_POLY1305, sessionKey, true)
+		obfuscator, _ := MakeObfuscator(E_METHOD_CHACHA20_POLY1305, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -119,7 +116,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 	})
 
 	t.Run("plain unordered", func(t *testing.T) {
-		obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey, true)
+		obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 		seshConfigUnordered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -156,7 +153,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
 
-	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey, true)
+	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 	seshConfigOrdered.Obfuscator = obfuscator
 
 	sesh := MakeSession(0, seshConfigOrdered)
@@ -287,7 +284,7 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
 
-	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey, true)
+	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 	seshConfigOrdered.Obfuscator = obfuscator
 
 	sesh := MakeSession(0, seshConfigOrdered)
@@ -346,7 +343,7 @@ func TestParallel(t *testing.T) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
 
-	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey, true)
+	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 	seshConfigOrdered.Obfuscator = obfuscator
 	sesh := MakeSession(0, seshConfigOrdered)
 
@@ -417,7 +414,7 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 	rand.Read(sessionKey[:])
 
 	b.Run("plain", func(b *testing.B) {
-		obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey, true)
+		obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -430,7 +427,7 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 	})
 
 	b.Run("aes-gcm", func(b *testing.B) {
-		obfuscator, _ := MakeObfuscator(E_METHOD_AES_GCM, sessionKey, true)
+		obfuscator, _ := MakeObfuscator(E_METHOD_AES_GCM, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)
@@ -443,7 +440,7 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 	})
 
 	b.Run("chacha20-poly1305", func(b *testing.B) {
-		obfuscator, _ := MakeObfuscator(E_METHOD_CHACHA20_POLY1305, sessionKey, true)
+		obfuscator, _ := MakeObfuscator(E_METHOD_CHACHA20_POLY1305, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
 		n, _ := sesh.Obfs(f, obfsBuf)

@@ -1,7 +1,6 @@
 package multiplex
 
 import (
-	"github.com/cbeuw/Cloak/internal/util"
 	"github.com/cbeuw/connutil"
 	"math/rand"
 	"testing"
@@ -55,7 +54,6 @@ func TestSwitchboard_Send(t *testing.T) {
 		seshConfig := SessionConfig{
 			Obfuscator: nil,
 			Valve:      nil,
-			UnitRead:   util.ReadTLS,
 			Unordered:  false,
 		}
 		doTest(seshConfig)
@@ -64,7 +62,6 @@ func TestSwitchboard_Send(t *testing.T) {
 		seshConfig := SessionConfig{
 			Obfuscator: nil,
 			Valve:      nil,
-			UnitRead:   util.ReadTLS,
 			Unordered:  true,
 		}
 		doTest(seshConfig)
@@ -76,7 +73,6 @@ func BenchmarkSwitchboard_Send(b *testing.B) {
 	seshConfig := SessionConfig{
 		Obfuscator: nil,
 		Valve:      nil,
-		UnitRead:   util.ReadTLS,
 	}
 	sesh := MakeSession(0, seshConfig)
 	sesh.sb.addConn(hole)
@@ -102,7 +98,6 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 	seshConfig := SessionConfig{
 		Obfuscator: nil,
 		Valve:      MakeValve(1<<20, 1<<20),
-		UnitRead:   util.ReadTLS,
 	}
 	sesh := MakeSession(0, seshConfig)
 	hole := connutil.Discard()

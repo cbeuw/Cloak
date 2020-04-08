@@ -2,7 +2,6 @@ package multiplex
 
 import (
 	"bytes"
-	"github.com/cbeuw/Cloak/internal/util"
 	"io"
 	"math/rand"
 	"net"
@@ -15,12 +14,11 @@ import (
 func setupSesh(unordered bool) *Session {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	obfuscator, _ := MakeObfuscator(0x00, sessionKey, true)
+	obfuscator, _ := MakeObfuscator(0x00, sessionKey)
 
 	seshConfig := SessionConfig{
 		Obfuscator: obfuscator,
 		Valve:      nil,
-		UnitRead:   util.ReadTLS,
 		Unordered:  unordered,
 	}
 	return MakeSession(0, seshConfig)
