@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 
 	"github.com/cbeuw/Cloak/internal/client"
@@ -129,7 +130,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	remoteConfig.Protector = protector
 
 	var adminUID []byte
 	if b64AdminUID != "" {
@@ -141,13 +141,15 @@ func main() {
 
 	var seshMaker func() *mux.Session
 
+	d := &net.Dialer{Control: protector, KeepAlive: remoteConfig.KeepAlive}
+
 	if adminUID != nil {
 		log.Infof("API base is %v", localConfig.LocalAddr)
 		authInfo.UID = adminUID
 		remoteConfig.NumConn = 1
 
 		seshMaker = func() *mux.Session {
-			return client.MakeSession(remoteConfig, authInfo, true)
+			return client.MakeSession(remoteConfig, authInfo, d, true)
 		}
 	} else {
 		var network string
@@ -158,7 +160,7 @@ func main() {
 		}
 		log.Infof("Listening on %v %v for %v client", network, localConfig.LocalAddr, authInfo.ProxyMethod)
 		seshMaker = func() *mux.Session {
-			return client.MakeSession(remoteConfig, authInfo, false)
+			return client.MakeSession(remoteConfig, authInfo, d, false)
 		}
 	}
 

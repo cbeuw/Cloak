@@ -12,7 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func MakeSession(connConfig remoteConnConfig, authInfo authInfo, isAdmin bool) *mux.Session {
+func MakeSession(connConfig remoteConnConfig, authInfo authInfo, dialer util.Dialer, isAdmin bool) *mux.Session {
 	log.Info("Attempting to start a new session")
 	if !isAdmin {
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
@@ -24,7 +24,6 @@ func MakeSession(connConfig remoteConnConfig, authInfo authInfo, isAdmin bool) *
 		authInfo.SessionId = 0
 	}
 
-	d := net.Dialer{Control: connConfig.Protector, KeepAlive: connConfig.KeepAlive}
 	connsCh := make(chan net.Conn, connConfig.NumConn)
 	var _sessionKey atomic.Value
 	var wg sync.WaitGroup
@@ -32,7 +31,7 @@ func MakeSession(connConfig remoteConnConfig, authInfo authInfo, isAdmin bool) *
 		wg.Add(1)
 		go func() {
 		makeconn:
-			remoteConn, err := d.Dial("tcp", connConfig.RemoteAddr)
+			remoteConn, err := dialer.Dial("tcp", connConfig.RemoteAddr)
 			if err != nil {
 				log.Errorf("Failed to establish new connections to remote: %v", err)
 				// TODO increase the interval if failed multiple times

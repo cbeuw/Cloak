@@ -37,7 +37,7 @@ func DispatchConnection(conn net.Conn, sta *State) {
 		if redirPort == "" {
 			_, redirPort, _ = net.SplitHostPort(conn.LocalAddr().String())
 		}
-		webConn, err := net.Dial("tcp", net.JoinHostPort(sta.RedirHost.String(), redirPort))
+		webConn, err := sta.RedirDialer.Dial("tcp", net.JoinHostPort(sta.RedirHost.String(), redirPort))
 		if err != nil {
 			log.Errorf("Making connection to redirection server: %v", err)
 			return
@@ -165,8 +165,7 @@ func DispatchConnection(conn net.Conn, sta *State) {
 			}
 		}
 		proxyAddr := sta.ProxyBook[ci.ProxyMethod]
-		d := net.Dialer{KeepAlive: sta.KeepAlive}
-		localConn, err := d.Dial(proxyAddr.Network(), proxyAddr.String())
+		localConn, err := sta.ProxyDialer.Dial(proxyAddr.Network(), proxyAddr.String())
 		if err != nil {
 			log.Errorf("Failed to connect to %v: %v", ci.ProxyMethod, err)
 			user.CloseSession(ci.SessionId, "Failed to connect to proxy server")

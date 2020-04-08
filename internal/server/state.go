@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
+	"github.com/cbeuw/Cloak/internal/util"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -30,19 +31,22 @@ type rawConfig struct {
 
 // State type stores the global state of the program
 type State struct {
-	BindAddr  []net.Addr
-	ProxyBook map[string]net.Addr
+	BindAddr    []net.Addr
+	ProxyBook   map[string]net.Addr
+	ProxyDialer util.Dialer
 
-	Now       func() time.Time
-	AdminUID  []byte
-	Timeout   time.Duration
-	KeepAlive time.Duration
+	Now      func() time.Time
+	AdminUID []byte
+	Timeout  time.Duration
+	//KeepAlive time.Duration
 
 	BypassUID map[[16]byte]struct{}
 	staticPv  crypto.PrivateKey
 
-	RedirHost net.Addr
-	RedirPort string
+	// TODO: this doesn't have to be a net.Addr; resolution is done in Dial automatically
+	RedirHost   net.Addr
+	RedirPort   string
+	RedirDialer util.Dialer
 
 	usedRandomM sync.RWMutex
 	usedRandom  map[[32]byte]int64
@@ -176,9 +180,9 @@ func (sta *State) ParseConfig(conf string) (err error) {
 	}
 
 	if preParse.KeepAlive <= 0 {
-		sta.KeepAlive = -1
+		sta.ProxyDialer = &net.Dialer{KeepAlive: -1}
 	} else {
-		sta.KeepAlive = time.Duration(preParse.KeepAlive) * time.Second
+		sta.ProxyDialer = &net.Dialer{KeepAlive: time.Duration(preParse.KeepAlive) * time.Second}
 	}
 
 	sta.RedirHost, sta.RedirPort, err = parseRedirAddr(preParse.RedirAddr)

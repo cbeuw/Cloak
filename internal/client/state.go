@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cbeuw/Cloak/internal/ecdh"
@@ -41,7 +40,6 @@ type rawConfig struct {
 type remoteConnConfig struct {
 	NumConn        int
 	KeepAlive      time.Duration
-	Protector      func(string, string, syscall.RawConn) error
 	RemoteAddr     string
 	TransportMaker func() Transport
 }
