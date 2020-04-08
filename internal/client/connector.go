@@ -5,7 +5,6 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"

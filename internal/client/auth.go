@@ -1,7 +1,6 @@
 package client
 
 import (
-	"crypto"
 	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
