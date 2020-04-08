@@ -15,7 +15,7 @@ const (
 )
 
 type switchboardConfig struct {
-	Valve
+	valve          Valve
 	strategy       switchboardStrategy
 	recvBufferSize int
 }
@@ -68,11 +68,11 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 			sb.close("failed to write to remote " + err.Error())
 			return n, err
 		}
-		sb.AddTx(int64(n))
+		sb.valve.AddTx(int64(n))
 		return n, nil
 	}
 
-	sb.Valve.txWait(len(data))
+	sb.valve.txWait(len(data))
 	connCount := sb.connsCount()
 	if atomic.LoadUint32(&sb.broken) == 1 || connCount == 0 {
 		return 0, errBrokenSwitchboard
@@ -157,8 +157,8 @@ func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 	buf := make([]byte, sb.recvBufferSize)
 	for {
 		n, err := sb.session.UnitRead(conn, buf)
-		sb.rxWait(n)
-		sb.Valve.AddRx(int64(n))
+		sb.valve.rxWait(n)
+		sb.valve.AddRx(int64(n))
 		if err != nil {
 			log.Debugf("a connection for session %v has closed: %v", sb.session.id, err)
 			sb.close("a connection has dropped unexpectedly")

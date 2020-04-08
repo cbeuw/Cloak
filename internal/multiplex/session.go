@@ -82,7 +82,7 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	}
 
 	sbConfig := switchboardConfig{
-		Valve:          sesh.Valve,
+		valve:          sesh.Valve,
 		recvBufferSize: sesh.ReceiveBufferSize,
 	}
 	if sesh.Unordered {
