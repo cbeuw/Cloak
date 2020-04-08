@@ -18,7 +18,7 @@ func TestSwitchboard_Send(t *testing.T) {
 		hole, _ := l.Accept()
 		return hole
 	}
-	doTest := func(seshConfig *SessionConfig) {
+	doTest := func(seshConfig SessionConfig) {
 		sesh := MakeSession(0, seshConfig)
 		hole0 := getHole()
 		sesh.sb.addConn(hole0)
@@ -61,7 +61,7 @@ func TestSwitchboard_Send(t *testing.T) {
 	}
 
 	t.Run("Ordered", func(t *testing.T) {
-		seshConfig := &SessionConfig{
+		seshConfig := SessionConfig{
 			Obfuscator: nil,
 			Valve:      nil,
 			UnitRead:   util.ReadTLS,
@@ -70,7 +70,7 @@ func TestSwitchboard_Send(t *testing.T) {
 		doTest(seshConfig)
 	})
 	t.Run("Unordered", func(t *testing.T) {
-		seshConfig := &SessionConfig{
+		seshConfig := SessionConfig{
 			Obfuscator: nil,
 			Valve:      nil,
 			UnitRead:   util.ReadTLS,
@@ -82,7 +82,7 @@ func TestSwitchboard_Send(t *testing.T) {
 
 func BenchmarkSwitchboard_Send(b *testing.B) {
 	hole := connutil.Discard()
-	seshConfig := &SessionConfig{
+	seshConfig := SessionConfig{
 		Obfuscator: nil,
 		Valve:      nil,
 		UnitRead:   util.ReadTLS,
@@ -108,7 +108,7 @@ func BenchmarkSwitchboard_Send(b *testing.B) {
 }
 
 func TestSwitchboard_TxCredit(t *testing.T) {
-	seshConfig := &SessionConfig{
+	seshConfig := SessionConfig{
 		Obfuscator: nil,
 		Valve:      MakeValve(1<<20, 1<<20),
 		UnitRead:   util.ReadTLS,
@@ -125,7 +125,7 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 	rand.Read(data)
 
 	t.Run("FIXED CONN MAPPING", func(t *testing.T) {
-		*sesh.sb.Valve.(*LimitedValve).tx = 0
+		*sesh.sb.valve.(*LimitedValve).tx = 0
 		sesh.sb.strategy = FIXED_CONN_MAPPING
 		n, err := sesh.sb.send(data[:10], &connId)
 		if err != nil {
@@ -136,12 +136,12 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 			t.Errorf("wanted to send %v, got %v", 10, n)
 			return
 		}
-		if *sesh.sb.Valve.(*LimitedValve).tx != 10 {
+		if *sesh.sb.valve.(*LimitedValve).tx != 10 {
 			t.Error("tx credit didn't increase by 10")
 		}
 	})
 	t.Run("UNIFORM", func(t *testing.T) {
-		*sesh.sb.Valve.(*LimitedValve).tx = 0
+		*sesh.sb.valve.(*LimitedValve).tx = 0
 		sesh.sb.strategy = UNIFORM_SPREAD
 		n, err := sesh.sb.send(data[:10], &connId)
 		if err != nil {
@@ -152,7 +152,7 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 			t.Errorf("wanted to send %v, got %v", 10, n)
 			return
 		}
-		if *sesh.sb.Valve.(*LimitedValve).tx != 10 {
+		if *sesh.sb.valve.(*LimitedValve).tx != 10 {
 			t.Error("tx credit didn't increase by 10")
 		}
 	})

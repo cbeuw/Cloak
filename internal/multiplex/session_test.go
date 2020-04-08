@@ -9,13 +9,13 @@ import (
 	"testing"
 )
 
-var seshConfigOrdered = &SessionConfig{
+var seshConfigOrdered = SessionConfig{
 	Obfuscator: nil,
 	Valve:      nil,
 	UnitRead:   util.ReadTLS,
 }
 
-var seshConfigUnordered = &SessionConfig{
+var seshConfigUnordered = SessionConfig{
 	Obfuscator: nil,
 	Valve:      nil,
 	UnitRead:   util.ReadTLS,

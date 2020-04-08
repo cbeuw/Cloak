@@ -16,7 +16,7 @@ func setupSesh(unordered bool) *Session {
 	rand.Read(sessionKey[:])
 	obfuscator, _ := MakeObfuscator(0x00, sessionKey, true)
 
-	seshConfig := &SessionConfig{
+	seshConfig := SessionConfig{
 		Obfuscator: obfuscator,
 		Valve:      nil,
 		UnitRead:   util.ReadTLS,
