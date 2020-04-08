@@ -70,11 +70,7 @@ func (s *Stream) writeFrame(frame Frame) error {
 func (s *Stream) Read(buf []byte) (n int, err error) {
 	//log.Tracef("attempting to read from stream %v", s.id)
 	if len(buf) == 0 {
-		if s.isClosed() {
-			return 0, ErrBrokenStream
-		} else {
-			return 0, nil
-		}
+		return 0, nil
 	}
 
 	n, err = s.recvBuf.Read(buf)
