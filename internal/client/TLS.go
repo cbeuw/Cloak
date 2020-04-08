@@ -46,6 +46,17 @@ func addExtRec(typ []byte, data []byte) []byte {
 	return ret
 }
 
+func addRecordLayer(input []byte, typ []byte, ver []byte) []byte {
+	length := make([]byte, 2)
+	binary.BigEndian.PutUint16(length, uint16(len(input)))
+	ret := make([]byte, 5+len(input))
+	copy(ret[0:1], typ)
+	copy(ret[1:3], ver)
+	copy(ret[3:5], length)
+	copy(ret[5:], input)
+	return ret
+}
+
 func genStegClientHello(ai authenticationPayload, serverName string) (ret clientHelloFields) {
 	// random is marshalled ephemeral pub key 32 bytes
 	// The authentication ciphertext and its tag are then distributed among SessionId and X25519KeyShare
@@ -69,7 +80,7 @@ func (tls DirectTLS) PrepareConnection(authInfo *authInfo, conn net.Conn) (prepa
 	preparedConn = conn
 	payload, sharedSecret := makeAuthenticationPayload(authInfo, rand.Reader, time.Now())
 	chOnly := tls.browser.composeClientHello(genStegClientHello(payload, authInfo.MockDomain))
-	chWithRecordLayer := util.AddRecordLayer(chOnly, []byte{0x16}, []byte{0x03, 0x01})
+	chWithRecordLayer := addRecordLayer(chOnly, []byte{0x16}, []byte{0x03, 0x01})
 	_, err = preparedConn.Write(chWithRecordLayer)
 	if err != nil {
 		return

@@ -79,18 +79,6 @@ func ReadTLS(conn net.Conn, buffer []byte) (n int, err error) {
 	return n + 5, err
 }
 
-// AddRecordLayer adds record layer to data
-func AddRecordLayer(input []byte, typ []byte, ver []byte) []byte {
-	length := make([]byte, 2)
-	binary.BigEndian.PutUint16(length, uint16(len(input)))
-	ret := make([]byte, 5+len(input))
-	copy(ret[0:1], typ)
-	copy(ret[1:3], ver)
-	copy(ret[3:5], length)
-	copy(ret[5:], input)
-	return ret
-}
-
 func Pipe(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) {
 	// The maximum size of TLS message will be 16380+14+16. 14 because of the stream header and 16
 	// because of the salt/mac
