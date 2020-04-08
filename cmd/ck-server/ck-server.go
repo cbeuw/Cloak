@@ -90,7 +90,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 			return
 		}
 		log.Trace("finished handshake")
-		seshConfig := &mux.SessionConfig{
+		seshConfig := mux.SessionConfig{
 			Obfuscator: obfuscator,
 			Valve:      nil,
 			UnitRead:   ci.Transport.UnitReadFunc(),
@@ -122,7 +122,7 @@ func dispatchConnection(conn net.Conn, sta *server.State) {
 		return
 	}
 
-	seshConfig := &mux.SessionConfig{
+	seshConfig := mux.SessionConfig{
 		Obfuscator: obfuscator,
 		Valve:      nil,
 		UnitRead:   ci.Transport.UnitReadFunc(),

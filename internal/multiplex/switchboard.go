@@ -16,14 +16,15 @@ const (
 
 type switchboardConfig struct {
 	Valve
-	strategy switchboardStrategy
+	strategy       switchboardStrategy
+	recvBufferSize int
 }
 
 // switchboard is responsible for keeping the reference of TCP connections between client and server
 type switchboard struct {
 	session *Session
 
-	*switchboardConfig
+	switchboardConfig
 
 	conns      sync.Map
 	nextConnId uint32
@@ -31,7 +32,7 @@ type switchboard struct {
 	broken uint32
 }
 
-func makeSwitchboard(sesh *Session, config *switchboardConfig) *switchboard {
+func makeSwitchboard(sesh *Session, config switchboardConfig) *switchboard {
 	// rates are uint64 because in the usermanager we want the bandwidth to be atomically
 	// operated (so that the bandwidth can change on the fly).
 	sb := &switchboard{
@@ -153,7 +154,7 @@ func (sb *switchboard) closeAll() {
 // deplex function costantly reads from a TCP connection
 func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 20480)
+	buf := make([]byte, sb.recvBufferSize)
 	for {
 		n, err := sb.session.UnitRead(conn, buf)
 		sb.rxWait(n)

@@ -70,7 +70,7 @@ func MakeSession(connConfig *remoteConnConfig, authInfo *authInfo, isAdmin bool)
 		log.Fatal(err)
 	}
 
-	seshConfig := &mux.SessionConfig{
+	seshConfig := mux.SessionConfig{
 		Obfuscator: obfuscator,
 		Valve:      nil,
 		UnitRead:   connConfig.Transport.UnitReadFunc(),

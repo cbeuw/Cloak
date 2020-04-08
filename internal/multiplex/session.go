@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	acceptBacklog = 1024
+	acceptBacklog          = 1024
+	defaultSendRecvBufSize = 20480
 )
 
 var ErrBrokenSession = errors.New("broken session")
@@ -30,12 +31,15 @@ type SessionConfig struct {
 	UnitRead func(net.Conn, []byte) (int, error)
 
 	Unordered bool
+
+	SendBufferSize    int
+	ReceiveBufferSize int
 }
 
 type Session struct {
 	id uint32
 
-	*SessionConfig
+	SessionConfig
 
 	// atomic
 	nextStreamID uint32
@@ -58,7 +62,7 @@ type Session struct {
 	terminalMsg atomic.Value
 }
 
-func MakeSession(id uint32, config *SessionConfig) *Session {
+func MakeSession(id uint32, config SessionConfig) *Session {
 	sesh := &Session{
 		id:            id,
 		SessionConfig: config,
@@ -70,9 +74,16 @@ func MakeSession(id uint32, config *SessionConfig) *Session {
 	if config.Valve == nil {
 		config.Valve = UNLIMITED_VALVE
 	}
+	if config.SendBufferSize <= 0 {
+		config.SendBufferSize = defaultSendRecvBufSize
+	}
+	if config.ReceiveBufferSize <= 0 {
+		config.ReceiveBufferSize = defaultSendRecvBufSize
+	}
 
-	sbConfig := &switchboardConfig{
-		Valve: config.Valve,
+	sbConfig := switchboardConfig{
+		Valve:          config.Valve,
+		recvBufferSize: config.ReceiveBufferSize,
 	}
 	if config.Unordered {
 		log.Debug("Connection is unordered")

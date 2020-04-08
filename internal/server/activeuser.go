@@ -39,7 +39,7 @@ func (u *ActiveUser) CloseSession(sessionID uint32, reason string) {
 // GetSession returns the reference to an existing session, or if one such session doesn't exist, it queries
 // the UserManager for the authorisation for a new session. If a new session is allowed, it creates this new session
 // and returns its reference
-func (u *ActiveUser) GetSession(sessionID uint32, config *mux.SessionConfig) (sesh *mux.Session, existing bool, err error) {
+func (u *ActiveUser) GetSession(sessionID uint32, config mux.SessionConfig) (sesh *mux.Session, existing bool, err error) {
 	u.sessionsM.Lock()
 	defer u.sessionsM.Unlock()
 	if sesh = u.sessions[sessionID]; sesh != nil {
