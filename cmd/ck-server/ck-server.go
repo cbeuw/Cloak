@@ -3,16 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/Cloak/internal/server"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"strings"
-	"time"
-
-	"github.com/cbeuw/Cloak/internal/server"
-	log "github.com/sirupsen/logrus"
 )
 
 var version string
@@ -145,7 +144,7 @@ func main() {
 		}
 	}
 
-	sta, err := server.InitState(raw, time.Now)
+	sta, err := server.InitState(raw, common.RealWorldState)
 	if err != nil {
 		log.Fatalf("unable to initialise server state: %v", err)
 	}

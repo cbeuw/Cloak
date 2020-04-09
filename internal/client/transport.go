@@ -1,6 +1,8 @@
 package client
 
-import "net"
+import (
+	"net"
+)
 
 type Transport interface {
 	Handshake(rawConn net.Conn, authInfo authInfo) (sessionKey [32]byte, err error)

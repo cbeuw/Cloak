@@ -1,14 +1,11 @@
 package client
 
 import (
-	"crypto/rand"
 	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/util"
-	"net"
-	"time"
-
 	log "github.com/sirupsen/logrus"
+	"net"
 )
 
 const appDataMaxLength = 16401
@@ -67,7 +64,7 @@ type DirectTLS struct {
 // NewClientTransport handles the TLS handshake for a given conn and returns the sessionKey
 // if the server proceed with Cloak authentication
 func (tls *DirectTLS) Handshake(rawConn net.Conn, authInfo authInfo) (sessionKey [32]byte, err error) {
-	payload, sharedSecret := makeAuthenticationPayload(authInfo, rand.Reader, time.Now())
+	payload, sharedSecret := makeAuthenticationPayload(authInfo)
 	chOnly := tls.browser.composeClientHello(genStegClientHello(payload, authInfo.MockDomain))
 	chWithRecordLayer := common.AddRecordLayer(chOnly, common.Handshake, common.VersionTLS11)
 	_, err = rawConn.Write(chWithRecordLayer)

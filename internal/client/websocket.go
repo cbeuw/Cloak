@@ -1,19 +1,16 @@
 package client
 
 import (
-	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/util"
 	"github.com/gorilla/websocket"
+	utls "github.com/refraction-networking/utls"
 	"net"
 	"net/http"
 	"net/url"
-	"time"
-
-	utls "github.com/refraction-networking/utls"
 )
 
 type WSOverTLS struct {
@@ -37,7 +34,7 @@ func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo authInfo) (sessionKey 
 		return sessionKey, fmt.Errorf("failed to parse ws url: %v", err)
 	}
 
-	payload, sharedSecret := makeAuthenticationPayload(authInfo, rand.Reader, time.Now())
+	payload, sharedSecret := makeAuthenticationPayload(authInfo)
 	header := http.Header{}
 	header.Add("hidden", base64.StdEncoding.EncodeToString(append(payload.randPubKey[:], payload.ciphertextWithTag[:]...)))
 	c, _, err := websocket.NewClient(uconn, u, header, 16480, 16480)

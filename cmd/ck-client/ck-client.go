@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/common"
 	"net"
 	"os"
 
@@ -126,7 +127,7 @@ func main() {
 		}
 	}
 
-	localConfig, remoteConfig, authInfo, err := rawConfig.SplitConfigs()
+	localConfig, remoteConfig, authInfo, err := rawConfig.SplitConfigs(common.RealWorldState)
 	if err != nil {
 		log.Fatal(err)
 	}

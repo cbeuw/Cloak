@@ -19,7 +19,7 @@ func MakeSession(connConfig remoteConnConfig, authInfo authInfo, dialer common.D
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 		// sessionID is limited to its UID.
 		quad := make([]byte, 4)
-		util.CryptoRandRead(quad)
+		util.RandRead(authInfo.WorldState.Rand, quad)
 		authInfo.SessionId = binary.BigEndian.Uint32(quad)
 	} else {
 		authInfo.SessionId = 0

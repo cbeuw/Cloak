@@ -34,9 +34,9 @@ type State struct {
 	ProxyBook   map[string]net.Addr
 	ProxyDialer common.Dialer
 
-	Now      func() time.Time
-	AdminUID []byte
-	Timeout  time.Duration
+	WorldState common.WorldState
+	AdminUID   []byte
+	Timeout    time.Duration
 	//KeepAlive time.Duration
 
 	BypassUID map[[16]byte]struct{}
@@ -144,13 +144,13 @@ func ParseConfig(conf string) (raw RawConfig, err error) {
 }
 
 // ParseConfig parses the config (either a path to json or the json itself as argument) into a State variable
-func InitState(preParse RawConfig, nowFunc func() time.Time) (sta *State, err error) {
+func InitState(preParse RawConfig, worldState common.WorldState) (sta *State, err error) {
 	sta = &State{
-		Now:         nowFunc,
 		BypassUID:   make(map[[16]byte]struct{}),
 		ProxyBook:   map[string]net.Addr{},
 		usedRandom:  map[[32]byte]int64{},
 		RedirDialer: &net.Dialer{},
+		WorldState:  worldState,
 	}
 	if preParse.CncMode {
 		err = errors.New("command & control mode not implemented")
@@ -220,10 +220,10 @@ const CACHE_CLEAN_INTERVAL = 12 * time.Hour
 func (sta *State) UsedRandomCleaner() {
 	for {
 		time.Sleep(CACHE_CLEAN_INTERVAL)
-		now := sta.Now()
 		sta.usedRandomM.Lock()
 		for key, t := range sta.usedRandom {
-			if time.Unix(t, 0).Before(now.Add(TIMESTAMP_TOLERANCE)) {
+			// todo: inpure time
+			if time.Unix(t, 0).Before(sta.WorldState.Now().Add(TIMESTAMP_TOLERANCE)) {
 				delete(sta.usedRandom, key)
 			}
 		}
@@ -234,7 +234,7 @@ func (sta *State) UsedRandomCleaner() {
 func (sta *State) registerRandom(r [32]byte) bool {
 	sta.usedRandomM.Lock()
 	_, used := sta.usedRandom[r]
-	sta.usedRandom[r] = sta.Now().Unix()
+	sta.usedRandom[r] = sta.WorldState.Now().Unix()
 	sta.usedRandomM.Unlock()
 	return used
 }

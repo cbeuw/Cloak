@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/util"
-	"math/rand"
 )
 
 // ClientHello contains every field in a ClientHello message
@@ -162,29 +161,21 @@ func parseClientHello(data []byte) (ret *ClientHello, err error) {
 	return
 }
 
-func composeServerHello(sessionId []byte, sharedSecret [32]byte, sessionKey [32]byte) ([]byte, error) {
-	nonce := make([]byte, 12)
-	util.CryptoRandRead(nonce)
-
-	encryptedKey, err := util.AESGCMEncrypt(nonce, sharedSecret[:], sessionKey[:]) // 32 + 16 = 48 bytes
-	if err != nil {
-		return nil, err
-	}
-
+func composeServerHello(sessionId []byte, nonce [12]byte, encryptedSessionKeyWithTag [48]byte) ([]byte, error) {
 	var serverHello [11][]byte
-	serverHello[0] = []byte{0x02}                               // handshake type
-	serverHello[1] = []byte{0x00, 0x00, 0x76}                   // length 77
-	serverHello[2] = []byte{0x03, 0x03}                         // server version
-	serverHello[3] = append(nonce[0:12], encryptedKey[0:20]...) // random 32 bytes
-	serverHello[4] = []byte{0x20}                               // session id length 32
-	serverHello[5] = sessionId                                  // session id
-	serverHello[6] = []byte{0xc0, 0x30}                         // cipher suite TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	serverHello[7] = []byte{0x00}                               // compression method null
-	serverHello[8] = []byte{0x00, 0x2e}                         // extensions length 46
+	serverHello[0] = []byte{0x02}                                             // handshake type
+	serverHello[1] = []byte{0x00, 0x00, 0x76}                                 // length 77
+	serverHello[2] = []byte{0x03, 0x03}                                       // server version
+	serverHello[3] = append(nonce[0:12], encryptedSessionKeyWithTag[0:20]...) // random 32 bytes
+	serverHello[4] = []byte{0x20}                                             // session id length 32
+	serverHello[5] = sessionId                                                // session id
+	serverHello[6] = []byte{0xc0, 0x30}                                       // cipher suite TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+	serverHello[7] = []byte{0x00}                                             // compression method null
+	serverHello[8] = []byte{0x00, 0x2e}                                       // extensions length 46
 
 	keyShare, _ := hex.DecodeString("00330024001d0020")
 	keyExchange := make([]byte, 32)
-	copy(keyExchange, encryptedKey[20:48])
+	copy(keyExchange, encryptedSessionKeyWithTag[20:48])
 	util.CryptoRandRead(keyExchange[28:32])
 	serverHello[9] = append(keyShare, keyExchange...)
 
@@ -198,21 +189,15 @@ func composeServerHello(sessionId []byte, sharedSecret [32]byte, sessionKey [32]
 
 // composeReply composes the ServerHello, ChangeCipherSpec and an ApplicationData messages
 // together with their respective record layers into one byte slice.
-func composeReply(clientHelloSessionId []byte, sharedSecret [32]byte, sessionKey [32]byte) ([]byte, error) {
+func composeReply(clientHelloSessionId []byte, nonce [12]byte, encryptedSessionKeyWithTag [48]byte, cert []byte) ([]byte, error) {
 	TLS12 := []byte{0x03, 0x03}
-	sh, err := composeServerHello(clientHelloSessionId, sharedSecret, sessionKey)
+	sh, err := composeServerHello(clientHelloSessionId, nonce, encryptedSessionKeyWithTag)
 	if err != nil {
 		return nil, err
 	}
 	shBytes := addRecordLayer(sh, []byte{0x16}, TLS12)
 	ccsBytes := addRecordLayer([]byte{0x01}, []byte{0x14}, TLS12)
 
-	// the cert length needs to be the same for all handshakes belonging to the same session
-	// we can use sessionKey as a seed here to ensure consistency
-	possibleCertLengths := []int{42, 27, 68, 59, 36, 44, 46}
-	rand.Seed(int64(sessionKey[0]))
-	cert := make([]byte, possibleCertLengths[rand.Intn(len(possibleCertLengths))])
-	util.CryptoRandRead(cert)
 	encryptedCertBytes := addRecordLayer(cert, []byte{0x17}, TLS12)
 	ret := append(shBytes, ccsBytes...)
 	ret = append(ret, encryptedCertBytes...)

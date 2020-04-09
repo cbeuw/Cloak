@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/common"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -13,11 +14,11 @@ import (
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 )
 
-// rawConfig represents the fields in the config json file
+// RawConfig represents the fields in the config json file
 // nullable means if it's empty, a default value will be chosen in SplitConfigs
 // jsonOptional means if the json's empty, its value will be set from environment variables or commandline args
 // but it mustn't be empty when SplitConfigs is called
-type rawConfig struct {
+type RawConfig struct {
 	ServerName       string
 	ProxyMethod      string
 	EncryptionMethod string
@@ -57,6 +58,7 @@ type authInfo struct {
 	Unordered        bool
 	ServerPubKey     crypto.PublicKey
 	MockDomain       string
+	WorldState       common.WorldState
 }
 
 // semi-colon separated value. This is for Android plugin options
@@ -98,7 +100,7 @@ func ssvToJson(ssv string) (ret []byte) {
 	return ret
 }
 
-func ParseConfig(conf string) (raw *rawConfig, err error) {
+func ParseConfig(conf string) (raw *RawConfig, err error) {
 	var content []byte
 	// Checking if it's a path to json or a ssv string
 	if strings.Contains(conf, ";") && strings.Contains(conf, "=") {
@@ -110,7 +112,7 @@ func ParseConfig(conf string) (raw *rawConfig, err error) {
 		}
 	}
 
-	raw = new(rawConfig)
+	raw = new(RawConfig)
 	err = json.Unmarshal(content, &raw)
 	if err != nil {
 		return
@@ -118,7 +120,7 @@ func ParseConfig(conf string) (raw *rawConfig, err error) {
 	return
 }
 
-func (raw *rawConfig) SplitConfigs() (local localConnConfig, remote remoteConnConfig, auth authInfo, err error) {
+func (raw *RawConfig) SplitConfigs(worldState common.WorldState) (local localConnConfig, remote remoteConnConfig, auth authInfo, err error) {
 	nullErr := func(field string) (local localConnConfig, remote remoteConnConfig, auth authInfo, err error) {
 		err = fmt.Errorf("%v cannot be empty", field)
 		return
@@ -148,6 +150,7 @@ func (raw *rawConfig) SplitConfigs() (local localConnConfig, remote remoteConnCo
 		return
 	}
 	auth.ServerPubKey = pub
+	auth.WorldState = worldState
 
 	// Encryption method
 	switch strings.ToLower(raw.EncryptionMethod) {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	"github.com/cbeuw/Cloak/internal/util"
+	"io"
 	"net"
 	"net/http"
 )
@@ -39,7 +40,7 @@ func (WebSocket) processFirstPacket(reqPacket []byte, privateKey crypto.PrivateK
 }
 
 func (WebSocket) makeResponder(reqPacket []byte, sharedSecret [32]byte) Responder {
-	respond := func(originalConn net.Conn, sessionKey [32]byte) (preparedConn net.Conn, err error) {
+	respond := func(originalConn net.Conn, sessionKey [32]byte, randSource io.Reader) (preparedConn net.Conn, err error) {
 		handler := newWsHandshakeHandler()
 
 		// For an explanation of the following 3 lines, see the comments in websocketAux.go
@@ -48,7 +49,7 @@ func (WebSocket) makeResponder(reqPacket []byte, sharedSecret [32]byte) Responde
 		<-handler.finished
 		preparedConn = handler.conn
 		nonce := make([]byte, 12)
-		util.CryptoRandRead(nonce)
+		util.RandRead(randSource, nonce)
 
 		// reply: [12 bytes nonce][32 bytes encrypted session key][16 bytes authentication tag]
 		encryptedKey, err := util.AESGCMEncrypt(nonce, sharedSecret[:], sessionKey[:]) // 32 + 16 = 48 bytes

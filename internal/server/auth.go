@@ -34,7 +34,7 @@ var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting 
 var ErrUnreconisedProtocol = errors.New("unreconised protocol")
 
 // decryptClientInfo checks if a the authFragments are valid. It doesn't check if the UID is authorised
-func decryptClientInfo(fragments authFragments, now func() time.Time) (info ClientInfo, err error) {
+func decryptClientInfo(fragments authFragments, serverTime time.Time) (info ClientInfo, err error) {
 	var plaintext []byte
 	plaintext, err = util.AESGCMDecrypt(fragments.randPubKey[0:12], fragments.sharedSecret[:], fragments.ciphertextWithTag[:])
 	if err != nil {
@@ -51,7 +51,6 @@ func decryptClientInfo(fragments authFragments, now func() time.Time) (info Clie
 
 	timestamp := int64(binary.BigEndian.Uint64(plaintext[29:37]))
 	clientTime := time.Unix(timestamp, 0)
-	serverTime := now()
 	if !(clientTime.After(serverTime.Truncate(TIMESTAMP_TOLERANCE)) && clientTime.Before(serverTime.Add(TIMESTAMP_TOLERANCE))) {
 		err = fmt.Errorf("%v: received timestamp %v", ErrTimestampOutOfWindow, timestamp)
 		return
@@ -89,7 +88,7 @@ func AuthFirstPacket(firstPacket []byte, sta *State) (info ClientInfo, finisher 
 		return
 	}
 
-	info, err = decryptClientInfo(fragments, sta.Now)
+	info, err = decryptClientInfo(fragments, sta.WorldState.Now())
 	if err != nil {
 		log.Debug(err)
 		err = fmt.Errorf("transport %v in correct format but not Cloak: %v", transport, err)

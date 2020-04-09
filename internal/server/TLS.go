@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/ecdh"
+	"github.com/cbeuw/Cloak/internal/util"
+	"io"
+	"math/rand"
 	"net"
 
 	log "github.com/sirupsen/logrus"
@@ -39,8 +42,24 @@ func (TLS) processFirstPacket(clientHello []byte, privateKey crypto.PrivateKey) 
 }
 
 func (TLS) makeResponder(clientHelloSessionId []byte, sharedSecret [32]byte) Responder {
-	respond := func(originalConn net.Conn, sessionKey [32]byte) (preparedConn net.Conn, err error) {
-		reply, err := composeReply(clientHelloSessionId, sharedSecret, sessionKey)
+	respond := func(originalConn net.Conn, sessionKey [32]byte, randSource io.Reader) (preparedConn net.Conn, err error) {
+		// the cert length needs to be the same for all handshakes belonging to the same session
+		// we can use sessionKey as a seed here to ensure consistency
+		possibleCertLengths := []int{42, 27, 68, 59, 36, 44, 46}
+		rand.Seed(int64(sessionKey[0]))
+		cert := make([]byte, possibleCertLengths[rand.Intn(len(possibleCertLengths))])
+		util.RandRead(randSource, cert)
+
+		var nonce [12]byte
+		util.RandRead(randSource, nonce[:])
+		encryptedSessionKey, err := util.AESGCMEncrypt(nonce[:], sharedSecret[:], sessionKey[:])
+		if err != nil {
+			return
+		}
+		var encryptedSessionKeyArr [48]byte
+		copy(encryptedSessionKeyArr[:], encryptedSessionKey)
+
+		reply, err := composeReply(clientHelloSessionId, nonce, encryptedSessionKeyArr, cert)
 		if err != nil {
 			err = fmt.Errorf("failed to compose TLS reply: %v", err)
 			return

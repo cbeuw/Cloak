@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"io"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -38,7 +39,11 @@ func AESGCMDecrypt(nonce []byte, key []byte, ciphertext []byte) ([]byte, error) 
 }
 
 func CryptoRandRead(buf []byte) {
-	_, err := rand.Read(buf)
+	RandRead(rand.Reader, buf)
+}
+
+func RandRead(randSource io.Reader, buf []byte) {
+	_, err := randSource.Read(buf)
 	if err == nil {
 		return
 	}

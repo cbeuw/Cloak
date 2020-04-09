@@ -3,10 +3,11 @@ package server
 import (
 	"crypto"
 	"errors"
+	"io"
 	"net"
 )
 
-type Responder = func(originalConn net.Conn, sessionKey [32]byte) (preparedConn net.Conn, err error)
+type Responder = func(originalConn net.Conn, sessionKey [32]byte, randSource io.Reader) (preparedConn net.Conn, err error)
 type Transport interface {
 	processFirstPacket(reqPacket []byte, privateKey crypto.PrivateKey) (authFragments, Responder, error)
 }

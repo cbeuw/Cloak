@@ -65,7 +65,7 @@ func DispatchConnection(conn net.Conn, sta *State) {
 	}
 
 	var sessionKey [32]byte
-	util.CryptoRandRead(sessionKey[:])
+	util.RandRead(sta.WorldState.Rand, sessionKey[:])
 	obfuscator, err := mux.MakeObfuscator(ci.EncryptionMethod, sessionKey)
 	if err != nil {
 		log.Error(err)
@@ -84,7 +84,7 @@ func DispatchConnection(conn net.Conn, sta *State) {
 	// added to the userinfo database. The distinction between going into the admin mode
 	// and normal proxy mode is that sessionID needs == 0 for admin mode
 	if bytes.Equal(ci.UID, sta.AdminUID) && ci.SessionId == 0 {
-		preparedConn, err := finishHandshake(conn, sessionKey)
+		preparedConn, err := finishHandshake(conn, sessionKey, sta.WorldState.Rand)
 		if err != nil {
 			log.Error(err)
 			return
@@ -125,7 +125,7 @@ func DispatchConnection(conn net.Conn, sta *State) {
 	}
 
 	if existing {
-		preparedConn, err := finishHandshake(conn, sesh.SessionKey)
+		preparedConn, err := finishHandshake(conn, sesh.SessionKey, sta.WorldState.Rand)
 		if err != nil {
 			log.Error(err)
 			return
@@ -135,7 +135,7 @@ func DispatchConnection(conn net.Conn, sta *State) {
 		return
 	}
 
-	preparedConn, err := finishHandshake(conn, sessionKey)
+	preparedConn, err := finishHandshake(conn, sessionKey, sta.WorldState.Rand)
 	if err != nil {
 		log.Error(err)
 		return
