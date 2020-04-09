@@ -69,14 +69,10 @@ func Copy(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) (written int
 	//}
 	for {
 		if srcReadTimeout != 0 {
-			src.SetReadDeadline(time.Now().Add(srcReadTimeout))
-			/*
-				err =
-				if err != nil {
-					break
-				}
-
-			*/
+			err = src.SetReadDeadline(time.Now().Add(srcReadTimeout))
+			if err != nil {
+				break
+			}
 		}
 		nr, er := src.Read(buf)
 		if nr > 0 {

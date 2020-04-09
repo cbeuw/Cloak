@@ -4,18 +4,23 @@ package multiplex
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const BUF_SIZE_LIMIT = 1 << 20 * 500
 
+var ErrTimeout = errors.New("deadline exceeded")
+
 // The point of a bufferedPipe is that Read() will block until data is available
 type bufferedPipe struct {
-	buf    *bytes.Buffer
-	closed uint32
-	rwCond *sync.Cond
+	buf       *bytes.Buffer
+	closed    uint32
+	rwCond    *sync.Cond
+	rDeadline time.Time
 }
 
 func NewBufferedPipe() *bufferedPipe {
@@ -33,7 +38,13 @@ func (p *bufferedPipe) Read(target []byte) (int, error) {
 		if atomic.LoadUint32(&p.closed) == 1 && p.buf.Len() == 0 {
 			return 0, io.EOF
 		}
-
+		if !p.rDeadline.IsZero() {
+			d := time.Until(p.rDeadline)
+			if d <= 0 {
+				return 0, ErrTimeout
+			}
+			time.AfterFunc(d, p.rwCond.Broadcast)
+		}
 		if p.buf.Len() > 0 {
 			break
 		}
@@ -74,4 +85,12 @@ func (p *bufferedPipe) Len() int {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
 	return p.buf.Len()
+}
+
+func (p *bufferedPipe) SetReadDeadline(t time.Time) {
+	p.rwCond.L.Lock()
+	defer p.rwCond.L.Unlock()
+
+	p.rDeadline = t
+	p.rwCond.Broadcast()
 }

@@ -7,13 +7,14 @@ package multiplex
 // remote side before packet0. Cloak have to therefore sequence the packets so that they
 // arrive in order as they were sent by the proxy software
 //
-// Cloak packets will have a 32-bit sequence number on them, so we know in which order
+// Cloak packets will have a 64-bit sequence number on them, so we know in which order
 // they should be sent to the proxy software. The code in this file provides buffering and sorting.
 
 import (
 	"container/heap"
 	"fmt"
 	"sync"
+	"time"
 )
 
 type sorterHeap []*Frame
@@ -57,8 +58,6 @@ func NewStreamBuffer() *streamBuffer {
 	return sb
 }
 
-// recvNewFrame is a forever running loop which receives frames unordered,
-// cache and order them and send them into sortedBufCh
 func (sb *streamBuffer) Write(f Frame) (toBeClosed bool, err error) {
 	sb.recvM.Lock()
 	defer sb.recvM.Unlock()
@@ -100,3 +99,5 @@ func (sb *streamBuffer) Read(buf []byte) (int, error) {
 func (sb *streamBuffer) Close() error {
 	return sb.buf.Close()
 }
+
+func (sb *streamBuffer) SetReadDeadline(t time.Time) { sb.buf.SetReadDeadline(t) }

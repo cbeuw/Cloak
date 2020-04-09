@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const DATAGRAM_NUMBER_LIMIT = 1024
@@ -14,9 +15,10 @@ const DATAGRAM_NUMBER_LIMIT = 1024
 // instead of byte-oriented. The integrity of datagrams written into this buffer is preserved.
 // it won't get chopped up into individual bytes
 type datagramBuffer struct {
-	buf    [][]byte
-	closed uint32
-	rwCond *sync.Cond
+	buf       [][]byte
+	closed    uint32
+	rwCond    *sync.Cond
+	rDeadline time.Time
 }
 
 func NewDatagramBuffer() *datagramBuffer {
@@ -33,6 +35,14 @@ func (d *datagramBuffer) Read(target []byte) (int, error) {
 	for {
 		if atomic.LoadUint32(&d.closed) == 1 && len(d.buf) == 0 {
 			return 0, io.EOF
+		}
+
+		if !d.rDeadline.IsZero() {
+			delta := time.Until(d.rDeadline)
+			if delta <= 0 {
+				return 0, ErrTimeout
+			}
+			time.AfterFunc(delta, d.rwCond.Broadcast)
 		}
 
 		if len(d.buf) > 0 {
@@ -83,4 +93,12 @@ func (d *datagramBuffer) Close() error {
 	atomic.StoreUint32(&d.closed, 1)
 	d.rwCond.Broadcast()
 	return nil
+}
+
+func (d *datagramBuffer) SetReadDeadline(t time.Time) {
+	d.rwCond.L.Lock()
+	defer d.rwCond.L.Unlock()
+
+	d.rDeadline = t
+	d.rwCond.Broadcast()
 }

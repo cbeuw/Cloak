@@ -146,5 +146,5 @@ func (s *Stream) RemoteAddr() net.Addr { return s.session.addrs.Load().([]net.Ad
 
 // TODO: implement the following
 func (s *Stream) SetDeadline(t time.Time) error      { return errNotImplemented }
-func (s *Stream) SetReadDeadline(t time.Time) error  { return errNotImplemented }
+func (s *Stream) SetReadDeadline(t time.Time) error  { s.recvBuf.SetReadDeadline(t); return nil }
 func (s *Stream) SetWriteDeadline(t time.Time) error { return errNotImplemented }

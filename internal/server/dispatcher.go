@@ -173,7 +173,6 @@ func DispatchConnection(conn net.Conn, sta *State) {
 		}
 		log.Tracef("%v endpoint has been successfully connected", ci.ProxyMethod)
 
-		//TODO: stream timeout
 		go func() {
 			if _, err := common.Copy(localConn, newStream, sta.Timeout); err != nil {
 				log.Debugf("copying stream to proxy client: %v", err)

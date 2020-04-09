@@ -2,10 +2,12 @@ package multiplex
 
 import (
 	"bytes"
+	"github.com/cbeuw/connutil"
 	"math/rand"
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 var seshConfigOrdered = SessionConfig{
@@ -396,6 +398,50 @@ func TestParallel(t *testing.T) {
 	if sc != count {
 		t.Errorf("broken referential integrety: actual %v, reference count: %v", count, sc)
 	}
+}
+
+func TestStream_SetReadDeadline(t *testing.T) {
+	var sessionKey [32]byte
+	rand.Read(sessionKey[:])
+	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
+	seshConfigOrdered.Obfuscator = obfuscator
+
+	testReadDeadline := func(sesh *Session) {
+		t.Run("read after deadline set", func(t *testing.T) {
+			stream, _ := sesh.OpenStream()
+			_ = stream.SetReadDeadline(time.Now().Add(-1 * time.Second))
+			_, err := stream.Read(make([]byte, 1))
+			if err != ErrTimeout {
+				t.Errorf("expecting error %v, got %v", ErrTimeout, err)
+			}
+		})
+
+		t.Run("unblock when deadline passed", func(t *testing.T) {
+			stream, _ := sesh.OpenStream()
+
+			done := make(chan struct{})
+			go func() {
+				_, _ = stream.Read(make([]byte, 1))
+				done <- struct{}{}
+			}()
+
+			_ = stream.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+
+			select {
+			case <-done:
+				return
+			case <-time.After(500 * time.Millisecond):
+				t.Error("Read did not unblock after deadline has passed")
+			}
+		})
+	}
+
+	sesh := MakeSession(0, seshConfigOrdered)
+	sesh.AddConnection(connutil.Discard())
+	testReadDeadline(sesh)
+	sesh = MakeSession(0, seshConfigUnordered)
+	sesh.AddConnection(connutil.Discard())
+	testReadDeadline(sesh)
 }
 
 func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
