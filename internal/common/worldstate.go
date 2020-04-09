@@ -15,3 +15,10 @@ type WorldState struct {
 	Rand io.Reader
 	Now  func() time.Time
 }
+
+func WorldOfTime(t time.Time) WorldState {
+	return WorldState{
+		Rand: rand.Reader,
+		Now:  func() time.Time { return t },
+	}
+}

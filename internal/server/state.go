@@ -222,7 +222,6 @@ func (sta *State) UsedRandomCleaner() {
 		time.Sleep(CACHE_CLEAN_INTERVAL)
 		sta.usedRandomM.Lock()
 		for key, t := range sta.usedRandom {
-			// todo: inpure time
 			if time.Unix(t, 0).Before(sta.WorldState.Now().Add(TIMESTAMP_TOLERANCE)) {
 				delete(sta.usedRandom, key)
 			}

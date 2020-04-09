@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"encoding/hex"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	"testing"
 	"time"
@@ -23,7 +24,7 @@ func TestTouchStone(t *testing.T) {
 			return
 		}
 
-		nineSixSix := func() time.Time { return time.Unix(1565998966, 0) }
+		nineSixSix := time.Unix(1565998966, 0)
 		cinfo, err := decryptClientInfo(ai, nineSixSix)
 		if err != nil {
 			t.Errorf("expecting no error, got %v", err)
@@ -42,13 +43,13 @@ func TestTouchStone(t *testing.T) {
 			return
 		}
 
-		nineSixSixP50 := func() time.Time { return time.Unix(1565998966, 0).Add(50) }
+		nineSixSixP50 := time.Unix(1565998966, 0).Add(50)
 		_, err = decryptClientInfo(ai, nineSixSixP50)
 		if err != nil {
 			t.Errorf("expecting no error, got %v", err)
 			return
 		}
-		nineSixSixM50 := func() time.Time { return time.Unix(1565998966, 0).Truncate(50) }
+		nineSixSixM50 := time.Unix(1565998966, 0).Truncate(50)
 		_, err = decryptClientInfo(ai, nineSixSixM50)
 		if err != nil {
 			t.Errorf("expecting no error, got %v", err)
@@ -65,7 +66,7 @@ func TestTouchStone(t *testing.T) {
 			return
 		}
 
-		nineSixSixOver := func() time.Time { return time.Unix(1565998966, 0).Add(TIMESTAMP_TOLERANCE + 10) }
+		nineSixSixOver := time.Unix(1565998966, 0).Add(TIMESTAMP_TOLERANCE + 10)
 		_, err = decryptClientInfo(ai, nineSixSixOver)
 		if err == nil {
 			t.Errorf("expecting %v, got %v", ErrTimestampOutOfWindow, err)
@@ -81,7 +82,7 @@ func TestTouchStone(t *testing.T) {
 			return
 		}
 
-		nineSixSixUnder := func() time.Time { return time.Unix(1565998966, 0).Add(TIMESTAMP_TOLERANCE - 10) }
+		nineSixSixUnder := time.Unix(1565998966, 0).Add(TIMESTAMP_TOLERANCE - 10)
 		_, err = decryptClientInfo(ai, nineSixSixUnder)
 		if err == nil {
 			t.Errorf("expecting %v, got %v", ErrTimestampOutOfWindow, err)
@@ -97,7 +98,7 @@ func TestTouchStone(t *testing.T) {
 			return
 		}
 
-		fiveOSix := func() time.Time { return time.Unix(1565999506, 0) }
+		fiveOSix := time.Unix(1565999506, 0)
 		cinfo, err := decryptClientInfo(ai, fiveOSix)
 		if err == nil {
 			t.Errorf("not a cloak, got nil error and cinfo %v", cinfo)
@@ -113,7 +114,7 @@ func TestTouchStone(t *testing.T) {
 			return
 		}
 
-		sixOneFive := func() time.Time { return time.Unix(1565999615, 0) }
+		sixOneFive := time.Unix(1565999615, 0)
 		cinfo, err := decryptClientInfo(ai, sixOneFive)
 		if err == nil {
 			t.Errorf("not a cloak, got nil error and cinfo %v", cinfo)
@@ -123,13 +124,12 @@ func TestTouchStone(t *testing.T) {
 
 }
 
-func TestPrepareConnection(t *testing.T) {
-	nineSixSix := func() time.Time { return time.Unix(1565998966, 0) }
+func TestAuthFirstPacket(t *testing.T) {
 	pvBytes, _ := hex.DecodeString("10de5a3c4a4d04efafc3e06d1506363a72bd6d053baef123e6a9a79a0c04b547")
 	p, _ := ecdh.Unmarshal(pvBytes)
 
 	getNewState := func() *State {
-		sta, _ := InitState(nineSixSix)
+		sta, _ := InitState(RawConfig{}, common.WorldOfTime(time.Unix(1565998966, 0)))
 		sta.staticPv = p.(crypto.PrivateKey)
 		sta.ProxyBook["shadowsocks"] = nil
 		return sta
@@ -167,7 +167,7 @@ func TestPrepareConnection(t *testing.T) {
 		}
 	})
 	t.Run("Websocket correct", func(t *testing.T) {
-		sta, _ := InitState(func() time.Time { return time.Unix(1584358419, 0) })
+		sta, _ := InitState(RawConfig{}, common.WorldOfTime(time.Unix(1584358419, 0)))
 		sta.staticPv = p.(crypto.PrivateKey)
 		sta.ProxyBook["shadowsocks"] = nil
 

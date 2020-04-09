@@ -2,8 +2,8 @@ package client
 
 import (
 	"bytes"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/multiplex"
-	"io"
 	"testing"
 	"time"
 )
@@ -11,8 +11,6 @@ import (
 func TestMakeAuthenticationPayload(t *testing.T) {
 	tests := []struct {
 		authInfo   authInfo
-		seed       io.Reader
-		time       time.Time
 		expPayload authenticationPayload
 		expSecret  [32]byte
 	}{
@@ -31,13 +29,15 @@ func TestMakeAuthenticationPayload(t *testing.T) {
 				ProxyMethod:      "shadowsocks",
 				EncryptionMethod: multiplex.E_METHOD_PLAIN,
 				MockDomain:       "d2jkinvisak5y9.cloudfront.net",
+				WorldState: common.WorldState{
+					Rand: bytes.NewBuffer([]byte{
+						0xf1, 0x1e, 0x42, 0xe1, 0x84, 0x22, 0x07, 0xc5,
+						0xc3, 0x5c, 0x0f, 0x7b, 0x01, 0xf3, 0x65, 0x2d,
+						0xd7, 0x9b, 0xad, 0xb0, 0xb2, 0x77, 0xa2, 0x06,
+						0x6b, 0x78, 0x1b, 0x74, 0x1f, 0x43, 0xc9, 0x80}),
+					Now: func() time.Time { return time.Unix(1579908372, 0) },
+				},
 			},
-			bytes.NewBuffer([]byte{
-				0xf1, 0x1e, 0x42, 0xe1, 0x84, 0x22, 0x07, 0xc5,
-				0xc3, 0x5c, 0x0f, 0x7b, 0x01, 0xf3, 0x65, 0x2d,
-				0xd7, 0x9b, 0xad, 0xb0, 0xb2, 0x77, 0xa2, 0x06,
-				0x6b, 0x78, 0x1b, 0x74, 0x1f, 0x43, 0xc9, 0x80}),
-			time.Unix(1579908372, 0),
 			authenticationPayload{
 				randPubKey: [32]byte{
 					0xee, 0x9e, 0x41, 0x4e, 0xb3, 0x3b, 0x85, 0x03,
@@ -63,7 +63,7 @@ func TestMakeAuthenticationPayload(t *testing.T) {
 	}
 	for _, tc := range tests {
 		func() {
-			payload, sharedSecret := makeAuthenticationPayload(tc.authInfo, tc.seed, tc.time)
+			payload, sharedSecret := makeAuthenticationPayload(tc.authInfo)
 			if payload != tc.expPayload {
 				t.Errorf("payload doesn't match:\nexp %v\ngot %v", tc.expPayload, payload)
 			}
