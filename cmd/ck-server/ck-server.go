@@ -17,19 +17,25 @@ import (
 
 var version string
 
+func parseBindAddr(bindAddrs []string) ([]net.Addr, error) {
+	var addrs []net.Addr
+	for _, addr := range bindAddrs {
+		bindAddr, err := net.ResolveTCPAddr("tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+		addrs = append(addrs, bindAddr)
+	}
+	return addrs, nil
+}
+
 func main() {
-	// set TLS bind host through commandline for legacy support, default 0.0.0,0
-	var ssRemoteHost string
-	// set TLS bind port through commandline for legacy support, default 443
-	var ssRemotePort string
 	var config string
 
 	var pluginMode bool
 
 	if os.Getenv("SS_LOCAL_HOST") != "" && os.Getenv("SS_LOCAL_PORT") != "" {
 		pluginMode = true
-		ssRemoteHost = os.Getenv("SS_REMOTE_HOST")
-		ssRemotePort = os.Getenv("SS_REMOTE_PORT")
 		config = os.Getenv("SS_PLUGIN_OPTIONS")
 	} else {
 		flag.StringVar(&config, "c", "server.json", "config: path to the configuration file or its content")
@@ -79,29 +85,31 @@ func main() {
 
 		log.Infof("Starting standalone mode")
 	}
-	sta, _ := server.InitState(time.Now)
 
-	err := sta.ParseConfig(config)
+	raw, err := server.ParseConfig(config)
 	if err != nil {
 		log.Fatalf("Configuration file error: %v", err)
 	}
 
-	if !pluginMode && len(sta.BindAddr) == 0 {
+	bindAddr, err := parseBindAddr(raw.BindAddr)
+	if err != nil {
+		err = fmt.Errorf("unable to parse BindAddr: %v", err)
+		return
+	}
+	if !pluginMode && len(bindAddr) == 0 {
 		https, _ := net.ResolveTCPAddr("tcp", ":443")
 		http, _ := net.ResolveTCPAddr("tcp", ":80")
-		sta.BindAddr = []net.Addr{https, http}
+		bindAddr = []net.Addr{https, http}
 	}
 
 	// when cloak is started as a shadowsocks plugin
 	if pluginMode {
 		ssLocalHost := os.Getenv("SS_LOCAL_HOST")
 		ssLocalPort := os.Getenv("SS_LOCAL_PORT")
+		raw.ProxyBook["shadowsocks"] = []string{"tcp", net.JoinHostPort(ssLocalHost, ssLocalPort)}
 
-		sta.ProxyBook["shadowsocks"], err = net.ResolveTCPAddr("tcp", net.JoinHostPort(ssLocalHost, ssLocalPort))
-		if err != nil {
-			log.Fatal(err)
-		}
-
+		ssRemoteHost := os.Getenv("SS_REMOTE_HOST")
+		ssRemotePort := os.Getenv("SS_REMOTE_PORT")
 		var ssBind string
 		// When listening on an IPv6 and IPv4, SS gives REMOTE_HOST as e.g. ::|0.0.0.0
 		v4nv6 := len(strings.Split(ssRemoteHost, "|")) == 2
@@ -116,7 +124,7 @@ func main() {
 		}
 
 		shouldAppend := true
-		for i, addr := range sta.BindAddr {
+		for i, addr := range bindAddr {
 			if addr.String() == ssBindAddr.String() {
 				shouldAppend = false
 			}
@@ -128,13 +136,18 @@ func main() {
 				// listen on both
 				if ssBindAddr.String() == ":"+ssRemotePort {
 					shouldAppend = true
-					sta.BindAddr[i] = ssBindAddr
+					bindAddr[i] = ssBindAddr
 				}
 			}
 		}
 		if shouldAppend {
-			sta.BindAddr = append(sta.BindAddr, ssBindAddr)
+			bindAddr = append(bindAddr, ssBindAddr)
 		}
+	}
+
+	sta, err := server.InitState(raw, time.Now)
+	if err != nil {
+		log.Fatalf("unable to initialise server state: %v", err)
 	}
 
 	listen := func(bindAddr net.Addr) {
@@ -153,8 +166,8 @@ func main() {
 		}
 	}
 
-	for i, addr := range sta.BindAddr {
-		if i != len(sta.BindAddr)-1 {
+	for i, addr := range bindAddr {
+		if i != len(bindAddr)-1 {
 			go listen(addr)
 		} else {
 			listen(addr)
