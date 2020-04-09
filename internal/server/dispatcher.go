@@ -46,8 +46,8 @@ func DispatchConnection(conn net.Conn, sta *State) {
 		if err != nil {
 			log.Error("Failed to send first packet to redirection server", err)
 		}
-		go util.Pipe(webConn, conn, 0)
-		go util.Pipe(conn, webConn, 0)
+		go io.Copy(webConn, conn)
+		go io.Copy(conn, webConn)
 	}
 
 	ci, finishHandshake, err := AuthFirstPacket(data, sta)
