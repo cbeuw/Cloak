@@ -81,12 +81,6 @@ func (p *bufferedPipe) Close() error {
 	return nil
 }
 
-func (p *bufferedPipe) Len() int {
-	p.rwCond.L.Lock()
-	defer p.rwCond.L.Unlock()
-	return p.buf.Len()
-}
-
 func (p *bufferedPipe) SetReadDeadline(t time.Time) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()

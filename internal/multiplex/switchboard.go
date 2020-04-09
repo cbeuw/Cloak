@@ -73,8 +73,7 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 	}
 
 	sb.valve.txWait(len(data))
-	connCount := sb.connsCount()
-	if atomic.LoadUint32(&sb.broken) == 1 || connCount == 0 {
+	if atomic.LoadUint32(&sb.broken) == 1 || sb.connsCount() == 0 {
 		return 0, errBrokenSwitchboard
 	}
 
