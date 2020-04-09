@@ -146,10 +146,11 @@ func ParseConfig(conf string) (raw RawConfig, err error) {
 // ParseConfig parses the config (either a path to json or the json itself as argument) into a State variable
 func InitState(preParse RawConfig, nowFunc func() time.Time) (sta *State, err error) {
 	sta = &State{
-		Now:        nowFunc,
-		BypassUID:  make(map[[16]byte]struct{}),
-		ProxyBook:  map[string]net.Addr{},
-		usedRandom: map[[32]byte]int64{},
+		Now:         nowFunc,
+		BypassUID:   make(map[[16]byte]struct{}),
+		ProxyBook:   map[string]net.Addr{},
+		usedRandom:  map[[32]byte]int64{},
+		RedirDialer: &net.Dialer{},
 	}
 	if preParse.CncMode {
 		err = errors.New("command & control mode not implemented")
