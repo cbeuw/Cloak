@@ -69,6 +69,7 @@ func Copy(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) (written int
 	//}
 	for {
 		if srcReadTimeout != 0 {
+			// TODO: don't rely on setreaddeadline
 			err = src.SetReadDeadline(time.Now().Add(srcReadTimeout))
 			if err != nil {
 				break
@@ -96,5 +97,7 @@ func Copy(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) (written int
 			break
 		}
 	}
+	src.Close()
+	dst.Close()
 	return written, err
 }

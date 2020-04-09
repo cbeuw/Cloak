@@ -138,12 +138,12 @@ func RouteTCP(localConfig localConnConfig, newSeshFunc func() *mux.Session) {
 			}
 			go func() {
 				if _, err := common.Copy(localConn, stream, 0); err != nil {
-					log.Debugf("copying stream to proxy client: %v", err)
+					log.Tracef("copying stream to proxy client: %v", err)
 				}
 			}()
 			//util.Pipe(stream, localConn, localConfig.Timeout)
 			if _, err = common.Copy(stream, localConn, localConfig.Timeout); err != nil {
-				log.Debugf("copying proxy client to stream: %v", err)
+				log.Tracef("copying proxy client to stream: %v", err)
 			}
 		}()
 	}

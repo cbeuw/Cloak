@@ -101,6 +101,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	if len(in) <= maxDataLen {
 		payload = in
 	} else {
+		//TODO: short write isn't the correct behaviour
 		payload = in[:maxDataLen]
 	}
 
