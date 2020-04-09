@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/base64"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/util"
 	"io"
 	"net"
@@ -72,6 +73,13 @@ func DispatchConnection(conn net.Conn, sta *State) {
 		return
 	}
 
+	seshConfig := mux.SessionConfig{
+		Obfuscator:   obfuscator,
+		Valve:        nil,
+		Unordered:    ci.Unordered,
+		MaxFrameSize: appDataMaxLength,
+	}
+
 	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
 	// added to the userinfo database. The distinction between going into the admin mode
 	// and normal proxy mode is that sessionID needs == 0 for admin mode
@@ -82,10 +90,6 @@ func DispatchConnection(conn net.Conn, sta *State) {
 			return
 		}
 		log.Trace("finished handshake")
-		seshConfig := mux.SessionConfig{
-			Obfuscator: obfuscator,
-			Valve:      nil,
-		}
 		sesh := mux.MakeSession(0, seshConfig)
 		sesh.AddConnection(preparedConn)
 		//TODO: Router could be nil in cnc mode
@@ -113,11 +117,7 @@ func DispatchConnection(conn net.Conn, sta *State) {
 		return
 	}
 
-	sesh, existing, err := user.GetSession(ci.SessionId, mux.SessionConfig{
-		Obfuscator: obfuscator,
-		Valve:      nil,
-		Unordered:  ci.Unordered,
-	})
+	sesh, existing, err := user.GetSession(ci.SessionId, seshConfig)
 	if err != nil {
 		user.CloseSession(ci.SessionId, "")
 		log.Error(err)
@@ -173,9 +173,17 @@ func DispatchConnection(conn net.Conn, sta *State) {
 		}
 		log.Tracef("%v endpoint has been successfully connected", ci.ProxyMethod)
 
-		go util.Pipe(localConn, newStream, sta.Timeout)
-		go util.Pipe(newStream, localConn, 0)
-
+		//TODO: stream timeout
+		go func() {
+			if _, err := common.Copy(localConn, newStream, sta.Timeout); err != nil {
+				log.Debugf("copying stream to proxy client: %v", err)
+			}
+		}()
+		go func() {
+			if _, err := common.Copy(newStream, localConn, 0); err != nil {
+				log.Debugf("copying proxy client to stream: %v", err)
+			}
+		}()
 	}
 
 }

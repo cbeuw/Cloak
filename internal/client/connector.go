@@ -63,9 +63,10 @@ func MakeSession(connConfig remoteConnConfig, authInfo authInfo, dialer common.D
 	}
 
 	seshConfig := mux.SessionConfig{
-		Obfuscator: obfuscator,
-		Valve:      nil,
-		Unordered:  authInfo.Unordered,
+		Obfuscator:   obfuscator,
+		Valve:        nil,
+		Unordered:    authInfo.Unordered,
+		MaxFrameSize: appDataMaxLength,
 	}
 	sesh := mux.MakeSession(authInfo.SessionId, seshConfig)
 

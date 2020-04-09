@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	acceptBacklog          = 1024
+	acceptBacklog = 1024
+	// TODO: will this be a signature?
 	defaultSendRecvBufSize = 20480
 )
 
@@ -29,6 +30,7 @@ type SessionConfig struct {
 
 	Unordered bool
 
+	MaxFrameSize      int // maximum size of the frame, including the header
 	SendBufferSize    int
 	ReceiveBufferSize int
 }
@@ -76,6 +78,9 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	}
 	if config.ReceiveBufferSize <= 0 {
 		sesh.ReceiveBufferSize = defaultSendRecvBufSize
+	}
+	if config.MaxFrameSize <= 0 {
+		sesh.MaxFrameSize = defaultSendRecvBufSize - 1024
 	}
 
 	sbConfig := switchboardConfig{

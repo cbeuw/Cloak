@@ -33,8 +33,9 @@ type Obfuscator struct {
 	// Used in Stream.Write. Add multiplexing headers, encrypt and add TLS header
 	Obfs Obfser
 	// Remove TLS header, decrypt and unmarshall frames
-	Deobfs     Deobfser
-	SessionKey [32]byte
+	Deobfs      Deobfser
+	SessionKey  [32]byte
+	minOverhead int
 }
 
 func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
@@ -137,10 +138,14 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 }
 
 func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator *Obfuscator, err error) {
+	obfuscator = &Obfuscator{
+		SessionKey: sessionKey,
+	}
 	var payloadCipher cipher.AEAD
 	switch encryptionMethod {
 	case E_METHOD_PLAIN:
 		payloadCipher = nil
+		obfuscator.minOverhead = 0
 	case E_METHOD_AES_GCM:
 		var c cipher.Block
 		c, err = aes.NewCipher(sessionKey[:])
@@ -151,19 +156,18 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator *Obf
 		if err != nil {
 			return
 		}
+		obfuscator.minOverhead = payloadCipher.Overhead()
 	case E_METHOD_CHACHA20_POLY1305:
 		payloadCipher, err = chacha20poly1305.New(sessionKey[:])
 		if err != nil {
 			return
 		}
+		obfuscator.minOverhead = payloadCipher.Overhead()
 	default:
 		return nil, errors.New("Unknown encryption method")
 	}
 
-	obfuscator = &Obfuscator{
-		MakeObfs(sessionKey, payloadCipher),
-		MakeDeobfs(sessionKey, payloadCipher),
-		sessionKey,
-	}
+	obfuscator.Obfs = MakeObfs(sessionKey, payloadCipher)
+	obfuscator.Deobfs = MakeDeobfs(sessionKey, payloadCipher)
 	return
 }

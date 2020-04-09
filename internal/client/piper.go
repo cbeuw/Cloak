@@ -1,13 +1,13 @@
 package client
 
 import (
+	"github.com/cbeuw/Cloak/internal/common"
 	"io"
 	"net"
 	"sync/atomic"
 	"time"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
-	"github.com/cbeuw/Cloak/internal/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -136,8 +136,15 @@ func RouteTCP(localConfig localConnConfig, newSeshFunc func() *mux.Session) {
 				stream.Close()
 				return
 			}
-			go util.Pipe(localConn, stream, 0)
-			util.Pipe(stream, localConn, localConfig.Timeout)
+			go func() {
+				if _, err := common.Copy(localConn, stream, 0); err != nil {
+					log.Debugf("copying stream to proxy client: %v", err)
+				}
+			}()
+			//util.Pipe(stream, localConn, localConfig.Timeout)
+			if _, err = common.Copy(stream, localConn, localConfig.Timeout); err != nil {
+				log.Debugf("copying proxy client to stream: %v", err)
+			}
 		}()
 	}
 

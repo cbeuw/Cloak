@@ -96,11 +96,19 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 		return 0, ErrBrokenStream
 	}
 
+	var payload []byte
+	maxDataLen := s.session.MaxFrameSize - HEADER_LEN - s.session.minOverhead
+	if len(in) <= maxDataLen {
+		payload = in
+	} else {
+		payload = in[:maxDataLen]
+	}
+
 	f := &Frame{
 		StreamID: s.id,
 		Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
 		Closing:  C_NOOP,
-		Payload:  in,
+		Payload:  payload,
 	}
 
 	i, err := s.session.Obfs(f, s.obfsBuf)
@@ -108,7 +116,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 		return i, err
 	}
 	n, err = s.session.sb.send(s.obfsBuf[:i], &s.assignedConnId)
-	log.Tracef("%v sent to remote through stream %v with err %v", len(in), s.id, err)
+	log.Tracef("%v sent to remote through stream %v with err %v", len(payload), s.id, err)
 	if err != nil {
 		if err == errBrokenSwitchboard {
 			s.session.SetTerminalMsg(err.Error())
@@ -116,7 +124,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 		}
 		return
 	}
-	return len(in), nil
+	return len(payload), nil
 
 }
 

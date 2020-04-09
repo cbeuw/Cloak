@@ -11,6 +11,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const appDataMaxLength = 16401
+
 type TLS struct{}
 
 var ErrBadClientHello = errors.New("non (or malformed) ClientHello")
