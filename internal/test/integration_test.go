@@ -3,6 +3,7 @@ package test
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"github.com/cbeuw/Cloak/internal/client"
 	"github.com/cbeuw/Cloak/internal/common"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
@@ -148,6 +149,38 @@ func TestTCP(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	t.Run("user echo single", func(t *testing.T) {
+		for i := 0; i < 18; i += 2 {
+			dataLen := 1 << i
+			writeData := make([]byte, dataLen)
+			rand.Read(writeData)
+			t.Run(fmt.Sprintf("data length %v", dataLen), func(t *testing.T) {
+				go serveEcho(pxyServerL)
+				conn, err := pxyClientD.Dial("", "")
+				if err != nil {
+					t.Error(err)
+				}
+				n, err := conn.Write(writeData)
+				if err != nil {
+					t.Error(err)
+				}
+				if n != dataLen {
+					t.Errorf("write length doesn't match up: %v, expected %v", n, dataLen)
+				}
+
+				recvBuf := make([]byte, dataLen)
+				_, err = io.ReadFull(conn, recvBuf)
+				if err != nil {
+					t.Error(err)
+				}
+				if !bytes.Equal(writeData, recvBuf) {
+					t.Error("echoed data incorrect")
+				}
+
+			})
+		}
+	})
+
 	t.Run("user echo", func(t *testing.T) {
 		go serveEcho(pxyServerL)
 		const numConns = 2000 // -race option limits the number of goroutines to 8192
@@ -208,5 +241,65 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	if _, err := serverConn.Read(make([]byte, 16)); err == nil {
 		t.Errorf("closing stream on client side is not reflected to the server: %v", err)
+	}
+}
+
+func BenchmarkThroughput(b *testing.B) {
+	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
+	defer os.Remove(tmpDB.Name())
+	log.SetLevel(log.FatalLevel)
+	worldState := common.WorldOfTime(time.Unix(10, 0))
+	lcc, rcc, ai := basicClientConfigs(worldState)
+	sta := basicServerState(worldState, tmpDB)
+	const bufSize = 16 * 1024
+
+	encryptionMethods := map[string]byte{
+		"plain":             mux.E_METHOD_PLAIN,
+		"chacha20-poly1305": mux.E_METHOD_CHACHA20_POLY1305,
+		"aes-gcm":           mux.E_METHOD_AES_GCM,
+	}
+
+	for name, method := range encryptionMethods {
+		b.Run(name, func(b *testing.B) {
+			ai.EncryptionMethod = method
+			pxyClientD, pxyServerL, _, _, err := establishSession(lcc, rcc, ai, sta)
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			b.Run("single conn write", func(b *testing.B) {
+				clientConn, _ := pxyClientD.Dial("", "")
+				go func() {
+					serverConn, _ := pxyServerL.Accept()
+					io.Copy(ioutil.Discard, serverConn)
+				}()
+				writeBuf := make([]byte, bufSize)
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					n, _ := clientConn.Write(writeBuf)
+					b.SetBytes(int64(n))
+				}
+			})
+
+			b.Run("multi conn write", func(b *testing.B) {
+				go func() {
+					serverConn, _ := pxyServerL.Accept()
+					io.Copy(ioutil.Discard, serverConn)
+				}()
+				const numConns = 1024
+				conns := make([]net.Conn, numConns)
+				for i := 0; i < numConns; i++ {
+					conns[i], _ = pxyClientD.Dial("", "")
+				}
+				writeBuf := make([]byte, bufSize)
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						n, _ := conns[rand.Intn(numConns)].Write(writeBuf)
+						b.SetBytes(int64(n))
+					}
+				})
+			})
+		})
 	}
 }
