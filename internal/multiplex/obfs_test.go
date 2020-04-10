@@ -15,7 +15,7 @@ func TestGenerateObfs(t *testing.T) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
 
-	run := func(obfuscator *Obfuscator, ct *testing.T) {
+	run := func(obfuscator Obfuscator, ct *testing.T) {
 		obfsBuf := make([]byte, 512)
 		f := &Frame{}
 		_testFrame, _ := quick.Value(reflect.TypeOf(f), rand.New(rand.NewSource(42)))

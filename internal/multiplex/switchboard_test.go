@@ -52,17 +52,13 @@ func TestSwitchboard_Send(t *testing.T) {
 
 	t.Run("Ordered", func(t *testing.T) {
 		seshConfig := SessionConfig{
-			Obfuscator: nil,
-			Valve:      nil,
-			Unordered:  false,
+			Unordered: false,
 		}
 		doTest(seshConfig)
 	})
 	t.Run("Unordered", func(t *testing.T) {
 		seshConfig := SessionConfig{
-			Obfuscator: nil,
-			Valve:      nil,
-			Unordered:  true,
+			Unordered: true,
 		}
 		doTest(seshConfig)
 	})
@@ -70,10 +66,7 @@ func TestSwitchboard_Send(t *testing.T) {
 
 func BenchmarkSwitchboard_Send(b *testing.B) {
 	hole := connutil.Discard()
-	seshConfig := SessionConfig{
-		Obfuscator: nil,
-		Valve:      nil,
-	}
+	seshConfig := SessionConfig{}
 	sesh := MakeSession(0, seshConfig)
 	sesh.sb.addConn(hole)
 	connId, _, err := sesh.sb.pickRandConn()
@@ -96,8 +89,7 @@ func BenchmarkSwitchboard_Send(b *testing.B) {
 
 func TestSwitchboard_TxCredit(t *testing.T) {
 	seshConfig := SessionConfig{
-		Obfuscator: nil,
-		Valve:      MakeValve(1<<20, 1<<20),
+		Valve: MakeValve(1<<20, 1<<20),
 	}
 	sesh := MakeSession(0, seshConfig)
 	hole := connutil.Discard()

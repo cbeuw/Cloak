@@ -10,15 +10,10 @@ import (
 	"time"
 )
 
-var seshConfigOrdered = SessionConfig{
-	Obfuscator: nil,
-	Valve:      nil,
-}
+var seshConfigOrdered = SessionConfig{}
 
 var seshConfigUnordered = SessionConfig{
-	Obfuscator: nil,
-	Valve:      nil,
-	Unordered:  true,
+	Unordered: true,
 }
 
 func TestRecvDataFromRemote(t *testing.T) {
