@@ -11,7 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func RouteUDP(localConfig localConnConfig, newSeshFunc func() *mux.Session) {
+func RouteUDP(localConfig LocalConnConfig, newSeshFunc func() *mux.Session) {
 	var sesh *mux.Session
 	localUDPAddr, err := net.ResolveUDPAddr("udp", localConfig.LocalAddr)
 	if err != nil {

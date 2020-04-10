@@ -13,7 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func MakeSession(connConfig remoteConnConfig, authInfo authInfo, dialer common.Dialer, isAdmin bool) *mux.Session {
+func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.Dialer, isAdmin bool) *mux.Session {
 	log.Info("Attempting to start a new session")
 	//TODO: let caller set this
 	if !isAdmin {

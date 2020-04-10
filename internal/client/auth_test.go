@@ -10,12 +10,12 @@ import (
 
 func TestMakeAuthenticationPayload(t *testing.T) {
 	tests := []struct {
-		authInfo   authInfo
+		authInfo   AuthInfo
 		expPayload authenticationPayload
 		expSecret  [32]byte
 	}{
 		{
-			authInfo{
+			AuthInfo{
 				Unordered: false,
 				SessionId: 3421516597,
 				UID: []byte{

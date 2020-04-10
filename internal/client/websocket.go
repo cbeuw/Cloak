@@ -18,7 +18,7 @@ type WSOverTLS struct {
 	cdnDomainPort string
 }
 
-func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo authInfo) (sessionKey [32]byte, err error) {
+func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey [32]byte, err error) {
 	utlsConfig := &utls.Config{
 		ServerName:         authInfo.MockDomain,
 		InsecureSkipVerify: true,

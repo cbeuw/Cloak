@@ -17,7 +17,7 @@ type authenticationPayload struct {
 
 // makeAuthenticationPayload generates the ephemeral key pair, calculates the shared secret, and then compose and
 // encrypt the authenticationPayload
-func makeAuthenticationPayload(authInfo authInfo) (ret authenticationPayload, sharedSecret [32]byte) {
+func makeAuthenticationPayload(authInfo AuthInfo) (ret authenticationPayload, sharedSecret [32]byte) {
 	/*
 		Authentication data:
 		+----------+----------------+---------------------+-------------+--------------+--------+------------+

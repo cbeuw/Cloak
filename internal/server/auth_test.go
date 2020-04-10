@@ -130,7 +130,7 @@ func TestAuthFirstPacket(t *testing.T) {
 
 	getNewState := func() *State {
 		sta, _ := InitState(RawConfig{}, common.WorldOfTime(time.Unix(1565998966, 0)))
-		sta.staticPv = p.(crypto.PrivateKey)
+		sta.StaticPv = p.(crypto.PrivateKey)
 		sta.ProxyBook["shadowsocks"] = nil
 		return sta
 	}
@@ -168,7 +168,7 @@ func TestAuthFirstPacket(t *testing.T) {
 	})
 	t.Run("Websocket correct", func(t *testing.T) {
 		sta, _ := InitState(RawConfig{}, common.WorldOfTime(time.Unix(1584358419, 0)))
-		sta.staticPv = p.(crypto.PrivateKey)
+		sta.StaticPv = p.(crypto.PrivateKey)
 		sta.ProxyBook["shadowsocks"] = nil
 
 		req := `GET / HTTP/1.1

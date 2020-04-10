@@ -40,7 +40,7 @@ type State struct {
 	//KeepAlive time.Duration
 
 	BypassUID map[[16]byte]struct{}
-	staticPv  crypto.PrivateKey
+	StaticPv  crypto.PrivateKey
 
 	// TODO: this doesn't have to be a net.Addr; resolution is done in Dial automatically
 	RedirHost   net.Addr
@@ -48,7 +48,7 @@ type State struct {
 	RedirDialer common.Dialer
 
 	usedRandomM sync.RWMutex
-	usedRandom  map[[32]byte]int64
+	UsedRandom  map[[32]byte]int64
 
 	Panel          *userPanel
 	LocalAPIRouter *gmux.Router
@@ -148,7 +148,7 @@ func InitState(preParse RawConfig, worldState common.WorldState) (sta *State, er
 	sta = &State{
 		BypassUID:   make(map[[16]byte]struct{}),
 		ProxyBook:   map[string]net.Addr{},
-		usedRandom:  map[[32]byte]int64{},
+		UsedRandom:  map[[32]byte]int64{},
 		RedirDialer: &net.Dialer{},
 		WorldState:  worldState,
 	}
@@ -188,7 +188,7 @@ func InitState(preParse RawConfig, worldState common.WorldState) (sta *State, er
 
 	var pv [32]byte
 	copy(pv[:], preParse.PrivateKey)
-	sta.staticPv = &pv
+	sta.StaticPv = &pv
 
 	sta.AdminUID = preParse.AdminUID
 
@@ -221,9 +221,9 @@ func (sta *State) UsedRandomCleaner() {
 	for {
 		time.Sleep(CACHE_CLEAN_INTERVAL)
 		sta.usedRandomM.Lock()
-		for key, t := range sta.usedRandom {
+		for key, t := range sta.UsedRandom {
 			if time.Unix(t, 0).Before(sta.WorldState.Now().Add(TIMESTAMP_TOLERANCE)) {
-				delete(sta.usedRandom, key)
+				delete(sta.UsedRandom, key)
 			}
 		}
 		sta.usedRandomM.Unlock()
@@ -232,8 +232,8 @@ func (sta *State) UsedRandomCleaner() {
 
 func (sta *State) registerRandom(r [32]byte) bool {
 	sta.usedRandomM.Lock()
-	_, used := sta.usedRandom[r]
-	sta.usedRandom[r] = sta.WorldState.Now().Unix()
+	_, used := sta.UsedRandom[r]
+	sta.UsedRandom[r] = sta.WorldState.Now().Unix()
 	sta.usedRandomM.Unlock()
 	return used
 }

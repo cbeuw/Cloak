@@ -5,6 +5,6 @@ import (
 )
 
 type Transport interface {
-	Handshake(rawConn net.Conn, authInfo authInfo) (sessionKey [32]byte, err error)
+	Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey [32]byte, err error)
 	net.Conn
 }

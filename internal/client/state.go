@@ -38,19 +38,19 @@ type RawConfig struct {
 	KeepAlive     int    // nullable
 }
 
-type remoteConnConfig struct {
+type RemoteConnConfig struct {
 	NumConn        int
 	KeepAlive      time.Duration
 	RemoteAddr     string
 	TransportMaker func() Transport
 }
 
-type localConnConfig struct {
+type LocalConnConfig struct {
 	LocalAddr string
 	Timeout   time.Duration
 }
 
-type authInfo struct {
+type AuthInfo struct {
 	UID              []byte
 	SessionId        uint32
 	ProxyMethod      string
@@ -120,8 +120,8 @@ func ParseConfig(conf string) (raw *RawConfig, err error) {
 	return
 }
 
-func (raw *RawConfig) SplitConfigs(worldState common.WorldState) (local localConnConfig, remote remoteConnConfig, auth authInfo, err error) {
-	nullErr := func(field string) (local localConnConfig, remote remoteConnConfig, auth authInfo, err error) {
+func (raw *RawConfig) SplitConfigs(worldState common.WorldState) (local LocalConnConfig, remote RemoteConnConfig, auth AuthInfo, err error) {
+	nullErr := func(field string) (local LocalConnConfig, remote RemoteConnConfig, auth AuthInfo, err error) {
 		err = fmt.Errorf("%v cannot be empty", field)
 		return
 	}

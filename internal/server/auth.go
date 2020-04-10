@@ -78,7 +78,7 @@ func AuthFirstPacket(firstPacket []byte, sta *State) (info ClientInfo, finisher 
 		return
 	}
 
-	fragments, finisher, err := transport.processFirstPacket(firstPacket, sta.staticPv)
+	fragments, finisher, err := transport.processFirstPacket(firstPacket, sta.StaticPv)
 	if err != nil {
 		return
 	}

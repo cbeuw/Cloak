@@ -63,7 +63,7 @@ type DirectTLS struct {
 
 // NewClientTransport handles the TLS handshake for a given conn and returns the sessionKey
 // if the server proceed with Cloak authentication
-func (tls *DirectTLS) Handshake(rawConn net.Conn, authInfo authInfo) (sessionKey [32]byte, err error) {
+func (tls *DirectTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey [32]byte, err error) {
 	payload, sharedSecret := makeAuthenticationPayload(authInfo)
 	chOnly := tls.browser.composeClientHello(genStegClientHello(payload, authInfo.MockDomain))
 	chWithRecordLayer := common.AddRecordLayer(chOnly, common.Handshake, common.VersionTLS11)
