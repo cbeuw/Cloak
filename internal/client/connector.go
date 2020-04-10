@@ -15,6 +15,7 @@ import (
 
 func MakeSession(connConfig remoteConnConfig, authInfo authInfo, dialer common.Dialer, isAdmin bool) *mux.Session {
 	log.Info("Attempting to start a new session")
+	//TODO: let caller set this
 	if !isAdmin {
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 		// sessionID is limited to its UID.

@@ -100,14 +100,10 @@ start:
 
 }
 
-func RouteTCP(localConfig localConnConfig, newSeshFunc func() *mux.Session) {
-	tcpListener, err := net.Listen("tcp", localConfig.LocalAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
+func RouteTCP(listener net.Listener, streamTimeout time.Duration, newSeshFunc func() *mux.Session) {
 	var sesh *mux.Session
 	for {
-		localConn, err := tcpListener.Accept()
+		localConn, err := listener.Accept()
 		if err != nil {
 			log.Fatal(err)
 			continue
@@ -142,7 +138,7 @@ func RouteTCP(localConfig localConnConfig, newSeshFunc func() *mux.Session) {
 				}
 			}()
 			//util.Pipe(stream, localConn, localConfig.Timeout)
-			if _, err = common.Copy(stream, localConn, localConfig.Timeout); err != nil {
+			if _, err = common.Copy(stream, localConn, streamTimeout); err != nil {
 				log.Tracef("copying proxy client to stream: %v", err)
 			}
 		}()

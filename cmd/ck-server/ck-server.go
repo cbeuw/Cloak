@@ -155,14 +155,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		for {
-			conn, err := listener.Accept()
-			if err != nil {
-				log.Errorf("%v", err)
-				continue
-			}
-			go server.DispatchConnection(conn, sta)
-		}
+		server.Serve(listener, sta)
 	}
 
 	for i, addr := range bindAddr {

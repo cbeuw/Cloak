@@ -16,7 +16,18 @@ import (
 
 var b64 = base64.StdEncoding.EncodeToString
 
-func DispatchConnection(conn net.Conn, sta *State) {
+func Serve(l net.Listener, sta *State) {
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Errorf("%v", err)
+			continue
+		}
+		go dispatchConnection(conn, sta)
+	}
+}
+
+func dispatchConnection(conn net.Conn, sta *State) {
 	remoteAddr := conn.RemoteAddr()
 	var err error
 	buf := make([]byte, 1500)
