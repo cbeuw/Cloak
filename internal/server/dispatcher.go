@@ -57,6 +57,7 @@ func dispatchConnection(conn net.Conn, sta *State) {
 		_, err = webConn.Write(data)
 		if err != nil {
 			log.Error("Failed to send first packet to redirection server", err)
+			return
 		}
 		go io.Copy(webConn, conn)
 		go io.Copy(conn, webConn)

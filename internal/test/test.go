@@ -1,3 +1,1 @@
 package test
-
-func blah() {}
