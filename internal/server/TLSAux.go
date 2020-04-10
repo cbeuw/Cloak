@@ -161,7 +161,7 @@ func parseClientHello(data []byte) (ret *ClientHello, err error) {
 	return
 }
 
-func composeServerHello(sessionId []byte, nonce [12]byte, encryptedSessionKeyWithTag [48]byte) ([]byte, error) {
+func composeServerHello(sessionId []byte, nonce [12]byte, encryptedSessionKeyWithTag [48]byte) []byte {
 	var serverHello [11][]byte
 	serverHello[0] = []byte{0x02}                                             // handshake type
 	serverHello[1] = []byte{0x00, 0x00, 0x76}                                 // length 77
@@ -184,22 +184,19 @@ func composeServerHello(sessionId []byte, nonce [12]byte, encryptedSessionKeyWit
 	for _, s := range serverHello {
 		ret = append(ret, s...)
 	}
-	return ret, nil
+	return ret
 }
 
 // composeReply composes the ServerHello, ChangeCipherSpec and an ApplicationData messages
 // together with their respective record layers into one byte slice.
-func composeReply(clientHelloSessionId []byte, nonce [12]byte, encryptedSessionKeyWithTag [48]byte, cert []byte) ([]byte, error) {
+func composeReply(clientHelloSessionId []byte, nonce [12]byte, encryptedSessionKeyWithTag [48]byte, cert []byte) []byte {
 	TLS12 := []byte{0x03, 0x03}
-	sh, err := composeServerHello(clientHelloSessionId, nonce, encryptedSessionKeyWithTag)
-	if err != nil {
-		return nil, err
-	}
+	sh := composeServerHello(clientHelloSessionId, nonce, encryptedSessionKeyWithTag)
 	shBytes := addRecordLayer(sh, []byte{0x16}, TLS12)
 	ccsBytes := addRecordLayer([]byte{0x01}, []byte{0x14}, TLS12)
 
 	encryptedCertBytes := addRecordLayer(cert, []byte{0x17}, TLS12)
 	ret := append(shBytes, ccsBytes...)
 	ret = append(ret, encryptedCertBytes...)
-	return ret, nil
+	return ret
 }

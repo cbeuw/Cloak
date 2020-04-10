@@ -59,11 +59,7 @@ func (TLS) makeResponder(clientHelloSessionId []byte, sharedSecret [32]byte) Res
 		var encryptedSessionKeyArr [48]byte
 		copy(encryptedSessionKeyArr[:], encryptedSessionKey)
 
-		reply, err := composeReply(clientHelloSessionId, nonce, encryptedSessionKeyArr, cert)
-		if err != nil {
-			err = fmt.Errorf("failed to compose TLS reply: %v", err)
-			return
-		}
+		reply := composeReply(clientHelloSessionId, nonce, encryptedSessionKeyArr, cert)
 		_, err = originalConn.Write(reply)
 		if err != nil {
 			err = fmt.Errorf("failed to write TLS reply: %v", err)
