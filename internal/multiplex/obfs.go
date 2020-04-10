@@ -137,8 +137,8 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 	return deobfs
 }
 
-func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator *Obfuscator, err error) {
-	obfuscator = &Obfuscator{
+func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator Obfuscator, err error) {
+	obfuscator = Obfuscator{
 		SessionKey: sessionKey,
 	}
 	var payloadCipher cipher.AEAD
@@ -164,7 +164,7 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator *Obf
 		}
 		obfuscator.minOverhead = payloadCipher.Overhead()
 	default:
-		return nil, errors.New("Unknown encryption method")
+		return obfuscator, errors.New("Unknown encryption method")
 	}
 
 	obfuscator.Obfs = MakeObfs(sessionKey, payloadCipher)

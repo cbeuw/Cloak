@@ -24,7 +24,7 @@ var errRepeatSessionClosing = errors.New("trying to close a closed session")
 type switchboardStrategy int
 
 type SessionConfig struct {
-	*Obfuscator
+	Obfuscator
 
 	Valve
 
