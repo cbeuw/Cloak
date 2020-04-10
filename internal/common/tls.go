@@ -18,13 +18,19 @@ const (
 )
 
 func AddRecordLayer(input []byte, typ byte, ver uint16) []byte {
-	length := make([]byte, 2)
-	binary.BigEndian.PutUint16(length, uint16(len(input)))
-	ret := make([]byte, 5+len(input))
+	msgLen := len(input)
+	var ret []byte
+	if cap(input) > msgLen+recordLayerLength {
+		ret = input[:msgLen+recordLayerLength]
+	} else {
+		ret = make([]byte, msgLen+recordLayerLength)
+	}
+	copy(ret[recordLayerLength:], input)
 	ret[0] = typ
-	binary.BigEndian.PutUint16(ret[1:3], ver)
-	copy(ret[3:5], length)
-	copy(ret[5:], input)
+	ret[1] = byte(ver >> 8)
+	ret[2] = byte(ver)
+	ret[3] = byte(msgLen >> 8)
+	ret[4] = byte(msgLen)
 	return ret
 }
 
