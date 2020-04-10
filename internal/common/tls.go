@@ -11,6 +11,8 @@ const (
 	VersionTLS11 = 0x0301
 	VersionTLS13 = 0x0303
 
+	recordLayerLength = 5
+
 	Handshake       = 22
 	ApplicationData = 23
 )
@@ -55,7 +57,7 @@ func (tls *TLSConn) Read(buffer []byte) (n int, err error) {
 	// a single message can also be segmented due to MTU of the IP layer.
 	// This function guareentees a single TLS message to be read and everything
 	// else is left in the buffer.
-	_, err = io.ReadFull(tls.Conn, buffer[:5])
+	_, err = io.ReadFull(tls.Conn, buffer[:recordLayerLength])
 	if err != nil {
 		return
 	}
@@ -71,7 +73,8 @@ func (tls *TLSConn) Read(buffer []byte) (n int, err error) {
 func (tls *TLSConn) Write(in []byte) (n int, err error) {
 	// TODO: write record layer directly first?
 	toWrite := AddRecordLayer(in, ApplicationData, VersionTLS13)
-	return tls.Conn.Write(toWrite)
+	n, err = tls.Conn.Write(toWrite)
+	return n - recordLayerLength, err
 }
 
 func (tls *TLSConn) Close() error {
