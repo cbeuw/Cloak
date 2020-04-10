@@ -59,6 +59,8 @@ type Session struct {
 	closed uint32
 
 	terminalMsg atomic.Value
+
+	maxStreamUnitWrite int // the max size passed to Write calls before it splits it into multiple frames
 }
 
 func MakeSession(id uint32, config SessionConfig) *Session {
@@ -82,6 +84,7 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	if config.MaxFrameSize <= 0 {
 		sesh.MaxFrameSize = defaultSendRecvBufSize - 1024
 	}
+	sesh.maxStreamUnitWrite = sesh.MaxFrameSize - HEADER_LEN - sesh.Obfuscator.minOverhead
 
 	sbConfig := switchboardConfig{
 		valve:          sesh.Valve,

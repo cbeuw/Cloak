@@ -77,17 +77,17 @@ func Copy(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) (written int
 		}
 		nr, er := src.Read(buf)
 		if nr > 0 {
-			var offset int
-			for offset < nr {
-				nw, ew := dst.Write(buf[offset:nr])
-				if nw > 0 {
-					written += int64(nw)
-				}
-				if ew != nil {
-					err = ew
-					break
-				}
-				offset += nw
+			nw, ew := dst.Write(buf[0:nr])
+			if nw > 0 {
+				written += int64(nw)
+			}
+			if ew != nil {
+				err = ew
+				break
+			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
 			}
 		}
 		if er != nil {

@@ -96,37 +96,39 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 		return 0, ErrBrokenStream
 	}
 
-	var payload []byte
-	maxDataLen := s.session.MaxFrameSize - HEADER_LEN - s.session.minOverhead
-	if len(in) <= maxDataLen {
-		payload = in
-	} else {
-		//TODO: short write isn't the correct behaviour
-		payload = in[:maxDataLen]
-	}
-
-	f := &Frame{
-		StreamID: s.id,
-		Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
-		Closing:  C_NOOP,
-		Payload:  payload,
-	}
-
-	i, err := s.session.Obfs(f, s.obfsBuf)
-	if err != nil {
-		return i, err
-	}
-	n, err = s.session.sb.send(s.obfsBuf[:i], &s.assignedConnId)
-	log.Tracef("%v sent to remote through stream %v with err %v", len(payload), s.id, err)
-	if err != nil {
-		if err == errBrokenSwitchboard {
-			s.session.SetTerminalMsg(err.Error())
-			s.session.passiveClose()
+	for n < len(in) {
+		var framePayload []byte
+		if len(in)-n <= s.session.maxStreamUnitWrite {
+			framePayload = in[n:]
+		} else {
+			framePayload = in[n : s.session.maxStreamUnitWrite+n]
 		}
-		return
-	}
-	return len(payload), nil
 
+		f := &Frame{
+			StreamID: s.id,
+			Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
+			Closing:  C_NOOP,
+			Payload:  framePayload,
+		}
+
+		var cipherTextLen int
+		cipherTextLen, err = s.session.Obfs(f, s.obfsBuf)
+		if err != nil {
+			return 0, err
+		}
+
+		_, err = s.session.sb.send(s.obfsBuf[:cipherTextLen], &s.assignedConnId)
+		log.Tracef("%v sent to remote through stream %v with err %v", len(framePayload), s.id, err)
+		if err != nil {
+			if err == errBrokenSwitchboard {
+				s.session.SetTerminalMsg(err.Error())
+				s.session.passiveClose()
+			}
+			return
+		}
+		n += len(framePayload)
+	}
+	return
 }
 
 func (s *Stream) passiveClose() error {
