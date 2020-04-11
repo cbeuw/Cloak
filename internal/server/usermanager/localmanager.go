@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/boltdb/bolt"
 	gmux "github.com/gorilla/mux"
+	bolt "go.etcd.io/bbolt"
 )
 
 var Uint32 = binary.BigEndian.Uint32

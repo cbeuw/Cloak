@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/boltdb/bolt"
 	"net/http"
 
 	gmux "github.com/gorilla/mux"
+	bolt "go.etcd.io/bbolt"
 )
 
 type UserInfo struct {
