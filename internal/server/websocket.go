@@ -61,7 +61,7 @@ func (WebSocket) makeResponder(reqPacket []byte, sharedSecret [32]byte) Responde
 		_, err = preparedConn.Write(reply)
 		if err != nil {
 			err = fmt.Errorf("failed to write reply: %v", err)
-			go preparedConn.Close()
+			preparedConn.Close()
 			return
 		}
 		return

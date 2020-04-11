@@ -63,7 +63,7 @@ func (TLS) makeResponder(clientHelloSessionId []byte, sharedSecret [32]byte) Res
 		_, err = originalConn.Write(reply)
 		if err != nil {
 			err = fmt.Errorf("failed to write TLS reply: %v", err)
-			go originalConn.Close()
+			originalConn.Close()
 			return
 		}
 		preparedConn = &common.TLSConn{Conn: originalConn}

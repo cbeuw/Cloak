@@ -21,6 +21,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const numConns = 200 // -race option limits the number of goroutines to 8192
+
 func serveTCPEcho(l net.Listener) {
 	for {
 		conn, err := l.Accept()
@@ -178,7 +180,7 @@ func runEchoTest(t *testing.T, conns []net.Conn, maxMsgLen int) {
 func TestUDP(t *testing.T) {
 	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
 	defer os.Remove(tmpDB.Name())
-	log.SetLevel(log.TraceLevel)
+	log.SetLevel(log.FatalLevel)
 
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 	lcc, rcc, ai := basicClientConfigs(worldState)
@@ -272,7 +274,6 @@ func TestTCP(t *testing.T) {
 
 	t.Run("user echo", func(t *testing.T) {
 		go serveTCPEcho(pxyServerL)
-		const numConns = 2000 // -race option limits the number of goroutines to 8192
 		var conns [numConns]net.Conn
 		for i := 0; i < numConns; i++ {
 			conns[i], err = pxyClientD.Dial("", "")
@@ -286,7 +287,6 @@ func TestTCP(t *testing.T) {
 
 	t.Run("redir echo", func(t *testing.T) {
 		go serveTCPEcho(rdirServerL)
-		const numConns = 2000 // -race option limits the number of goroutines to 8192
 		var conns [numConns]net.Conn
 		for i := 0; i < numConns; i++ {
 			conns[i], err = dialerToCkServer.Dial("", "")
@@ -371,7 +371,6 @@ func BenchmarkThroughput(b *testing.B) {
 			})
 
 			b.Run("multi conn", func(b *testing.B) {
-				const numConns = 1024
 				for i := 0; i < numConns; i++ {
 					go func() {
 						serverConn, _ := pxyServerL.Accept()
