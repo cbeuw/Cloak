@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/Yawning/chacha20 v0.0.0-20170904085104-e3b1f968fc63 // indirect
 	github.com/boltdb/bolt v1.3.1
-	github.com/cbeuw/connutil v0.0.0-20200409114343-23adbdc5cc77
+	github.com/cbeuw/connutil v0.0.0-20200411160121-c5a5c4a9de14
 	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.1
 	github.com/juju/ratelimit v1.0.1
