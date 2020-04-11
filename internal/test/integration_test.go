@@ -86,18 +86,18 @@ func basicServerState(ws common.WorldState, db *os.File) *server.State {
 
 func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, ai client.AuthInfo, serverState *server.State) (common.Dialer, net.Listener, common.Dialer, net.Listener, error) {
 	// transport
-	ckClientDialer, ckServerListener := connutil.DialerListener(128)
+	ckClientDialer, ckServerListener := connutil.DialerListener(10 * 1024)
 
 	clientSeshMaker := func() *mux.Session {
 		return client.MakeSession(rcc, ai, ckClientDialer, false)
 	}
 
-	proxyToCkClientD, proxyToCkClientL := connutil.DialerListener(128)
+	proxyToCkClientD, proxyToCkClientL := connutil.DialerListener(10 * 1024)
 	go client.RouteTCP(proxyToCkClientL, lcc.Timeout, clientSeshMaker)
 
 	// set up server
-	ckServerToProxyD, ckServerToProxyL := connutil.DialerListener(128)
-	ckServerToWebD, ckServerToWebL := connutil.DialerListener(128)
+	ckServerToProxyD, ckServerToProxyL := connutil.DialerListener(10 * 1024)
+	ckServerToWebD, ckServerToWebL := connutil.DialerListener(10 * 1024)
 	serverState.ProxyDialer = ckServerToProxyD
 	serverState.RedirDialer = ckServerToWebD
 
@@ -267,12 +267,12 @@ func BenchmarkThroughput(b *testing.B) {
 				b.Fatal(err)
 			}
 
-			b.Run("single conn write", func(b *testing.B) {
-				clientConn, _ := pxyClientD.Dial("", "")
+			b.Run("single conn", func(b *testing.B) {
 				go func() {
 					serverConn, _ := pxyServerL.Accept()
 					io.Copy(ioutil.Discard, serverConn)
 				}()
+				clientConn, _ := pxyClientD.Dial("", "")
 				writeBuf := make([]byte, bufSize)
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
@@ -281,12 +281,14 @@ func BenchmarkThroughput(b *testing.B) {
 				}
 			})
 
-			b.Run("multi conn write", func(b *testing.B) {
-				go func() {
-					serverConn, _ := pxyServerL.Accept()
-					io.Copy(ioutil.Discard, serverConn)
-				}()
+			b.Run("multi conn", func(b *testing.B) {
 				const numConns = 1024
+				for i := 0; i < numConns; i++ {
+					go func() {
+						serverConn, _ := pxyServerL.Accept()
+						io.Copy(ioutil.Discard, serverConn)
+					}()
+				}
 				conns := make([]net.Conn, numConns)
 				for i := 0; i < numConns; i++ {
 					conns[i], _ = pxyClientD.Dial("", "")
@@ -302,4 +304,5 @@ func BenchmarkThroughput(b *testing.B) {
 			})
 		})
 	}
+
 }
