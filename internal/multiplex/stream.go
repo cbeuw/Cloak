@@ -101,6 +101,10 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 		if len(in)-n <= s.session.maxStreamUnitWrite {
 			framePayload = in[n:]
 		} else {
+			if s.session.Unordered { // no splitting
+				err = io.ErrShortBuffer
+				return
+			}
 			framePayload = in[n : s.session.maxStreamUnitWrite+n]
 		}
 

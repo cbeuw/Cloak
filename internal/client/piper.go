@@ -11,20 +11,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func RouteUDP(localConfig LocalConnConfig, newSeshFunc func() *mux.Session) {
+func RouteUDP(listen func(string, string) (net.PacketConn, error), localConfig LocalConnConfig, newSeshFunc func() *mux.Session) {
 	var sesh *mux.Session
-	localUDPAddr, err := net.ResolveUDPAddr("udp", localConfig.LocalAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
 start:
-	localConn, err := net.ListenUDP("udp", localUDPAddr)
+	localConn, err := listen("udp", localConfig.LocalAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
 	var otherEnd atomic.Value
 	data := make([]byte, 10240)
-	i, oe, err := localConn.ReadFromUDP(data)
+	i, oe, err := localConn.ReadFrom(data)
 	if err != nil {
 		log.Errorf("Failed to read first packet from proxy client: %v", err)
 		localConn.Close()
@@ -35,7 +31,7 @@ start:
 	if sesh == nil || sesh.IsClosed() {
 		sesh = newSeshFunc()
 	}
-	log.Debugf("proxy local address %v", otherEnd.Load().(*net.UDPAddr).String())
+	log.Debugf("proxy local address %v", otherEnd.Load().(net.Addr).String())
 	stream, err := sesh.OpenStream()
 	if err != nil {
 		log.Errorf("Failed to open stream: %v", err)
@@ -63,7 +59,7 @@ start:
 				stream.Close()
 				break
 			}
-			_, err = localConn.WriteToUDP(buf[:i], otherEnd.Load().(*net.UDPAddr))
+			_, err = localConn.WriteTo(buf[:i], otherEnd.Load().(net.Addr))
 			if err != nil {
 				log.Print(err)
 				localConn.Close()
@@ -82,7 +78,7 @@ start:
 		if localConfig.Timeout != 0 {
 			localConn.SetReadDeadline(time.Now().Add(localConfig.Timeout))
 		}
-		i, oe, err := localConn.ReadFromUDP(buf)
+		i, oe, err := localConn.ReadFrom(buf)
 		if err != nil {
 			localConn.Close()
 			stream.Close()

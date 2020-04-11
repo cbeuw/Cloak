@@ -166,7 +166,7 @@ func main() {
 	}
 
 	if authInfo.Unordered {
-		client.RouteUDP(localConfig, seshMaker)
+		client.RouteUDP(net.ListenPacket, localConfig, seshMaker)
 	} else {
 		listener, err := net.Listen("tcp", localConfig.LocalAddr)
 		if err != nil {
