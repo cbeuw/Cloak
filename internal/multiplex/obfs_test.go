@@ -46,23 +46,7 @@ func TestGenerateObfs(t *testing.T) {
 			run(obfuscator, t)
 		}
 	})
-	t.Run("plain no record layer", func(t *testing.T) {
-		obfuscator, err := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
-		if err != nil {
-			t.Errorf("failed to generate obfuscator %v", err)
-		} else {
-			run(obfuscator, t)
-		}
-	})
 	t.Run("aes-gcm", func(t *testing.T) {
-		obfuscator, err := MakeObfuscator(E_METHOD_AES_GCM, sessionKey)
-		if err != nil {
-			t.Errorf("failed to generate obfuscator %v", err)
-		} else {
-			run(obfuscator, t)
-		}
-	})
-	t.Run("aes-gcm no record layer", func(t *testing.T) {
 		obfuscator, err := MakeObfuscator(E_METHOD_AES_GCM, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
