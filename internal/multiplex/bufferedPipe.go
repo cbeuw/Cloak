@@ -17,7 +17,9 @@ var ErrTimeout = errors.New("deadline exceeded")
 
 // The point of a bufferedPipe is that Read() will block until data is available
 type bufferedPipe struct {
-	buf       *bytes.Buffer
+	// only alloc when on first Read or Write
+	buf *bytes.Buffer
+
 	closed    uint32
 	rwCond    *sync.Cond
 	rDeadline time.Time
@@ -25,7 +27,6 @@ type bufferedPipe struct {
 
 func NewBufferedPipe() *bufferedPipe {
 	p := &bufferedPipe{
-		buf:    new(bytes.Buffer),
 		rwCond: sync.NewCond(&sync.Mutex{}),
 	}
 	return p
@@ -34,6 +35,9 @@ func NewBufferedPipe() *bufferedPipe {
 func (p *bufferedPipe) Read(target []byte) (int, error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
+	if p.buf == nil {
+		p.buf = new(bytes.Buffer)
+	}
 	for {
 		if atomic.LoadUint32(&p.closed) == 1 && p.buf.Len() == 0 {
 			return 0, io.EOF
@@ -59,6 +63,9 @@ func (p *bufferedPipe) Read(target []byte) (int, error) {
 func (p *bufferedPipe) Write(input []byte) (int, error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
+	if p.buf == nil {
+		p.buf = new(bytes.Buffer)
+	}
 	for {
 		if atomic.LoadUint32(&p.closed) == 1 {
 			return 0, io.ErrClosedPipe

@@ -28,7 +28,9 @@ type Stream struct {
 	// atomic
 	closed uint32
 
-	obfsBuf []byte
+	// only alloc when writing to the stream
+	allocIdempot sync.Once
+	obfsBuf      []byte
 
 	// we assign each stream a fixed underlying TCP connection to utilise order guarantee provided by TCP itself
 	// so that frameSorter should have few to none ooo frames to deal with
@@ -49,7 +51,6 @@ func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
 		id:             id,
 		session:        sesh,
 		recvBuf:        recvBuf,
-		obfsBuf:        make([]byte, sesh.SendBufferSize),
 		assignedConnId: assignedConnId,
 	}
 
@@ -90,11 +91,14 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	// in the middle of the execution of Write. This may cause the closing frame
 	// to be sent before the data frame and cause loss of packet.
 	//log.Tracef("attempting to write %v bytes to stream %v",len(in),s.id)
+	// todo: forbid concurrent write
 	s.writingM.RLock()
 	defer s.writingM.RUnlock()
 	if s.isClosed() {
 		return 0, ErrBrokenStream
 	}
+
+	s.allocIdempot.Do(func() { s.obfsBuf = make([]byte, s.session.SendBufferSize) })
 
 	for n < len(in) {
 		var framePayload []byte

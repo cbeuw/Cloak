@@ -164,6 +164,8 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 			Closing:  C_STREAM,
 			Payload:  pad,
 		}
+
+		s.allocIdempot.Do(func() { s.obfsBuf = make([]byte, s.session.SendBufferSize) })
 		i, err := s.session.Obfs(f, s.obfsBuf)
 		if err != nil {
 			return err
