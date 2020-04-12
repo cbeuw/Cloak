@@ -23,7 +23,7 @@ type Stream struct {
 	// atomic
 	nextSendSeq uint64
 
-	writingM sync.RWMutex
+	writingM sync.Mutex
 
 	// atomic
 	closed uint32
@@ -92,14 +92,15 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	// to be sent before the data frame and cause loss of packet.
 	//log.Tracef("attempting to write %v bytes to stream %v",len(in),s.id)
 	// todo: forbid concurrent write
-	s.writingM.RLock()
-	defer s.writingM.RUnlock()
+	s.writingM.Lock()
+	defer s.writingM.Unlock()
 	if s.isClosed() {
 		return 0, ErrBrokenStream
 	}
 
-	s.allocIdempot.Do(func() { s.obfsBuf = make([]byte, s.session.SendBufferSize) })
-
+	if s.obfsBuf == nil {
+		s.obfsBuf = make([]byte, s.session.SendBufferSize)
+	}
 	for n < len(in) {
 		var framePayload []byte
 		if len(in)-n <= s.session.maxStreamUnitWrite {
