@@ -5,6 +5,7 @@ import (
 	"github.com/cbeuw/connutil"
 	"math/rand"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -344,7 +345,7 @@ func TestParallel(t *testing.T) {
 	seshConfigOrdered.Obfuscator = obfuscator
 	sesh := MakeSession(0, seshConfigOrdered)
 
-	numStreams := 10
+	numStreams := acceptBacklog
 	seqs := make([]*uint64, numStreams)
 	for i := range seqs {
 		seqs[i] = new(uint64)
@@ -359,7 +360,7 @@ func TestParallel(t *testing.T) {
 		}
 	}
 
-	numOfTests := 100
+	numOfTests := 5000
 	tests := make([]struct {
 		name  string
 		frame *Frame
@@ -369,7 +370,9 @@ func TestParallel(t *testing.T) {
 		tests[i].frame = randFrame()
 	}
 
+	var wg sync.WaitGroup
 	for _, tc := range tests {
+		wg.Add(1)
 		go func(frame *Frame) {
 			data := make([]byte, 1000)
 			n, _ := sesh.Obfs(frame, data)
@@ -379,9 +382,12 @@ func TestParallel(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
+			wg.Done()
 		}(tc.frame)
 	}
 
+	wg.Wait()
+	sc := int(sesh.streamCount())
 	var count int
 	sesh.streams.Range(func(_, s interface{}) bool {
 		if s != nil {
@@ -389,7 +395,6 @@ func TestParallel(t *testing.T) {
 		}
 		return true
 	})
-	sc := int(sesh.streamCount())
 	if sc != count {
 		t.Errorf("broken referential integrety: actual %v, reference count: %v", count, sc)
 	}
