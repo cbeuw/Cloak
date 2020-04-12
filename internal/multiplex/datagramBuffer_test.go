@@ -47,7 +47,7 @@ func TestDatagramBuffer_RW(t *testing.T) {
 				"got", b2,
 			)
 		}
-		if len(pipe.buf) != 0 {
+		if pipe.buf.Len() != 0 {
 			t.Error("buf len is not 0 after finished reading")
 			return
 		}
