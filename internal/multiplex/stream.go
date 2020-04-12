@@ -80,7 +80,11 @@ func (s *Stream) Read(buf []byte) (n int, err error) {
 	}
 	log.Tracef("%v read from stream %v with err %v", n, s.id, err)
 	return
+}
 
+func (s *Stream) WriteTo(w io.Writer) (int64, error) {
+	// will keep writing until the underlying buffer is closed
+	return s.recvBuf.WriteTo(w)
 }
 
 // Write implements io.Write
@@ -91,7 +95,6 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	// in the middle of the execution of Write. This may cause the closing frame
 	// to be sent before the data frame and cause loss of packet.
 	//log.Tracef("attempting to write %v bytes to stream %v",len(in),s.id)
-	// todo: forbid concurrent write
 	s.writingM.Lock()
 	defer s.writingM.Unlock()
 	if s.isClosed() {

@@ -84,6 +84,7 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	if config.MaxFrameSize <= 0 {
 		sesh.MaxFrameSize = defaultSendRecvBufSize - 1024
 	}
+	// todo: validation. this must be smaller than the buffer sizes
 	sesh.maxStreamUnitWrite = sesh.MaxFrameSize - HEADER_LEN - sesh.Obfuscator.minOverhead
 
 	sbConfig := switchboardConfig{
@@ -156,12 +157,11 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		s.writingM.Lock()
 		defer s.writingM.Unlock()
 		// Notify remote that this stream is closed
-		pad := genRandomPadding()
 		f := &Frame{
 			StreamID: s.id,
 			Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
 			Closing:  C_STREAM,
-			Payload:  pad,
+			Payload:  genRandomPadding(),
 		}
 
 		if s.obfsBuf == nil {
