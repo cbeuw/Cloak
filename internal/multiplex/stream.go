@@ -83,7 +83,12 @@ func (s *Stream) Read(buf []byte) (n int, err error) {
 
 func (s *Stream) WriteTo(w io.Writer) (int64, error) {
 	// will keep writing until the underlying buffer is closed
-	return s.recvBuf.WriteTo(w)
+	n, err := s.recvBuf.WriteTo(w)
+	if err == io.EOF {
+		return n, ErrBrokenStream
+	}
+	log.Tracef("%v read from stream %v with err %v", n, s.id, err)
+	return n, nil
 }
 
 // Write implements io.Write
