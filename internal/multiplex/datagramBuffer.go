@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"io"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -35,7 +34,7 @@ func (d *datagramBuffer) Read(target []byte) (int, error) {
 		d.buf = new(bytes.Buffer)
 	}
 	for {
-		if atomic.LoadUint32(&d.closed) == 1 && len(d.pLens) == 0 {
+		if d.closed && len(d.pLens) == 0 {
 			return 0, io.EOF
 		}
 
