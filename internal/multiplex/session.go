@@ -150,24 +150,21 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 	_ = s.recvBuf.Close() // both datagramBuffer and streamBuffer won't return err on Close()
 
 	if active {
-		s.writingM.Lock()
-		defer s.writingM.Unlock()
 		// Notify remote that this stream is closed
+		padding := genRandomPadding()
 		f := &Frame{
 			StreamID: s.id,
 			Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
 			Closing:  C_STREAM,
-			Payload:  genRandomPadding(),
+			Payload:  padding,
 		}
 
-		if s.obfsBuf == nil {
-			s.obfsBuf = make([]byte, s.session.SendBufferSize)
-		}
-		i, err := s.session.Obfs(f, s.obfsBuf)
+		obfsBuf := make([]byte, len(padding)+64)
+		i, err := sesh.Obfs(f, obfsBuf)
 		if err != nil {
 			return err
 		}
-		_, err = s.session.sb.send(s.obfsBuf[:i], &s.assignedConnId)
+		_, err = sesh.sb.send(obfsBuf[:i], &s.assignedConnId)
 		if err != nil {
 			return err
 		}

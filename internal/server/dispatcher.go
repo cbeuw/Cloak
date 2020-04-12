@@ -187,12 +187,12 @@ func dispatchConnection(conn net.Conn, sta *State) {
 
 		go func() {
 			if _, err := common.Copy(localConn, newStream, sta.Timeout); err != nil {
-				log.Tracef("copying stream to proxy client: %v", err)
+				log.Tracef("copying stream to proxy server: %v", err)
 			}
 		}()
 		go func() {
 			if _, err := common.Copy(newStream, localConn, 0); err != nil {
-				log.Tracef("copying proxy client to stream: %v", err)
+				log.Tracef("copying proxy server to stream: %v", err)
 			}
 		}()
 	}

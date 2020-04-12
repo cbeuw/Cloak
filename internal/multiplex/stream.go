@@ -84,11 +84,37 @@ func (s *Stream) Read(buf []byte) (n int, err error) {
 func (s *Stream) WriteTo(w io.Writer) (int64, error) {
 	// will keep writing until the underlying buffer is closed
 	n, err := s.recvBuf.WriteTo(w)
+	log.Tracef("%v read from stream %v with err %v", n, s.id, err)
 	if err == io.EOF {
 		return n, ErrBrokenStream
 	}
-	log.Tracef("%v read from stream %v with err %v", n, s.id, err)
 	return n, nil
+}
+
+func (s *Stream) writePayload(seq uint64, payload []byte) error {
+	f := &Frame{
+		StreamID: s.id,
+		Seq:      seq,
+		Closing:  C_NOOP,
+		Payload:  payload,
+	}
+
+	var cipherTextLen int
+	cipherTextLen, err := s.session.Obfs(f, s.obfsBuf)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.session.sb.send(s.obfsBuf[:cipherTextLen], &s.assignedConnId)
+	log.Tracef("%v sent to remote through stream %v with err %v", len(payload), s.id, err)
+	if err != nil {
+		if err == errBrokenSwitchboard {
+			s.session.SetTerminalMsg(err.Error())
+			s.session.passiveClose()
+		}
+		return err
+	}
+	return nil
 }
 
 // Write implements io.Write
@@ -113,32 +139,36 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 			}
 			framePayload = in[n : s.session.maxStreamUnitWrite+n]
 		}
-
-		f := &Frame{
-			StreamID: s.id,
-			Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
-			Closing:  C_NOOP,
-			Payload:  framePayload,
-		}
-
-		var cipherTextLen int
-		cipherTextLen, err = s.session.Obfs(f, s.obfsBuf)
+		err = s.writePayload(atomic.AddUint64(&s.nextSendSeq, 1)-1, framePayload)
 		if err != nil {
-			return 0, err
-		}
-
-		_, err = s.session.sb.send(s.obfsBuf[:cipherTextLen], &s.assignedConnId)
-		log.Tracef("%v sent to remote through stream %v with err %v", len(framePayload), s.id, err)
-		if err != nil {
-			if err == errBrokenSwitchboard {
-				s.session.SetTerminalMsg(err.Error())
-				s.session.passiveClose()
-			}
 			return
 		}
 		n += len(framePayload)
 	}
 	return
+}
+
+func (s *Stream) ReadFrom(r io.Reader) (n int64, err error) {
+	s.writingM.Lock()
+	defer s.writingM.Unlock()
+	if s.obfsBuf == nil {
+		s.obfsBuf = make([]byte, s.session.SendBufferSize)
+	}
+	for {
+		read, er := r.Read(s.obfsBuf[HEADER_LEN : HEADER_LEN+s.session.maxStreamUnitWrite])
+		if er != nil {
+			return n, er
+		}
+		if s.isClosed() {
+			return 0, ErrBrokenStream
+		}
+		seq := atomic.AddUint64(&s.nextSendSeq, 1) - 1
+		err = s.writePayload(seq, s.obfsBuf[HEADER_LEN:HEADER_LEN+read])
+		if err != nil {
+			return
+		}
+		n += int64(read)
+	}
 }
 
 func (s *Stream) passiveClose() error {
