@@ -124,11 +124,7 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 	}
 	id := atomic.AddUint32(&sesh.nextStreamID, 1) - 1
 	// Because atomic.AddUint32 returns the value after incrementation
-	connId, _, err := sesh.sb.pickRandConn()
-	if err != nil {
-		return nil, err
-	}
-	stream := makeStream(sesh, id, connId)
+	stream := makeStream(sesh, id)
 	sesh.streams.Store(id, stream)
 	sesh.streamCountIncr()
 	log.Tracef("stream %v of session %v opened", id, sesh.id)
@@ -202,9 +198,7 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 		return sesh.passiveClose()
 	}
 
-	connId, _, _ := sesh.sb.pickRandConn()
-	// we ignore the error here. If the switchboard is broken, it will be reflected upon stream.Write
-	newStream := makeStream(sesh, frame.StreamID, connId)
+	newStream := makeStream(sesh, frame.StreamID)
 	existingStreamI, existing := sesh.streams.LoadOrStore(frame.StreamID, newStream)
 	if existing {
 		if existingStreamI == nil {

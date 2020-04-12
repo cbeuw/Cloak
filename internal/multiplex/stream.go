@@ -39,7 +39,7 @@ type Stream struct {
 	assignedConnId uint32
 }
 
-func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
+func makeStream(sesh *Session, id uint32) *Stream {
 	var recvBuf recvBuffer
 	if sesh.Unordered {
 		recvBuf = NewDatagramBuffer()
@@ -48,10 +48,9 @@ func makeStream(sesh *Session, id uint32, assignedConnId uint32) *Stream {
 	}
 
 	stream := &Stream{
-		id:             id,
-		session:        sesh,
-		recvBuf:        recvBuf,
-		assignedConnId: assignedConnId,
+		id:      id,
+		session: sesh,
+		recvBuf: recvBuf,
 	}
 
 	return stream
