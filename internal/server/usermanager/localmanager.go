@@ -138,6 +138,9 @@ func (manager *localManager) AuthoriseNewSession(UID []byte, ainfo Authorisation
 // If no action is needed, there won't be a StatusResponse entry for that user
 func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusResponse, error) {
 	var responses []StatusResponse
+	if len(uploads) == 0 {
+		return responses, nil
+	}
 	err := manager.db.Update(func(tx *bolt.Tx) error {
 		for _, status := range uploads {
 			var resp StatusResponse
