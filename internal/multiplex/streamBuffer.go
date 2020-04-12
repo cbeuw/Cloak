@@ -13,6 +13,7 @@ package multiplex
 import (
 	"container/heap"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 )
@@ -94,6 +95,10 @@ func (sb *streamBuffer) Write(f Frame) (toBeClosed bool, err error) {
 
 func (sb *streamBuffer) Read(buf []byte) (int, error) {
 	return sb.buf.Read(buf)
+}
+
+func (sb *streamBuffer) WriteTo(w io.Writer) (int64, error) {
+	return sb.buf.WriteTo(w)
 }
 
 func (sb *streamBuffer) Close() error {
