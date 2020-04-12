@@ -93,12 +93,6 @@ func (s *Stream) WriteTo(w io.Writer) (int64, error) {
 
 // Write implements io.Write
 func (s *Stream) Write(in []byte) (n int, err error) {
-	// RWMutex used here isn't really for RW.
-	// we use it to exploit the fact that RLock doesn't create contention.
-	// The use of RWMutex is so that the stream will not actively close
-	// in the middle of the execution of Write. This may cause the closing frame
-	// to be sent before the data frame and cause loss of packet.
-	//log.Tracef("attempting to write %v bytes to stream %v",len(in),s.id)
 	s.writingM.Lock()
 	defer s.writingM.Unlock()
 	if s.isClosed() {
