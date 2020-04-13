@@ -9,10 +9,9 @@ import (
 	"github.com/cbeuw/Cloak/internal/util"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/salsa20"
-	"io"
 )
 
-type Obfser func(*Frame, []byte) (int, error)
+type Obfser func(*Frame, []byte, int) (int, error)
 type Deobfser func([]byte) (*Frame, error)
 
 var u32 = binary.BigEndian.Uint32
@@ -39,13 +38,17 @@ type Obfuscator struct {
 }
 
 func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
-	obfs := func(f *Frame, buf []byte) (int, error) {
+	obfs := func(f *Frame, buf []byte, payloadOffsetInBuf int) (int, error) {
 		// we need the encrypted data to be at least 8 bytes to be used as nonce for salsa20 stream header encryption
 		// this will be the case if the encryption method is an AEAD cipher, however for plain, it's well possible
 		// that the frame payload is smaller than 8 bytes, so we need to add on the difference
+		payloadLen := len(f.Payload)
+		if payloadLen == 0 {
+			return 0, errors.New("payload cannot be empty")
+		}
 		var extraLen int
 		if payloadCipher == nil {
-			if extraLen = 8 - len(f.Payload); extraLen < 0 {
+			if extraLen = 8 - payloadLen; extraLen < 0 {
 				extraLen = 0
 			}
 		} else {
@@ -54,31 +57,34 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 				return 0, errors.New("AEAD's Overhead cannot be fewer than 8 bytes")
 			}
 		}
-		// usefulLen is the amount of bytes that will be eventually sent off
-		usefulLen := HEADER_LEN + len(f.Payload) + extraLen
-		if usefulLen < HEADER_LEN || len(buf) < usefulLen { // compiler hint to eliminate bound check
-			return 0, io.ErrShortBuffer
+
+		usefulLen := HEADER_LEN + payloadLen + extraLen
+		if len(buf) < usefulLen {
+			return 0, errors.New("obfs buffer too small")
 		}
 		// we do as much in-place as possible to save allocation
-		header := buf[:HEADER_LEN]
-		encryptedPayloadWithExtra := buf[HEADER_LEN:usefulLen]
+		payload := buf[HEADER_LEN : HEADER_LEN+payloadLen]
+		if payloadOffsetInBuf != HEADER_LEN {
+			// if payload is not at the correct location in buffer
+			copy(payload, f.Payload)
+		}
 
+		header := buf[:HEADER_LEN]
 		putU32(header[0:4], f.StreamID)
 		putU64(header[4:12], f.Seq)
 		header[12] = f.Closing
 		header[13] = byte(extraLen)
 
 		if payloadCipher == nil {
-			copy(encryptedPayloadWithExtra, f.Payload)
 			if extraLen != 0 { // read nonce
-				util.CryptoRandRead(encryptedPayloadWithExtra[len(encryptedPayloadWithExtra)-extraLen:])
+				extra := buf[usefulLen-extraLen : usefulLen]
+				util.CryptoRandRead(extra)
 			}
 		} else {
-			ciphertext := payloadCipher.Seal(nil, header[:12], f.Payload, nil)
-			copy(encryptedPayloadWithExtra, ciphertext)
+			payloadCipher.Seal(payload[:0], header[:12], payload, nil)
 		}
 
-		nonce := encryptedPayloadWithExtra[len(encryptedPayloadWithExtra)-8:]
+		nonce := buf[usefulLen-8 : usefulLen]
 		salsa20.XORKeyStream(header, header, nonce, &salsaKey)
 
 		return usefulLen, nil

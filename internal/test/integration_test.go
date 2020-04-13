@@ -381,7 +381,7 @@ func BenchmarkThroughput(b *testing.B) {
 			}
 
 			b.Run("single conn", func(b *testing.B) {
-				more := make(chan int, 100)
+				more := make(chan int, 10)
 				go func() {
 					writeBuf := make([]byte, bufSize+100)
 					serverConn, _ := pxyServerL.Accept()
@@ -396,45 +396,37 @@ func BenchmarkThroughput(b *testing.B) {
 				b.SetBytes(bufSize)
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
-					clientConn.Read(readBuf)
+					io.ReadFull(clientConn, readBuf)
 					more <- 0
 				}
 			})
 
 			/*
-				b.Run("multi conn", func(b *testing.B) {
-					var connsIds sync.Pool
-					conns := make([]net.Conn, numConns)
-					more := make([]chan int, numConns)
-					for i := 0; i < numConns; i++ {
-						conns[i], _ = pxyClientD.Dial("", "")
-						conns[i].Write([]byte{1}) // to make server accept
-						connsIds.Put(i)
-						moreChan := make(chan int, 100)
-						more[i] = moreChan
-						writeBuf := make([]byte, bufSize + 100)
+				b.Run("multiconn", func(b *testing.B) {
+					writeBuf := make([]byte, bufSize)
+					b.SetBytes(bufSize)
+					b.ResetTimer()
+					b.RunParallel(func(pb *testing.PB) {
+						ready := make(chan int, 10)
 						go func() {
 							serverConn, _ := pxyServerL.Accept()
 							for {
 								serverConn.Write(writeBuf)
-								<- moreChan
+								<-ready
 							}
 						}()
-					}
-					b.SetParallelism(numConns)
-					b.ResetTimer()
-					b.RunParallel(func(pb *testing.PB) {
-						buf := make([]byte, bufSize)
-						connNum := connsIds.Get().(int)
+						readBuf := make([]byte, bufSize)
+						clientConn, _ := pxyClientD.Dial("", "")
+						clientConn.Write([]byte{1}) // to make server accept
 						for pb.Next() {
-							n, _ := conns[connNum].Read(buf)
-							more[connNum] <- 0
-							b.SetBytes(int64(n))
+							io.ReadFull(clientConn,readBuf)
+							ready <- 0
 						}
 					})
 				})
 
 			*/
+
 		})
 	}
 

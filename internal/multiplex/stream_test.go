@@ -13,8 +13,8 @@ import (
 
 const payloadLen = 1000
 
-func setupSesh(unordered bool, key [32]byte) *Session {
-	obfuscator, _ := MakeObfuscator(0x00, key)
+func setupSesh(unordered bool, key [32]byte, encryptionMethod byte) *Session {
+	obfuscator, _ := MakeObfuscator(encryptionMethod, key)
 
 	seshConfig := SessionConfig{
 		Obfuscator: obfuscator,
@@ -28,16 +28,27 @@ func BenchmarkStream_Write_Ordered(b *testing.B) {
 	hole := connutil.Discard()
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	sesh := setupSesh(false, sessionKey)
-	sesh.AddConnection(hole)
-	testData := make([]byte, payloadLen)
-	rand.Read(testData)
 
-	stream, _ := sesh.OpenStream()
-	b.SetBytes(payloadLen)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		stream.Write(testData)
+	const testDataLen = 65536
+	testData := make([]byte, testDataLen)
+	rand.Read(testData)
+	eMethods := map[string]byte{
+		"plain":             E_METHOD_PLAIN,
+		"chacha20-poly1305": E_METHOD_CHACHA20_POLY1305,
+		"aes-gcm":           E_METHOD_AES_GCM,
+	}
+
+	for name, method := range eMethods {
+		b.Run(name, func(b *testing.B) {
+			sesh := setupSesh(false, sessionKey, method)
+			sesh.AddConnection(hole)
+			stream, _ := sesh.OpenStream()
+			b.SetBytes(testDataLen)
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				stream.Write(testData)
+			}
+		})
 	}
 }
 
@@ -96,7 +107,7 @@ func TestStream_Write(t *testing.T) {
 	hole := connutil.Discard()
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	sesh := setupSesh(false, sessionKey)
+	sesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
 	sesh.AddConnection(hole)
 	testData := make([]byte, payloadLen)
 	rand.Read(testData)
@@ -115,8 +126,8 @@ func TestStream_WriteSync(t *testing.T) {
 	// Close calls made after write MUST have a higher seq
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	clientSesh := setupSesh(false, sessionKey)
-	serverSesh := setupSesh(false, sessionKey)
+	clientSesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
+	serverSesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
 	w, r := connutil.AsyncPipe()
 	clientSesh.AddConnection(&common.TLSConn{Conn: w})
 	serverSesh.AddConnection(&common.TLSConn{Conn: r})
@@ -161,7 +172,7 @@ func TestStream_WriteSync(t *testing.T) {
 func TestStream_Close(t *testing.T) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	sesh := setupSesh(false, sessionKey)
+	sesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
 	testPayload := []byte{42, 42, 42}
 
 	f := &Frame{
@@ -174,7 +185,7 @@ func TestStream_Close(t *testing.T) {
 	conn, writingEnd := connutil.AsyncPipe()
 	sesh.AddConnection(conn)
 	obfsBuf := make([]byte, 512)
-	i, _ := sesh.Obfs(f, obfsBuf)
+	i, _ := sesh.Obfs(f, obfsBuf, 0)
 	writingEnd.Write(obfsBuf[:i])
 	time.Sleep(100 * time.Microsecond)
 	stream, err := sesh.Accept()
@@ -206,7 +217,7 @@ func TestStream_Close(t *testing.T) {
 func TestStream_Read(t *testing.T) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	sesh := setupSesh(false, sessionKey)
+	sesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
 	testPayload := []byte{42, 42, 42}
 	const smallPayloadLen = 3
 
@@ -226,7 +237,7 @@ func TestStream_Read(t *testing.T) {
 	obfsBuf := make([]byte, 512)
 	t.Run("Plain read", func(t *testing.T) {
 		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf)
+		i, _ := sesh.Obfs(f, obfsBuf, 0)
 		streamID++
 		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
@@ -252,7 +263,7 @@ func TestStream_Read(t *testing.T) {
 	})
 	t.Run("Nil buf", func(t *testing.T) {
 		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf)
+		i, _ := sesh.Obfs(f, obfsBuf, 0)
 		streamID++
 		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
@@ -265,7 +276,7 @@ func TestStream_Read(t *testing.T) {
 	})
 	t.Run("Read after stream close", func(t *testing.T) {
 		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf)
+		i, _ := sesh.Obfs(f, obfsBuf, 0)
 		streamID++
 		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
@@ -290,7 +301,7 @@ func TestStream_Read(t *testing.T) {
 	})
 	t.Run("Read after session close", func(t *testing.T) {
 		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf)
+		i, _ := sesh.Obfs(f, obfsBuf, 0)
 		streamID++
 		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
@@ -319,7 +330,7 @@ func TestStream_Read(t *testing.T) {
 func TestStream_UnorderedRead(t *testing.T) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	sesh := setupSesh(false, sessionKey)
+	sesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
 	testPayload := []byte{42, 42, 42}
 	const smallPayloadLen = 3
 
@@ -339,7 +350,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 	obfsBuf := make([]byte, 512)
 	t.Run("Plain read", func(t *testing.T) {
 		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf)
+		i, _ := sesh.Obfs(f, obfsBuf, 0)
 		streamID++
 		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
@@ -361,7 +372,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 	})
 	t.Run("Nil buf", func(t *testing.T) {
 		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf)
+		i, _ := sesh.Obfs(f, obfsBuf, 0)
 		streamID++
 		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
@@ -374,7 +385,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 	})
 	t.Run("Read after stream close", func(t *testing.T) {
 		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf)
+		i, _ := sesh.Obfs(f, obfsBuf, 0)
 		streamID++
 		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)
@@ -399,7 +410,7 @@ func TestStream_UnorderedRead(t *testing.T) {
 	})
 	t.Run("Read after session close", func(t *testing.T) {
 		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf)
+		i, _ := sesh.Obfs(f, obfsBuf, 0)
 		streamID++
 		writingEnd.Write(obfsBuf[:i])
 		time.Sleep(100 * time.Microsecond)

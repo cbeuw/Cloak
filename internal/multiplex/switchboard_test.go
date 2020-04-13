@@ -135,7 +135,7 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 func TestSwitchboard_CloseOnOneDisconn(t *testing.T) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	sesh := setupSesh(false, sessionKey)
+	sesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
 
 	conn0client, conn0server := connutil.AsyncPipe()
 	sesh.AddConnection(conn0client)

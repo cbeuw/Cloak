@@ -35,7 +35,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 		obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
-		n, _ := sesh.Obfs(f, obfsBuf)
+		n, _ := sesh.Obfs(f, obfsBuf, 0)
 
 		err := sesh.recvDataFromRemote(obfsBuf[:n])
 		if err != nil {
@@ -62,7 +62,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 		obfuscator, _ := MakeObfuscator(E_METHOD_AES_GCM, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
-		n, _ := sesh.Obfs(f, obfsBuf)
+		n, _ := sesh.Obfs(f, obfsBuf, 0)
 
 		err := sesh.recvDataFromRemote(obfsBuf[:n])
 		if err != nil {
@@ -89,7 +89,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 		obfuscator, _ := MakeObfuscator(E_METHOD_CHACHA20_POLY1305, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
-		n, _ := sesh.Obfs(f, obfsBuf)
+		n, _ := sesh.Obfs(f, obfsBuf, 0)
 
 		err := sesh.recvDataFromRemote(obfsBuf[:n])
 		if err != nil {
@@ -117,7 +117,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 		obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 		seshConfigUnordered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
-		n, _ := sesh.Obfs(f, obfsBuf)
+		n, _ := sesh.Obfs(f, obfsBuf, 0)
 
 		err := sesh.recvDataFromRemote(obfsBuf[:n])
 		if err != nil {
@@ -163,7 +163,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 		testPayload,
 	}
 	// create stream 1
-	n, _ := sesh.Obfs(f1, obfsBuf)
+	n, _ := sesh.Obfs(f1, obfsBuf, 0)
 	err := sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving normal frame for stream 1: %v", err)
@@ -183,7 +183,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 		C_NOOP,
 		testPayload,
 	}
-	n, _ = sesh.Obfs(f2, obfsBuf)
+	n, _ = sesh.Obfs(f2, obfsBuf, 0)
 	err = sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving normal frame for stream 2: %v", err)
@@ -203,7 +203,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 		C_STREAM,
 		testPayload,
 	}
-	n, _ = sesh.Obfs(f1CloseStream, obfsBuf)
+	n, _ = sesh.Obfs(f1CloseStream, obfsBuf, 0)
 	err = sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving stream closing frame for stream 1: %v", err)
@@ -230,7 +230,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 	}
 
 	// close stream 1 again
-	n, _ = sesh.Obfs(f1CloseStream, obfsBuf)
+	n, _ = sesh.Obfs(f1CloseStream, obfsBuf, 0)
 	err = sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving stream closing frame for stream 1 %v", err)
@@ -250,7 +250,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 		Closing:  C_SESSION,
 		Payload:  testPayload,
 	}
-	n, _ = sesh.Obfs(fCloseSession, obfsBuf)
+	n, _ = sesh.Obfs(fCloseSession, obfsBuf, 0)
 	err = sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving session closing frame: %v", err)
@@ -294,7 +294,7 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 		C_STREAM,
 		testPayload,
 	}
-	n, _ := sesh.Obfs(f1CloseStream, obfsBuf)
+	n, _ := sesh.Obfs(f1CloseStream, obfsBuf, 0)
 	err := sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving out of order stream closing frame for stream 1: %v", err)
@@ -314,7 +314,7 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 		C_NOOP,
 		testPayload,
 	}
-	n, _ = sesh.Obfs(f1, obfsBuf)
+	n, _ = sesh.Obfs(f1, obfsBuf, 0)
 	err = sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving normal frame for stream 1: %v", err)
@@ -375,7 +375,7 @@ func TestParallel(t *testing.T) {
 		wg.Add(1)
 		go func(frame *Frame) {
 			data := make([]byte, 1000)
-			n, _ := sesh.Obfs(frame, data)
+			n, _ := sesh.Obfs(frame, data, 0)
 			data = data[0:n]
 
 			err := sesh.recvDataFromRemote(data)
@@ -463,7 +463,7 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 		obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
-		n, _ := sesh.Obfs(f, obfsBuf)
+		n, _ := sesh.Obfs(f, obfsBuf, 0)
 
 		b.SetBytes(int64(len(f.Payload)))
 		b.ResetTimer()
@@ -476,7 +476,7 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 		obfuscator, _ := MakeObfuscator(E_METHOD_AES_GCM, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
-		n, _ := sesh.Obfs(f, obfsBuf)
+		n, _ := sesh.Obfs(f, obfsBuf, 0)
 
 		b.SetBytes(int64(len(f.Payload)))
 		b.ResetTimer()
@@ -489,7 +489,7 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 		obfuscator, _ := MakeObfuscator(E_METHOD_CHACHA20_POLY1305, sessionKey)
 		seshConfigOrdered.Obfuscator = obfuscator
 		sesh := MakeSession(0, seshConfigOrdered)
-		n, _ := sesh.Obfs(f, obfsBuf)
+		n, _ := sesh.Obfs(f, obfsBuf, 0)
 
 		b.SetBytes(int64(len(f.Payload)))
 		b.ResetTimer()

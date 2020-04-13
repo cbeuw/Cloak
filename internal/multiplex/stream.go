@@ -90,9 +90,9 @@ func (s *Stream) WriteTo(w io.Writer) (int64, error) {
 	return n, nil
 }
 
-func (s *Stream) sendFrame(f *Frame) error {
+func (s *Stream) sendFrame(f *Frame, framePayloadOffset int) error {
 	var cipherTextLen int
-	cipherTextLen, err := s.session.Obfs(f, s.obfsBuf)
+	cipherTextLen, err := s.session.Obfs(f, s.obfsBuf, framePayloadOffset)
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 			Payload:  framePayload,
 		}
 		s.nextSendSeq++
-		err = s.sendFrame(f)
+		err = s.sendFrame(f, 0)
 		if err != nil {
 			return
 		}
@@ -168,7 +168,7 @@ func (s *Stream) ReadFrom(r io.Reader) (n int64, err error) {
 			Payload:  s.obfsBuf[HEADER_LEN : HEADER_LEN+read],
 		}
 		s.nextSendSeq++
-		err = s.sendFrame(f)
+		err = s.sendFrame(f, HEADER_LEN)
 		s.writingM.Unlock()
 
 		if err != nil {

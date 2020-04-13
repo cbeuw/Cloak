@@ -161,7 +161,7 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		s.nextSendSeq++
 
 		obfsBuf := make([]byte, len(padding)+64)
-		i, err := sesh.Obfs(f, obfsBuf)
+		i, err := sesh.Obfs(f, obfsBuf, 0)
 		if err != nil {
 			return err
 		}
@@ -286,7 +286,7 @@ func (sesh *Session) Close() error {
 		Payload:  pad,
 	}
 	obfsBuf := make([]byte, len(pad)+64)
-	i, err := sesh.Obfs(f, obfsBuf)
+	i, err := sesh.Obfs(f, obfsBuf, 0)
 	if err != nil {
 		return err
 	}
