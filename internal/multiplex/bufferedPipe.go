@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -20,7 +19,7 @@ type bufferedPipe struct {
 	// only alloc when on first Read or Write
 	buf *bytes.Buffer
 
-	closed    uint32
+	closed    bool
 	rwCond    *sync.Cond
 	rDeadline time.Time
 }
@@ -39,7 +38,7 @@ func (p *bufferedPipe) Read(target []byte) (int, error) {
 		p.buf = new(bytes.Buffer)
 	}
 	for {
-		if atomic.LoadUint32(&p.closed) == 1 && p.buf.Len() == 0 {
+		if p.closed && p.buf.Len() == 0 {
 			return 0, io.EOF
 		}
 		if !p.rDeadline.IsZero() {
@@ -67,7 +66,7 @@ func (p *bufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 		p.buf = new(bytes.Buffer)
 	}
 	for {
-		if atomic.LoadUint32(&p.closed) == 1 && p.buf.Len() == 0 {
+		if p.closed && p.buf.Len() == 0 {
 			return 0, io.EOF
 		}
 		if !p.rDeadline.IsZero() {
@@ -97,7 +96,7 @@ func (p *bufferedPipe) Write(input []byte) (int, error) {
 		p.buf = new(bytes.Buffer)
 	}
 	for {
-		if atomic.LoadUint32(&p.closed) == 1 {
+		if p.closed {
 			return 0, io.ErrClosedPipe
 		}
 		if p.buf.Len() <= BUF_SIZE_LIMIT {
@@ -113,7 +112,10 @@ func (p *bufferedPipe) Write(input []byte) (int, error) {
 }
 
 func (p *bufferedPipe) Close() error {
-	atomic.StoreUint32(&p.closed, 1)
+	p.rwCond.L.Lock()
+	defer p.rwCond.L.Unlock()
+
+	p.closed = true
 	p.rwCond.Broadcast()
 	return nil
 }
