@@ -154,10 +154,11 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		padding := genRandomPadding()
 		f := &Frame{
 			StreamID: s.id,
-			Seq:      atomic.AddUint64(&s.nextSendSeq, 1) - 1,
+			Seq:      s.nextSendSeq,
 			Closing:  C_STREAM,
 			Payload:  padding,
 		}
+		s.nextSendSeq++
 
 		obfsBuf := make([]byte, len(padding)+64)
 		i, err := sesh.Obfs(f, obfsBuf)
@@ -168,7 +169,7 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		if err != nil {
 			return err
 		}
-		log.Tracef("stream %v actively closed", s.id)
+		log.Tracef("stream %v actively closed. seq %v", s.id, f.Seq)
 	} else {
 		log.Tracef("stream %v passively closed", s.id)
 	}
