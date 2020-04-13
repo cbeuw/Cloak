@@ -192,16 +192,9 @@ func BenchmarkBufferedPipe_RW(b *testing.B) {
 			pipe.Read(smallBuf)
 		}
 	}()
+	b.SetBytes(int64(len(testData)))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := pipe.Write(testData)
-		if err != nil {
-			b.Error(
-				"For", "pipe write",
-				"got", err,
-			)
-			return
-		}
-		b.SetBytes(PAYLOAD_LEN)
+		pipe.Write(testData)
 	}
 }

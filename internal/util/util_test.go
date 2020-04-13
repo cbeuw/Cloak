@@ -1,12 +1,6 @@
 package util
 
-import (
-	"io"
-	"io/ioutil"
-	"math/rand"
-	"testing"
-)
-
+/*
 func BenchmarkPipe(b *testing.B) {
 	reader := rand.New(rand.NewSource(42))
 	buf := make([]byte, 16380)
@@ -24,3 +18,6 @@ func BenchmarkPipe(b *testing.B) {
 		b.SetBytes(int64(n))
 	}
 }
+
+
+*/

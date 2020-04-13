@@ -393,10 +393,10 @@ func BenchmarkThroughput(b *testing.B) {
 				clientConn, _ := pxyClientD.Dial("", "")
 				readBuf := make([]byte, bufSize)
 				clientConn.Write([]byte{1}) // to make server accept
+				b.SetBytes(bufSize)
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
-					n, _ := clientConn.Read(readBuf)
-					b.SetBytes(int64(n))
+					clientConn.Read(readBuf)
 					more <- 0
 				}
 			})

@@ -5,7 +5,6 @@ import (
 	"github.com/cbeuw/Cloak/internal/common"
 	"io"
 	"math/rand"
-	"net"
 	"testing"
 	"time"
 
@@ -35,19 +34,14 @@ func BenchmarkStream_Write_Ordered(b *testing.B) {
 	rand.Read(testData)
 
 	stream, _ := sesh.OpenStream()
+	b.SetBytes(payloadLen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := stream.Write(testData)
-		if err != nil {
-			b.Error(
-				"For", "stream write",
-				"got", err,
-			)
-		}
-		b.SetBytes(payloadLen)
+		stream.Write(testData)
 	}
 }
 
+/*
 func BenchmarkStream_Read_Ordered(b *testing.B) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
@@ -88,19 +82,15 @@ func BenchmarkStream_Read_Ordered(b *testing.B) {
 	//time.Sleep(5*time.Second) // wait for buffer to fill up
 
 	readBuf := make([]byte, payloadLen)
+	b.SetBytes(payloadLen)
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		n, err := stream.Read(readBuf)
-		if !bytes.Equal(readBuf, testPayload) {
-			b.Error("paylod not equal")
-		}
-		b.SetBytes(int64(n))
-		if err != nil {
-			b.Error(err)
-		}
+		stream.Read(readBuf)
 	}
 
 }
+
+*/
 
 func TestStream_Write(t *testing.T) {
 	hole := connutil.Discard()

@@ -76,14 +76,10 @@ func BenchmarkSwitchboard_Send(b *testing.B) {
 	}
 	data := make([]byte, 1000)
 	rand.Read(data)
+	b.SetBytes(int64(len(data)))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		n, err := sesh.sb.send(data, &connId)
-		if err != nil {
-			b.Error(err)
-			return
-		}
-		b.SetBytes(int64(n))
+		sesh.sb.send(data, &connId)
 	}
 }
 
