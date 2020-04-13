@@ -2,6 +2,7 @@ package multiplex
 
 import (
 	"encoding/binary"
+	"io"
 	"time"
 
 	//"log"
@@ -71,4 +72,24 @@ func TestRecvNewFrame(t *testing.T) {
 	t.Run("out of order wrap", func(t *testing.T) {
 		test(outOfOrder2, t)
 	})
+}
+
+func TestStreamBuffer_RecvThenClose(t *testing.T) {
+	const testDataLen = 128
+	sb := NewStreamBuffer()
+	testData := make([]byte, testDataLen)
+	testFrame := Frame{
+		StreamID: 0,
+		Seq:      0,
+		Closing:  0,
+		Payload:  testData,
+	}
+	sb.Write(testFrame)
+	sb.Close()
+
+	readBuf := make([]byte, testDataLen)
+	_, err := io.ReadFull(sb, readBuf)
+	if err != nil {
+		t.Error(err)
+	}
 }
