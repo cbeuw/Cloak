@@ -65,7 +65,6 @@ func (sb *streamBuffer) Write(f Frame) (toBeClosed bool, err error) {
 	// when there'fs no ooo packages in heap and we receive the next package in order
 	if len(sb.sh) == 0 && f.Seq == sb.nextRecvSeq {
 		if f.Closing != C_NOOP {
-			sb.buf.Close()
 			return true, nil
 		} else {
 			sb.buf.Write(f.Payload)
@@ -83,7 +82,6 @@ func (sb *streamBuffer) Write(f Frame) (toBeClosed bool, err error) {
 	for len(sb.sh) > 0 && sb.sh[0].Seq == sb.nextRecvSeq {
 		f = *heap.Pop(&sb.sh).(*Frame)
 		if f.Closing != C_NOOP {
-			sb.buf.Close()
 			return true, nil
 		} else {
 			sb.buf.Write(f.Payload)
@@ -102,6 +100,9 @@ func (sb *streamBuffer) WriteTo(w io.Writer) (int64, error) {
 }
 
 func (sb *streamBuffer) Close() error {
+	sb.recvM.Lock()
+	defer sb.recvM.Unlock()
+
 	return sb.buf.Close()
 }
 
