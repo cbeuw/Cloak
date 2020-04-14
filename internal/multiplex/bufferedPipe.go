@@ -22,6 +22,7 @@ type bufferedPipe struct {
 	closed    bool
 	rwCond    *sync.Cond
 	rDeadline time.Time
+	wtTimeout time.Duration
 }
 
 func NewBufferedPipe() *bufferedPipe {
@@ -74,7 +75,14 @@ func (p *bufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 			if d <= 0 {
 				return 0, ErrTimeout
 			}
-			time.AfterFunc(d, p.rwCond.Broadcast)
+			if p.wtTimeout == 0 {
+				// if there hasn't been a scheduled broadcast
+				time.AfterFunc(d, p.rwCond.Broadcast)
+			}
+		}
+		if p.wtTimeout != 0 {
+			p.rDeadline = time.Now().Add(p.wtTimeout)
+			time.AfterFunc(p.wtTimeout, p.rwCond.Broadcast)
 		}
 		if p.buf.Len() > 0 {
 			written, er := p.buf.WriteTo(w)
@@ -125,5 +133,13 @@ func (p *bufferedPipe) SetReadDeadline(t time.Time) {
 	defer p.rwCond.L.Unlock()
 
 	p.rDeadline = t
+	p.rwCond.Broadcast()
+}
+
+func (p *bufferedPipe) SetWriteToTimeout(d time.Duration) {
+	p.rwCond.L.Lock()
+	defer p.rwCond.L.Unlock()
+
+	p.wtTimeout = d
 	p.rwCond.Broadcast()
 }

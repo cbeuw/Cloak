@@ -106,4 +106,5 @@ func (sb *streamBuffer) Close() error {
 	return sb.buf.Close()
 }
 
-func (sb *streamBuffer) SetReadDeadline(t time.Time) { sb.buf.SetReadDeadline(t) }
+func (sb *streamBuffer) SetReadDeadline(t time.Time)       { sb.buf.SetReadDeadline(t) }
+func (sb *streamBuffer) SetWriteToTimeout(d time.Duration) { sb.buf.SetWriteToTimeout(d) }

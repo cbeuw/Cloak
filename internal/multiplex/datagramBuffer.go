@@ -17,6 +17,7 @@ type datagramBuffer struct {
 	buf       *bytes.Buffer
 	closed    bool
 	rwCond    *sync.Cond
+	wtTimeout time.Duration
 	rDeadline time.Time
 }
 
@@ -72,13 +73,19 @@ func (d *datagramBuffer) WriteTo(w io.Writer) (n int64, err error) {
 		if d.closed && len(d.pLens) == 0 {
 			return 0, io.EOF
 		}
-
 		if !d.rDeadline.IsZero() {
 			delta := time.Until(d.rDeadline)
 			if delta <= 0 {
 				return 0, ErrTimeout
 			}
-			time.AfterFunc(delta, d.rwCond.Broadcast)
+			if d.wtTimeout == 0 {
+				// if there hasn't been a scheduled broadcast
+				time.AfterFunc(delta, d.rwCond.Broadcast)
+			}
+		}
+		if d.wtTimeout != 0 {
+			d.rDeadline = time.Now().Add(d.wtTimeout)
+			time.AfterFunc(d.wtTimeout, d.rwCond.Broadcast)
 		}
 
 		if len(d.pLens) > 0 {
@@ -141,5 +148,13 @@ func (d *datagramBuffer) SetReadDeadline(t time.Time) {
 	defer d.rwCond.L.Unlock()
 
 	d.rDeadline = t
+	d.rwCond.Broadcast()
+}
+
+func (d *datagramBuffer) SetWriteToTimeout(t time.Duration) {
+	d.rwCond.L.Lock()
+	defer d.rwCond.L.Unlock()
+
+	d.wtTimeout = t
 	d.rwCond.Broadcast()
 }

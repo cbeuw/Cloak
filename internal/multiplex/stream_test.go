@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/cbeuw/Cloak/internal/common"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"testing"
 	"time"
@@ -12,6 +13,8 @@ import (
 )
 
 const payloadLen = 1000
+
+var emptyKey [32]byte
 
 func setupSesh(unordered bool, key [32]byte, encryptionMethod byte) *Session {
 	obfuscator, _ := MakeObfuscator(encryptionMethod, key)
@@ -433,5 +436,53 @@ func TestStream_UnorderedRead(t *testing.T) {
 				"got nil error")
 		}
 	})
+}
 
+func TestStream_SetWriteToTimeout(t *testing.T) {
+	seshes := map[string]*Session{
+		"ordered":   setupSesh(false, emptyKey, E_METHOD_PLAIN),
+		"unordered": setupSesh(true, emptyKey, E_METHOD_PLAIN),
+	}
+	for name, sesh := range seshes {
+		t.Run(name, func(t *testing.T) {
+			stream, _ := sesh.OpenStream()
+			stream.SetWriteToTimeout(100 * time.Millisecond)
+			done := make(chan struct{})
+			go func() {
+				stream.WriteTo(ioutil.Discard)
+				done <- struct{}{}
+			}()
+
+			select {
+			case <-done:
+				return
+			case <-time.After(500 * time.Millisecond):
+				t.Error("didn't timeout")
+			}
+		})
+	}
+}
+
+func TestStream_SetReadFromTimeout(t *testing.T) {
+	seshes := map[string]*Session{
+		"ordered":   setupSesh(false, emptyKey, E_METHOD_PLAIN),
+		"unordered": setupSesh(true, emptyKey, E_METHOD_PLAIN),
+	}
+	for name, sesh := range seshes {
+		t.Run(name, func(t *testing.T) {
+			stream, _ := sesh.OpenStream()
+			stream.SetReadFromTimeout(100 * time.Millisecond)
+			done := make(chan struct{})
+			go func() {
+				stream.ReadFrom(connutil.Discard())
+				done <- struct{}{}
+			}()
+			select {
+			case <-done:
+				return
+			case <-time.After(500 * time.Millisecond):
+				t.Error("didn't timeout")
+			}
+		})
+	}
 }

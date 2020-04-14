@@ -35,12 +35,9 @@ package common
 import (
 	"io"
 	"net"
-	"time"
 )
 
-// copyBuffer is the actual implementation of Copy and CopyBuffer.
-// if buf is nil, one is allocated.
-func Copy(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) (written int64, err error) {
+func Copy(dst net.Conn, src net.Conn) (written int64, err error) {
 	defer func() { src.Close(); dst.Close() }()
 
 	// If the reader has a WriteTo method, use it to do the copy.
@@ -56,13 +53,6 @@ func Copy(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) (written int
 	size := 32 * 1024
 	buf := make([]byte, size)
 	for {
-		if srcReadTimeout != 0 {
-			// TODO: don't rely on setreaddeadline
-			err = src.SetReadDeadline(time.Now().Add(srcReadTimeout))
-			if err != nil {
-				break
-			}
-		}
 		nr, er := src.Read(buf)
 		if nr > 0 {
 			nw, ew := dst.Write(buf[0:nr])

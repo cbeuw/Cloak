@@ -184,13 +184,16 @@ func dispatchConnection(conn net.Conn, sta *State) {
 		}
 		log.Tracef("%v endpoint has been successfully connected", ci.ProxyMethod)
 
+		// if stream has nothing to send to proxy server for sta.Timeout period of time, stream will return error
+		newStream.(*mux.Stream).SetWriteToTimeout(sta.Timeout)
 		go func() {
-			if _, err := common.Copy(localConn, newStream, sta.Timeout); err != nil {
+			if _, err := common.Copy(localConn, newStream); err != nil {
 				log.Tracef("copying stream to proxy server: %v", err)
 			}
 		}()
+
 		go func() {
-			if _, err := common.Copy(newStream, localConn, 0); err != nil {
+			if _, err := common.Copy(newStream, localConn); err != nil {
 				log.Tracef("copying proxy server to stream: %v", err)
 			}
 		}()

@@ -36,6 +36,8 @@ type Stream struct {
 	// overall the streams in a session should be uniformly distributed across all connections
 	// This is not used in unordered connection mode
 	assignedConnId uint32
+
+	rfTimeout time.Duration
 }
 
 func makeStream(sesh *Session, id uint32) *Stream {
@@ -152,6 +154,13 @@ func (s *Stream) ReadFrom(r io.Reader) (n int64, err error) {
 		s.obfsBuf = make([]byte, s.session.SendBufferSize)
 	}
 	for {
+		if s.rfTimeout != 0 {
+			if rder, ok := r.(net.Conn); !ok {
+				log.Warn("ReadFrom timeout is set but reader doesn't implement SetReadDeadline")
+			} else {
+				rder.SetReadDeadline(time.Now().Add(s.rfTimeout))
+			}
+		}
 		read, er := r.Read(s.obfsBuf[HEADER_LEN : HEADER_LEN+s.session.maxStreamUnitWrite])
 		if er != nil {
 			return n, er
@@ -199,5 +208,7 @@ func (s *Stream) RemoteAddr() net.Addr { return s.session.addrs.Load().([]net.Ad
 
 // TODO: implement the following
 func (s *Stream) SetDeadline(t time.Time) error      { return errNotImplemented }
+func (s *Stream) SetWriteToTimeout(d time.Duration)  { s.recvBuf.SetWriteToTimeout(d) }
 func (s *Stream) SetReadDeadline(t time.Time) error  { s.recvBuf.SetReadDeadline(t); return nil }
+func (s *Stream) SetReadFromTimeout(d time.Duration) { s.rfTimeout = d }
 func (s *Stream) SetWriteDeadline(t time.Time) error { return errNotImplemented }
