@@ -316,7 +316,7 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 		serverConn, _ := pxyServerL.Accept()
 		serverConn.Close()
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 		if _, err := clientConn.Read(make([]byte, 16)); err == nil {
 			t.Errorf("closing stream on server side is not reflected to the client: %v", err)
 		}
@@ -329,7 +329,7 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 		serverConn, _ := pxyServerL.Accept()
 		clientConn.Close()
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 		if _, err := serverConn.Read(make([]byte, 16)); err == nil {
 			t.Errorf("closing stream on client side is not reflected to the server: %v", err)
 		}

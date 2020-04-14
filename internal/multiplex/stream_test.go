@@ -218,9 +218,10 @@ func TestStream_Close(t *testing.T) {
 }
 
 func TestStream_Read(t *testing.T) {
-	var sessionKey [32]byte
-	rand.Read(sessionKey[:])
-	sesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
+	seshes := map[string]bool{
+		"ordered":   false,
+		"unordered": true,
+	}
 	testPayload := []byte{42, 42, 42}
 	const smallPayloadLen = 3
 
@@ -231,211 +232,107 @@ func TestStream_Read(t *testing.T) {
 		testPayload,
 	}
 
-	conn, writingEnd := connutil.AsyncPipe()
-	sesh.AddConnection(conn)
-
 	var streamID uint32
 	buf := make([]byte, 10)
 
 	obfsBuf := make([]byte, 512)
-	t.Run("Plain read", func(t *testing.T) {
-		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf, 0)
-		streamID++
-		writingEnd.Write(obfsBuf[:i])
-		time.Sleep(100 * time.Microsecond)
-		stream, err := sesh.Accept()
-		if err != nil {
-			t.Error("failed to accept stream", err)
-			return
-		}
-		i, err = stream.Read(buf)
-		if err != nil {
-			t.Error("failed to read", err)
-			return
-		}
-		if i != smallPayloadLen {
-			t.Errorf("expected read %v, got %v", smallPayloadLen, i)
-			return
-		}
-		if !bytes.Equal(buf[:i], testPayload) {
-			t.Error("expected", testPayload,
-				"got", buf[:i])
-			return
-		}
-	})
-	t.Run("Nil buf", func(t *testing.T) {
-		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf, 0)
-		streamID++
-		writingEnd.Write(obfsBuf[:i])
-		time.Sleep(100 * time.Microsecond)
-		stream, _ := sesh.Accept()
-		i, err := stream.Read(nil)
-		if i != 0 || err != nil {
-			t.Error("expecting", 0, nil,
-				"got", i, err)
-		}
-	})
-	t.Run("Read after stream close", func(t *testing.T) {
-		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf, 0)
-		streamID++
-		writingEnd.Write(obfsBuf[:i])
-		time.Sleep(100 * time.Microsecond)
-		stream, _ := sesh.Accept()
-		stream.Close()
-		i, err := stream.Read(buf)
-		if err != nil {
-			t.Error("failed to read", err)
-		}
-		if i != smallPayloadLen {
-			t.Errorf("expected read %v, got %v", smallPayloadLen, i)
-		}
-		if !bytes.Equal(buf[:i], testPayload) {
-			t.Error("expected", testPayload,
-				"got", buf[:i])
-		}
-		_, err = stream.Read(buf)
-		if err == nil {
-			t.Error("expecting error", ErrBrokenStream,
-				"got nil error")
-		}
-	})
-	t.Run("Read after session close", func(t *testing.T) {
-		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf, 0)
-		streamID++
-		writingEnd.Write(obfsBuf[:i])
-		time.Sleep(100 * time.Microsecond)
-		stream, _ := sesh.Accept()
-		sesh.Close()
-		i, err := stream.Read(buf)
-		if err != nil {
-			t.Error("failed to read", err)
-		}
-		if i != smallPayloadLen {
-			t.Errorf("expected read %v, got %v", smallPayloadLen, i)
-		}
-		if !bytes.Equal(buf[:i], testPayload) {
-			t.Error("expected", testPayload,
-				"got", buf[:i])
-		}
-		_, err = stream.Read(buf)
-		if err == nil {
-			t.Error("expecting error", ErrBrokenStream,
-				"got nil error")
-		}
-	})
 
-}
-
-func TestStream_UnorderedRead(t *testing.T) {
-	var sessionKey [32]byte
-	rand.Read(sessionKey[:])
-	sesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
-	testPayload := []byte{42, 42, 42}
-	const smallPayloadLen = 3
-
-	f := &Frame{
-		1,
-		0,
-		0,
-		testPayload,
+	for name, unordered := range seshes {
+		sesh := setupSesh(unordered, emptyKey, E_METHOD_PLAIN)
+		conn, writingEnd := connutil.AsyncPipe()
+		sesh.AddConnection(conn)
+		t.Run(name, func(t *testing.T) {
+			t.Run("Plain read", func(t *testing.T) {
+				f.StreamID = streamID
+				i, _ := sesh.Obfs(f, obfsBuf, 0)
+				streamID++
+				writingEnd.Write(obfsBuf[:i])
+				time.Sleep(100 * time.Microsecond)
+				stream, err := sesh.Accept()
+				if err != nil {
+					t.Error("failed to accept stream", err)
+					return
+				}
+				i, err = stream.Read(buf)
+				if err != nil {
+					t.Error("failed to read", err)
+					return
+				}
+				if i != smallPayloadLen {
+					t.Errorf("expected read %v, got %v", smallPayloadLen, i)
+					return
+				}
+				if !bytes.Equal(buf[:i], testPayload) {
+					t.Error("expected", testPayload,
+						"got", buf[:i])
+					return
+				}
+			})
+			t.Run("Nil buf", func(t *testing.T) {
+				f.StreamID = streamID
+				i, _ := sesh.Obfs(f, obfsBuf, 0)
+				streamID++
+				writingEnd.Write(obfsBuf[:i])
+				time.Sleep(100 * time.Microsecond)
+				stream, _ := sesh.Accept()
+				i, err := stream.Read(nil)
+				if i != 0 || err != nil {
+					t.Error("expecting", 0, nil,
+						"got", i, err)
+				}
+			})
+			t.Run("Read after stream close", func(t *testing.T) {
+				f.StreamID = streamID
+				i, _ := sesh.Obfs(f, obfsBuf, 0)
+				streamID++
+				writingEnd.Write(obfsBuf[:i])
+				time.Sleep(100 * time.Microsecond)
+				stream, _ := sesh.Accept()
+				stream.Close()
+				i, err := stream.Read(buf)
+				if err != nil {
+					t.Error("failed to read", err)
+				}
+				if i != smallPayloadLen {
+					t.Errorf("expected read %v, got %v", smallPayloadLen, i)
+				}
+				if !bytes.Equal(buf[:i], testPayload) {
+					t.Error("expected", testPayload,
+						"got", buf[:i])
+				}
+				_, err = stream.Read(buf)
+				if err == nil {
+					t.Error("expecting error", ErrBrokenStream,
+						"got nil error")
+				}
+			})
+			t.Run("Read after session close", func(t *testing.T) {
+				f.StreamID = streamID
+				i, _ := sesh.Obfs(f, obfsBuf, 0)
+				streamID++
+				writingEnd.Write(obfsBuf[:i])
+				time.Sleep(100 * time.Microsecond)
+				stream, _ := sesh.Accept()
+				sesh.Close()
+				i, err := stream.Read(buf)
+				if err != nil {
+					t.Error("failed to read", err)
+				}
+				if i != smallPayloadLen {
+					t.Errorf("expected read %v, got %v", smallPayloadLen, i)
+				}
+				if !bytes.Equal(buf[:i], testPayload) {
+					t.Error("expected", testPayload,
+						"got", buf[:i])
+				}
+				_, err = stream.Read(buf)
+				if err == nil {
+					t.Error("expecting error", ErrBrokenStream,
+						"got nil error")
+				}
+			})
+		})
 	}
-
-	conn, writingEnd := connutil.AsyncPipe()
-	sesh.AddConnection(conn)
-
-	var streamID uint32
-	buf := make([]byte, 10)
-
-	obfsBuf := make([]byte, 512)
-	t.Run("Plain read", func(t *testing.T) {
-		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf, 0)
-		streamID++
-		writingEnd.Write(obfsBuf[:i])
-		time.Sleep(100 * time.Microsecond)
-		stream, err := sesh.Accept()
-		if err != nil {
-			t.Error("failed to accept stream", err)
-		}
-		i, err = stream.Read(buf)
-		if err != nil {
-			t.Error("failed to read", err)
-		}
-		if i != smallPayloadLen {
-			t.Errorf("expected read %v, got %v", smallPayloadLen, i)
-		}
-		if !bytes.Equal(buf[:i], testPayload) {
-			t.Error("expected", testPayload,
-				"got", buf[:i])
-		}
-	})
-	t.Run("Nil buf", func(t *testing.T) {
-		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf, 0)
-		streamID++
-		writingEnd.Write(obfsBuf[:i])
-		time.Sleep(100 * time.Microsecond)
-		stream, _ := sesh.Accept()
-		i, err := stream.Read(nil)
-		if i != 0 || err != nil {
-			t.Error("expecting", 0, nil,
-				"got", i, err)
-		}
-	})
-	t.Run("Read after stream close", func(t *testing.T) {
-		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf, 0)
-		streamID++
-		writingEnd.Write(obfsBuf[:i])
-		time.Sleep(100 * time.Microsecond)
-		stream, _ := sesh.Accept()
-		stream.Close()
-		i, err := stream.Read(buf)
-		if err != nil {
-			t.Error("failed to read", err)
-		}
-		if i != smallPayloadLen {
-			t.Errorf("expected read %v, got %v", smallPayloadLen, i)
-		}
-		if !bytes.Equal(buf[:i], testPayload) {
-			t.Error("expected", testPayload,
-				"got", buf[:i])
-		}
-		_, err = stream.Read(buf)
-		if err == nil {
-			t.Error("expecting error", ErrBrokenStream,
-				"got nil error")
-		}
-	})
-	t.Run("Read after session close", func(t *testing.T) {
-		f.StreamID = streamID
-		i, _ := sesh.Obfs(f, obfsBuf, 0)
-		streamID++
-		writingEnd.Write(obfsBuf[:i])
-		time.Sleep(100 * time.Microsecond)
-		stream, _ := sesh.Accept()
-		sesh.Close()
-		i, err := stream.Read(buf)
-		if err != nil {
-			t.Error("failed to read", err)
-		}
-		if i != smallPayloadLen {
-			t.Errorf("expected read %v, got %v", smallPayloadLen, i)
-		}
-		if !bytes.Equal(buf[:i], testPayload) {
-			t.Error("expected", testPayload,
-				"got", buf[:i])
-		}
-		_, err = stream.Read(buf)
-		if err == nil {
-			t.Error("expecting error", ErrBrokenStream,
-				"got nil error")
-		}
-	})
 }
 
 func TestStream_SetWriteToTimeout(t *testing.T) {
