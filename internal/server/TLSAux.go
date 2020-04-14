@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/Cloak/internal/common"
 )
 
 // ClientHello contains every field in a ClientHello message
@@ -176,7 +176,7 @@ func composeServerHello(sessionId []byte, nonce [12]byte, encryptedSessionKeyWit
 	keyShare, _ := hex.DecodeString("00330024001d0020")
 	keyExchange := make([]byte, 32)
 	copy(keyExchange, encryptedSessionKeyWithTag[20:48])
-	util.CryptoRandRead(keyExchange[28:32])
+	common.CryptoRandRead(keyExchange[28:32])
 	serverHello[9] = append(keyShare, keyExchange...)
 
 	serverHello[10], _ = hex.DecodeString("002b00020304")

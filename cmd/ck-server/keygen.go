@@ -3,13 +3,13 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/ecdh"
-	"github.com/cbeuw/Cloak/internal/util"
 )
 
 func generateUID() string {
 	UID := make([]byte, 16)
-	util.CryptoRandRead(UID)
+	common.CryptoRandRead(UID)
 	return base64.StdEncoding.EncodeToString(UID)
 }
 

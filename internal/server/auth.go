@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/Cloak/internal/common"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -36,7 +36,7 @@ var ErrUnreconisedProtocol = errors.New("unreconised protocol")
 // decryptClientInfo checks if a the authFragments are valid. It doesn't check if the UID is authorised
 func decryptClientInfo(fragments authFragments, serverTime time.Time) (info ClientInfo, err error) {
 	var plaintext []byte
-	plaintext, err = util.AESGCMDecrypt(fragments.randPubKey[0:12], fragments.sharedSecret[:], fragments.ciphertextWithTag[:])
+	plaintext, err = common.AESGCMDecrypt(fragments.randPubKey[0:12], fragments.sharedSecret[:], fragments.ciphertextWithTag[:])
 	if err != nil {
 		return
 	}

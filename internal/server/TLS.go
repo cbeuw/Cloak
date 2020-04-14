@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/ecdh"
-	"github.com/cbeuw/Cloak/internal/util"
 	"io"
 	"math/rand"
 	"net"
@@ -48,11 +47,11 @@ func (TLS) makeResponder(clientHelloSessionId []byte, sharedSecret [32]byte) Res
 		possibleCertLengths := []int{42, 27, 68, 59, 36, 44, 46}
 		rand.Seed(int64(sessionKey[0]))
 		cert := make([]byte, possibleCertLengths[rand.Intn(len(possibleCertLengths))])
-		util.RandRead(randSource, cert)
+		common.RandRead(randSource, cert)
 
 		var nonce [12]byte
-		util.RandRead(randSource, nonce[:])
-		encryptedSessionKey, err := util.AESGCMEncrypt(nonce[:], sharedSecret[:], sessionKey[:])
+		common.RandRead(randSource, nonce[:])
+		encryptedSessionKey, err := common.AESGCMEncrypt(nonce[:], sharedSecret[:], sessionKey[:])
 		if err != nil {
 			return
 		}

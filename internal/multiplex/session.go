@@ -3,7 +3,7 @@ package multiplex
 import (
 	"errors"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/Cloak/internal/common"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -252,9 +252,9 @@ func (sesh *Session) passiveClose() error {
 
 func genRandomPadding() []byte {
 	lenB := make([]byte, 1)
-	util.CryptoRandRead(lenB)
+	common.CryptoRandRead(lenB)
 	pad := make([]byte, lenB[0])
-	util.CryptoRandRead(pad)
+	common.CryptoRandRead(pad)
 	return pad
 }
 

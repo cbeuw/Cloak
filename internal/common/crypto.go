@@ -1,4 +1,4 @@
-package util
+package common
 
 import (
 	"crypto/aes"
@@ -60,30 +60,3 @@ func RandRead(randSource io.Reader, buf []byte) {
 	}
 	log.Fatal("Cannot get cryptographic random bytes after 10 retries")
 }
-
-/*
-func Pipe(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) {
-	// The maximum size of TLS message will be 16380+14+16. 14 because of the stream header and 16
-	// because of the salt/mac
-	// 16408 is the max TLS message size on Firefox
-	buf := make([]byte, 16378)
-	for {
-		if srcReadTimeout != 0 {
-			src.SetReadDeadline(time.Now().Add(srcReadTimeout))
-		}
-		i, err := io.ReadAtLeast(src, buf, 1)
-		if err != nil {
-			dst.Close()
-			src.Close()
-			return
-		}
-		_, err = dst.Write(buf[:i])
-		if err != nil {
-			dst.Close()
-			src.Close()
-			return
-		}
-	}
-}
-
-*/

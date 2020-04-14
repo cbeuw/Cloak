@@ -2,8 +2,8 @@ package client
 
 import (
 	"encoding/binary"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/ecdh"
-	"github.com/cbeuw/Cloak/internal/util"
 )
 
 const (
@@ -41,7 +41,7 @@ func makeAuthenticationPayload(authInfo AuthInfo) (ret authenticationPayload, sh
 	}
 
 	copy(sharedSecret[:], ecdh.GenerateSharedSecret(ephPv, authInfo.ServerPubKey))
-	ciphertextWithTag, _ := util.AESGCMEncrypt(ret.randPubKey[:12], sharedSecret[:], plaintext)
+	ciphertextWithTag, _ := common.AESGCMEncrypt(ret.randPubKey[:12], sharedSecret[:], plaintext)
 	copy(ret.ciphertextWithTag[:], ciphertextWithTag[:])
 	return
 }

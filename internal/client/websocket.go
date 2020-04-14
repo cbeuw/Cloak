@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/Cloak/internal/util"
 	"github.com/gorilla/websocket"
 	utls "github.com/refraction-networking/utls"
 	"net"
@@ -55,7 +54,7 @@ func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey 
 	}
 
 	reply := buf[:60]
-	sessionKeySlice, err := util.AESGCMDecrypt(reply[:12], sharedSecret[:], reply[12:])
+	sessionKeySlice, err := common.AESGCMDecrypt(reply[:12], sharedSecret[:], reply[12:])
 	if err != nil {
 		return
 	}

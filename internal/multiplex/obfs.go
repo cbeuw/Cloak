@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/Cloak/internal/common"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/salsa20"
 )
@@ -78,7 +78,7 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 		if payloadCipher == nil {
 			if extraLen != 0 { // read nonce
 				extra := buf[usefulLen-extraLen : usefulLen]
-				util.CryptoRandRead(extra)
+				common.CryptoRandRead(extra)
 			}
 		} else {
 			payloadCipher.Seal(payload[:0], header[:12], payload, nil)

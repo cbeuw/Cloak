@@ -9,7 +9,6 @@ import (
 	"time"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
-	"github.com/cbeuw/Cloak/internal/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -20,7 +19,7 @@ func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.D
 		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 		// sessionID is limited to its UID.
 		quad := make([]byte, 4)
-		util.RandRead(authInfo.WorldState.Rand, quad)
+		common.RandRead(authInfo.WorldState.Rand, quad)
 		authInfo.SessionId = binary.BigEndian.Uint32(quad)
 	} else {
 		authInfo.SessionId = 0

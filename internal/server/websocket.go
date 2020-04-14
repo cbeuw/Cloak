@@ -7,8 +7,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/ecdh"
-	"github.com/cbeuw/Cloak/internal/util"
 	"io"
 	"net"
 	"net/http"
@@ -49,10 +49,10 @@ func (WebSocket) makeResponder(reqPacket []byte, sharedSecret [32]byte) Responde
 		<-handler.finished
 		preparedConn = handler.conn
 		nonce := make([]byte, 12)
-		util.RandRead(randSource, nonce)
+		common.RandRead(randSource, nonce)
 
 		// reply: [12 bytes nonce][32 bytes encrypted session key][16 bytes authentication tag]
-		encryptedKey, err := util.AESGCMEncrypt(nonce, sharedSecret[:], sessionKey[:]) // 32 + 16 = 48 bytes
+		encryptedKey, err := common.AESGCMEncrypt(nonce, sharedSecret[:], sessionKey[:]) // 32 + 16 = 48 bytes
 		if err != nil {
 			err = fmt.Errorf("failed to encrypt reply: %v", err)
 			return

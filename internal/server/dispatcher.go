@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/Cloak/internal/util"
 	"io"
 	"net"
 	"net/http"
@@ -77,7 +76,7 @@ func dispatchConnection(conn net.Conn, sta *State) {
 	}
 
 	var sessionKey [32]byte
-	util.RandRead(sta.WorldState.Rand, sessionKey[:])
+	common.RandRead(sta.WorldState.Rand, sessionKey[:])
 	obfuscator, err := mux.MakeObfuscator(ci.EncryptionMethod, sessionKey)
 	if err != nil {
 		log.Error(err)

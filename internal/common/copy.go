@@ -53,20 +53,8 @@ func Copy(dst net.Conn, src net.Conn, srcReadTimeout time.Duration) (written int
 		return rt.ReadFrom(src)
 	}
 
-	//if buf == nil {
 	size := 32 * 1024
-	/*
-		if l, ok := src.(*LimitedReader); ok && int64(size) > l.N {
-			if l.N < 1 {
-				size = 1
-			} else {
-				size = int(l.N)
-			}
-		}
-
-	*/
 	buf := make([]byte, size)
-	//}
 	for {
 		if srcReadTimeout != 0 {
 			// TODO: don't rely on setreaddeadline

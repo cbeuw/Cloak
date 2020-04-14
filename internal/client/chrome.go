@@ -5,7 +5,7 @@ package client
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"github.com/cbeuw/Cloak/internal/util"
+	"github.com/cbeuw/Cloak/internal/common"
 )
 
 type Chrome struct{}
@@ -14,7 +14,7 @@ func makeGREASE() []byte {
 	// see https://tools.ietf.org/html/draft-davidben-tls-grease-01
 	// This is exclusive to Chrome.
 	var one [1]byte
-	util.CryptoRandRead(one[:])
+	common.CryptoRandRead(one[:])
 	sixteenth := one[0] % 16
 	monoGREASE := sixteenth*16 + 0xA
 	doubleGREASE := []byte{monoGREASE, monoGREASE}

@@ -3,7 +3,6 @@ package client
 import (
 	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/Cloak/internal/util"
 	log "github.com/sirupsen/logrus"
 	"net"
 )
@@ -84,7 +83,7 @@ func (tls *DirectTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey
 	encrypted := append(buf[6:38], buf[84:116]...)
 	nonce := encrypted[0:12]
 	ciphertextWithTag := encrypted[12:60]
-	sessionKeySlice, err := util.AESGCMDecrypt(nonce, sharedSecret[:], ciphertextWithTag)
+	sessionKeySlice, err := common.AESGCMDecrypt(nonce, sharedSecret[:], ciphertextWithTag)
 	if err != nil {
 		return
 	}
