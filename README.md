@@ -26,7 +26,8 @@ To quickly deploy Cloak with Shadowsocks on a server, you can run this [script](
 ## Build
 If you are not using the experimental go mod support, make sure you `go get` the following dependencies:
 ```
-github.com/boltdb/bolt
+go.etcd.io/bbolt
+github.com/cbeuw/connutil
 github.com/juju/ratelimit
 github.com/gorilla/mux
 github.com/gorilla/websocket
