@@ -33,10 +33,10 @@ func MakeUserPanel(manager usermanager.UserManager) *userPanel {
 // GetBypassUser does the same as GetUser except it unconditionally creates an ActiveUser when the UID isn't already active
 func (panel *userPanel) GetBypassUser(UID []byte) (*ActiveUser, error) {
 	panel.activeUsersM.Lock()
+	defer panel.activeUsersM.Unlock()
 	var arrUID [16]byte
 	copy(arrUID[:], UID)
 	if user, ok := panel.activeUsers[arrUID]; ok {
-		panel.activeUsersM.Unlock()
 		return user, nil
 	}
 	user := &ActiveUser{
@@ -47,7 +47,6 @@ func (panel *userPanel) GetBypassUser(UID []byte) (*ActiveUser, error) {
 	}
 	copy(user.arrUID[:], UID)
 	panel.activeUsers[user.arrUID] = user
-	panel.activeUsersM.Unlock()
 	return user, nil
 }
 
@@ -55,16 +54,15 @@ func (panel *userPanel) GetBypassUser(UID []byte) (*ActiveUser, error) {
 // UID with UserInfo queried from the UserManger, should the particular UID is allowed to connect
 func (panel *userPanel) GetUser(UID []byte) (*ActiveUser, error) {
 	panel.activeUsersM.Lock()
+	defer panel.activeUsersM.Unlock()
 	var arrUID [16]byte
 	copy(arrUID[:], UID)
 	if user, ok := panel.activeUsers[arrUID]; ok {
-		panel.activeUsersM.Unlock()
 		return user, nil
 	}
 
 	upRate, downRate, err := panel.Manager.AuthenticateUser(UID)
 	if err != nil {
-		panel.activeUsersM.Unlock()
 		return nil, err
 	}
 	valve := mux.MakeValve(upRate, downRate)
@@ -76,7 +74,6 @@ func (panel *userPanel) GetUser(UID []byte) (*ActiveUser, error) {
 
 	copy(user.arrUID[:], UID)
 	panel.activeUsers[user.arrUID] = user
-	panel.activeUsersM.Unlock()
 	return user, nil
 }
 
@@ -150,6 +147,7 @@ func (panel *userPanel) updateUsageQueueForOne(user *ActiveUser) {
 // and act to each user according to the responses
 func (panel *userPanel) commitUpdate() error {
 	panel.usageUpdateQueueM.Lock()
+	defer panel.usageUpdateQueueM.Unlock()
 	statuses := make([]usermanager.StatusUpdate, 0, len(panel.usageUpdateQueue))
 	for arrUID, usage := range panel.usageUpdateQueue {
 		panel.activeUsersM.RLock()
@@ -188,7 +186,6 @@ func (panel *userPanel) commitUpdate() error {
 		}
 	}
 	panel.usageUpdateQueue = make(map[[16]byte]*usagePair)
-	panel.usageUpdateQueueM.Unlock()
 	return nil
 }
 
