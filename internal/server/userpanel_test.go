@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/base64"
+	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"os"
 	"testing"
@@ -10,7 +11,7 @@ import (
 const MOCK_DB_NAME = "userpanel_test_mock_database.db"
 
 func TestUserPanel_BypassUser(t *testing.T) {
-	manager, err := usermanager.MakeLocalManager(MOCK_DB_NAME)
+	manager, err := usermanager.MakeLocalManager(MOCK_DB_NAME, common.RealWorldState)
 	if err != nil {
 		t.Error("failed to make local manager", err)
 	}

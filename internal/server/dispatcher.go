@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"io"
 	"net"
 	"net/http"
@@ -105,7 +106,7 @@ func dispatchConnection(conn net.Conn, sta *State) {
 		sesh.AddConnection(preparedConn)
 		//TODO: Router could be nil in cnc mode
 		log.WithField("remoteAddr", preparedConn.RemoteAddr()).Info("New admin session")
-		err = http.Serve(sesh, sta.LocalAPIRouter)
+		err = http.Serve(sesh, usermanager.APIRouterOf(sta.Panel.Manager))
 		if err != nil {
 			log.Error(err)
 			return

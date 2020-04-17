@@ -14,6 +14,16 @@ type StatusUpdate struct {
 	Timestamp int64
 }
 
+type UserInfo struct {
+	UID         []byte
+	SessionsCap int
+	UpRate      int64
+	DownRate    int64
+	UpCredit    int64
+	DownCredit  int64
+	ExpiryTime  int64
+}
+
 type StatusResponse struct {
 	UID     []byte
 	Action  int
@@ -39,4 +49,8 @@ type UserManager interface {
 	AuthenticateUser([]byte) (int64, int64, error)
 	AuthoriseNewSession([]byte, AuthorisationInfo) error
 	UploadStatus([]StatusUpdate) ([]StatusResponse, error)
+	ListAllUsers() ([]UserInfo, error)
+	GetUserInfo(UID []byte) (UserInfo, error)
+	WriteUserInfo(UserInfo) error
+	DeleteUser(UID []byte) error
 }

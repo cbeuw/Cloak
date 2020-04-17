@@ -12,8 +12,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	gmux "github.com/gorilla/mux"
 )
 
 type RawConfig struct {
@@ -50,8 +48,7 @@ type State struct {
 	usedRandomM sync.RWMutex
 	UsedRandom  map[[32]byte]int64
 
-	Panel          *userPanel
-	LocalAPIRouter *gmux.Router
+	Panel *userPanel
 }
 
 func parseRedirAddr(redirAddr string) (net.Addr, string, error) {
@@ -84,17 +81,6 @@ func parseRedirAddr(redirAddr string) (net.Addr, string, error) {
 		return nil, "", fmt.Errorf("unable to resolve RedirAddr: %v. ", err)
 	}
 	return redirHost, port, nil
-}
-
-func parseLocalPanel(databasePath string) (*userPanel, *gmux.Router, error) {
-	manager, err := usermanager.MakeLocalManager(databasePath)
-	if err != nil {
-		return nil, nil, err
-	}
-	panel := MakeUserPanel(manager)
-	router := manager.Router
-	return panel, router, nil
-
 }
 
 func parseProxyBook(bookEntries map[string][]string) (map[string]net.Addr, error) {
@@ -156,10 +142,11 @@ func InitState(preParse RawConfig, worldState common.WorldState) (sta *State, er
 		err = errors.New("command & control mode not implemented")
 		return
 	} else {
-		sta.Panel, sta.LocalAPIRouter, err = parseLocalPanel(preParse.DatabasePath)
+		manager, err := usermanager.MakeLocalManager(preParse.DatabasePath, worldState)
 		if err != nil {
-			return
+			return sta, err
 		}
+		sta.Panel = MakeUserPanel(manager)
 	}
 
 	if preParse.StreamTimeout == 0 {

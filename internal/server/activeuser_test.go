@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"github.com/cbeuw/Cloak/internal/common"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"os"
@@ -23,7 +24,7 @@ func getSeshConfig(unordered bool) mux.SessionConfig {
 }
 
 func TestActiveUser_Bypass(t *testing.T) {
-	manager, err := usermanager.MakeLocalManager(MOCK_DB_NAME)
+	manager, err := usermanager.MakeLocalManager(MOCK_DB_NAME, common.RealWorldState)
 	if err != nil {
 		t.Fatal("failed to make local manager", err)
 	}

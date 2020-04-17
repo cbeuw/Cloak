@@ -2,66 +2,41 @@ package usermanager
 
 import (
 	"encoding/binary"
+	"github.com/cbeuw/Cloak/internal/common"
 	log "github.com/sirupsen/logrus"
-	"net/http"
-	"time"
-
-	gmux "github.com/gorilla/mux"
 	bolt "go.etcd.io/bbolt"
 )
 
 var Uint32 = binary.BigEndian.Uint32
 var Uint64 = binary.BigEndian.Uint64
-var PutUint32 = binary.BigEndian.PutUint32
-var PutUint64 = binary.BigEndian.PutUint64
 
 func i64ToB(value int64) []byte {
 	oct := make([]byte, 8)
-	PutUint64(oct, uint64(value))
+	binary.BigEndian.PutUint64(oct, uint64(value))
 	return oct
 }
 func i32ToB(value int32) []byte {
 	nib := make([]byte, 4)
-	PutUint32(nib, uint32(value))
+	binary.BigEndian.PutUint32(nib, uint32(value))
 	return nib
 }
 
-// localManager is responsible for routing API calls to appropriate handlers and manage the local user database accordingly
+// localManager is responsible for managing the local user database
 type localManager struct {
-	db     *bolt.DB
-	Router *gmux.Router
+	db    *bolt.DB
+	world common.WorldState
 }
 
-func MakeLocalManager(dbPath string) (*localManager, error) {
+func MakeLocalManager(dbPath string, worldState common.WorldState) (*localManager, error) {
 	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
 		return nil, err
 	}
 	ret := &localManager{
-		db: db,
+		db:    db,
+		world: worldState,
 	}
-	ret.Router = ret.registerMux()
 	return ret, nil
-}
-
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (manager *localManager) registerMux() *gmux.Router {
-	r := gmux.NewRouter()
-	r.HandleFunc("/admin/users", manager.listAllUsersHlr).Methods("GET")
-	r.HandleFunc("/admin/users/{UID}", manager.getUserInfoHlr).Methods("GET")
-	r.HandleFunc("/admin/users/{UID}", manager.writeUserInfoHlr).Methods("POST")
-	r.HandleFunc("/admin/users/{UID}", manager.deleteUserHlr).Methods("DELETE")
-	r.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
-	})
-	r.Use(corsMiddleware)
-	return r
 }
 
 // Authenticate user returns err==nil along with the users' up and down bandwidths if the UID is allowed to connect
@@ -89,7 +64,7 @@ func (manager *localManager) AuthenticateUser(UID []byte) (int64, int64, error) 
 	if downCredit <= 0 {
 		return 0, 0, ErrNoDownCredit
 	}
-	if expiryTime < time.Now().Unix() {
+	if expiryTime < manager.world.Now().Unix() {
 		return 0, 0, ErrUserExpired
 	}
 
@@ -123,7 +98,7 @@ func (manager *localManager) AuthoriseNewSession(UID []byte, ainfo Authorisation
 	if downCredit <= 0 {
 		return ErrNoDownCredit
 	}
-	if expiryTime < time.Now().Unix() {
+	if expiryTime < manager.world.Now().Unix() {
 		return ErrUserExpired
 	}
 
@@ -190,7 +165,7 @@ func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusRespo
 			}
 
 			expiry := int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
-			if time.Now().Unix() > expiry {
+			if manager.world.Now().Unix() > expiry {
 				resp = StatusResponse{
 					status.UID,
 					TERMINATE,
@@ -203,6 +178,79 @@ func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusRespo
 		return nil
 	})
 	return responses, err
+}
+
+func (manager *localManager) ListAllUsers() (infos []UserInfo, err error) {
+	err = manager.db.View(func(tx *bolt.Tx) error {
+		err = tx.ForEach(func(UID []byte, bucket *bolt.Bucket) error {
+			var uinfo UserInfo
+			uinfo.UID = UID
+			uinfo.SessionsCap = int(Uint32(bucket.Get([]byte("SessionsCap"))))
+			uinfo.UpRate = int64(Uint64(bucket.Get([]byte("UpRate"))))
+			uinfo.DownRate = int64(Uint64(bucket.Get([]byte("DownRate"))))
+			uinfo.UpCredit = int64(Uint64(bucket.Get([]byte("UpCredit"))))
+			uinfo.DownCredit = int64(Uint64(bucket.Get([]byte("DownCredit"))))
+			uinfo.ExpiryTime = int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
+			infos = append(infos, uinfo)
+			return nil
+		})
+		return err
+	})
+	return
+}
+
+func (manager *localManager) GetUserInfo(UID []byte) (uinfo UserInfo, err error) {
+	err = manager.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(UID)
+		if bucket == nil {
+			return ErrUserNotFound
+		}
+		uinfo.UID = UID
+		uinfo.SessionsCap = int(Uint32(bucket.Get([]byte("SessionsCap"))))
+		uinfo.UpRate = int64(Uint64(bucket.Get([]byte("UpRate"))))
+		uinfo.DownRate = int64(Uint64(bucket.Get([]byte("DownRate"))))
+		uinfo.UpCredit = int64(Uint64(bucket.Get([]byte("UpCredit"))))
+		uinfo.DownCredit = int64(Uint64(bucket.Get([]byte("DownCredit"))))
+		uinfo.ExpiryTime = int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
+		return nil
+	})
+	return
+}
+
+func (manager *localManager) WriteUserInfo(uinfo UserInfo) (err error) {
+	err = manager.db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists(uinfo.UID)
+		if err != nil {
+			return err
+		}
+		if err = bucket.Put([]byte("SessionsCap"), i32ToB(int32(uinfo.SessionsCap))); err != nil {
+			return err
+		}
+		if err = bucket.Put([]byte("UpRate"), i64ToB(uinfo.UpRate)); err != nil {
+			return err
+		}
+		if err = bucket.Put([]byte("DownRate"), i64ToB(uinfo.DownRate)); err != nil {
+			return err
+		}
+		if err = bucket.Put([]byte("UpCredit"), i64ToB(uinfo.UpCredit)); err != nil {
+			return err
+		}
+		if err = bucket.Put([]byte("DownCredit"), i64ToB(uinfo.DownCredit)); err != nil {
+			return err
+		}
+		if err = bucket.Put([]byte("ExpiryTime"), i64ToB(uinfo.ExpiryTime)); err != nil {
+			return err
+		}
+		return nil
+	})
+	return
+}
+
+func (manager *localManager) DeleteUser(UID []byte) (err error) {
+	err = manager.db.Update(func(tx *bolt.Tx) error {
+		return tx.DeleteBucket(UID)
+	})
+	return
 }
 
 func (manager *localManager) Close() error {
