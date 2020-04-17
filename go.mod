@@ -7,9 +7,10 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.1
 	github.com/juju/ratelimit v1.0.1
+	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/refraction-networking/utls v0.0.0-20190909200633-43c36d3c1f57
-	github.com/sirupsen/logrus v1.4.2
+	github.com/sirupsen/logrus v1.5.0
 	go.etcd.io/bbolt v1.3.4
 	golang.org/x/crypto v0.0.0-20200414173820-0848c9571904
 	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
