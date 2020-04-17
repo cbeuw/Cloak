@@ -27,6 +27,7 @@ type switchboard struct {
 	switchboardConfig
 
 	conns      sync.Map
+	numConns   uint32
 	nextConnId uint32
 
 	broken uint32
@@ -46,17 +47,12 @@ func makeSwitchboard(sesh *Session, config switchboardConfig) *switchboard {
 var errBrokenSwitchboard = errors.New("the switchboard is broken")
 
 func (sb *switchboard) connsCount() int {
-	// count the number of entries in conns
-	var count int
-	sb.conns.Range(func(_, _ interface{}) bool {
-		count += 1
-		return true
-	})
-	return count
+	return int(atomic.LoadUint32(&sb.numConns))
 }
 
 func (sb *switchboard) addConn(conn net.Conn) {
 	connId := atomic.AddUint32(&sb.nextConnId, 1) - 1
+	atomic.AddUint32(&sb.numConns, 1)
 	sb.conns.Store(connId, conn)
 	go sb.deplex(connId, conn)
 }
@@ -66,6 +62,7 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 	writeAndRegUsage := func(conn net.Conn, d []byte) (int, error) {
 		n, err = conn.Write(d)
 		if err != nil {
+			sb.conns.Delete(*connId)
 			sb.close("failed to write to remote " + err.Error())
 			return n, err
 		}
@@ -162,6 +159,7 @@ func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 		if err != nil {
 			log.Debugf("a connection for session %v has closed: %v", sb.session.id, err)
 			sb.conns.Delete(connId)
+			atomic.AddUint32(&sb.numConns, ^uint32(0))
 			sb.close("a connection has dropped unexpectedly")
 			return
 		}

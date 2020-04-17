@@ -3,6 +3,7 @@ package multiplex
 import (
 	"github.com/cbeuw/connutil"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 )
@@ -153,4 +154,33 @@ func TestSwitchboard_CloseOnOneDisconn(t *testing.T) {
 		t.Error("the other conn is still connected")
 		return
 	}
+}
+
+func TestSwitchboard_ConnsCount(t *testing.T) {
+	seshConfig := SessionConfig{
+		Valve: MakeValve(1<<20, 1<<20),
+	}
+	sesh := MakeSession(0, seshConfig)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go func() {
+			sesh.AddConnection(connutil.Discard())
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	if sesh.sb.connsCount() != 1000 {
+		t.Error("connsCount incorrect")
+	}
+
+	sesh.sb.closeAll()
+
+	time.Sleep(100 * time.Millisecond)
+	if sesh.sb.connsCount() != 0 {
+		t.Error("connsCount incorrect")
+	}
+
 }
