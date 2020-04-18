@@ -126,6 +126,9 @@ func ParseConfig(conf string) (raw RawConfig, err error) {
 			return
 		}
 	}
+	if raw.ProxyBook == nil {
+		raw.ProxyBook = make(map[string][]string)
+	}
 	return
 }
 
