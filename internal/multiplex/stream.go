@@ -62,7 +62,12 @@ func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
 func (s *Stream) writeFrame(frame Frame) error {
 	toBeClosed, err := s.recvBuf.Write(frame)
 	if toBeClosed {
-		return s.passiveClose()
+		err = s.passiveClose()
+		if errors.Is(err, errRepeatStreamClosing) {
+			log.Debug(err)
+			return nil
+		}
+		return err
 	}
 	return err
 }

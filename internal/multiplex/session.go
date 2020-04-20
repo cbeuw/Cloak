@@ -20,6 +20,7 @@ const (
 
 var ErrBrokenSession = errors.New("broken session")
 var errRepeatSessionClosing = errors.New("trying to close a closed session")
+var errRepeatStreamClosing = errors.New("trying to close a closed stream")
 
 type switchboardStrategy int
 
@@ -145,7 +146,7 @@ func (sesh *Session) Accept() (net.Conn, error) {
 
 func (sesh *Session) closeStream(s *Stream, active bool) error {
 	if atomic.SwapUint32(&s.closed, 1) == 1 {
-		return fmt.Errorf("stream %v is already closed", s.id)
+		return fmt.Errorf("closing stream %v: %w", s.id, errRepeatStreamClosing)
 	}
 	_ = s.recvBuf.Close() // both datagramBuffer and streamBuffer won't return err on Close()
 
