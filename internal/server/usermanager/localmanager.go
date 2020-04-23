@@ -185,7 +185,7 @@ func (manager *localManager) ListAllUsers() (infos []UserInfo, err error) {
 		err = tx.ForEach(func(UID []byte, bucket *bolt.Bucket) error {
 			var uinfo UserInfo
 			uinfo.UID = UID
-			uinfo.SessionsCap = int(Uint32(bucket.Get([]byte("SessionsCap"))))
+			uinfo.SessionsCap = int32(Uint32(bucket.Get([]byte("SessionsCap"))))
 			uinfo.UpRate = int64(Uint64(bucket.Get([]byte("UpRate"))))
 			uinfo.DownRate = int64(Uint64(bucket.Get([]byte("DownRate"))))
 			uinfo.UpCredit = int64(Uint64(bucket.Get([]byte("UpCredit"))))
@@ -206,7 +206,7 @@ func (manager *localManager) GetUserInfo(UID []byte) (uinfo UserInfo, err error)
 			return ErrUserNotFound
 		}
 		uinfo.UID = UID
-		uinfo.SessionsCap = int(Uint32(bucket.Get([]byte("SessionsCap"))))
+		uinfo.SessionsCap = int32(Uint32(bucket.Get([]byte("SessionsCap"))))
 		uinfo.UpRate = int64(Uint64(bucket.Get([]byte("UpRate"))))
 		uinfo.DownRate = int64(Uint64(bucket.Get([]byte("DownRate"))))
 		uinfo.UpCredit = int64(Uint64(bucket.Get([]byte("UpCredit"))))

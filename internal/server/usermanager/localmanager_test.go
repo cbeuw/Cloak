@@ -1,10 +1,14 @@
 package usermanager
 
 import (
+	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/common"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"reflect"
+	"sort"
+	"sync"
 	"testing"
 	"time"
 )
@@ -200,9 +204,165 @@ func TestLocalManager_AuthoriseNewSession(t *testing.T) {
 
 	t.Run("too many sessions", func(t *testing.T) {
 		_ = mgr.WriteUserInfo(validUserInfo)
-		err := mgr.AuthoriseNewSession(validUserInfo.UID, AuthorisationInfo{NumExistingSessions: validUserInfo.SessionsCap + 1})
+		err := mgr.AuthoriseNewSession(validUserInfo.UID, AuthorisationInfo{NumExistingSessions: int(validUserInfo.SessionsCap + 1)})
 		if err != ErrSessionsCapReached {
 			t.Error("session cap not reached")
 		}
 	})
+}
+
+func TestLocalManager_UploadStatus(t *testing.T) {
+	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
+	defer os.Remove(tmpDB.Name())
+	mgr, err := MakeLocalManager(tmpDB.Name(), mockWorldState)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("simple update", func(t *testing.T) {
+		_ = mgr.WriteUserInfo(validUserInfo)
+
+		update := StatusUpdate{
+			UID:        validUserInfo.UID,
+			Active:     true,
+			NumSession: 1,
+			UpUsage:    10,
+			DownUsage:  100,
+			Timestamp:  mockWorldState.Now().Unix(),
+		}
+
+		_, err := mgr.UploadStatus([]StatusUpdate{update})
+		if err != nil {
+			t.Error(err)
+		}
+
+		updatedUserInfo, err := mgr.GetUserInfo(validUserInfo.UID)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if updatedUserInfo.UpCredit != validUserInfo.UpCredit-update.UpUsage {
+			t.Error("up usage incorrect")
+		}
+		if updatedUserInfo.DownCredit != validUserInfo.DownCredit-update.DownUsage {
+			t.Error("down usage incorrect")
+		}
+	})
+
+	badUpdates := []struct {
+		name   string
+		user   UserInfo
+		update StatusUpdate
+	}{
+		{"out of up credit",
+			validUserInfo,
+			StatusUpdate{
+				UID:        validUserInfo.UID,
+				Active:     true,
+				NumSession: 1,
+				UpUsage:    validUserInfo.UpCredit + 100,
+				DownUsage:  0,
+				Timestamp:  mockWorldState.Now().Unix(),
+			},
+		},
+		{"out of down credit",
+			validUserInfo,
+			StatusUpdate{
+				UID:        validUserInfo.UID,
+				Active:     true,
+				NumSession: 1,
+				UpUsage:    0,
+				DownUsage:  validUserInfo.DownCredit + 100,
+				Timestamp:  mockWorldState.Now().Unix(),
+			},
+		},
+		{"expired",
+			UserInfo{
+				UID:         mockUID,
+				SessionsCap: 10,
+				UpRate:      0,
+				DownRate:    0,
+				UpCredit:    0,
+				DownCredit:  0,
+				ExpiryTime:  -1,
+			},
+			StatusUpdate{
+				UID:        mockUserInfo.UID,
+				Active:     true,
+				NumSession: 1,
+				UpUsage:    0,
+				DownUsage:  0,
+				Timestamp:  mockWorldState.Now().Unix(),
+			},
+		},
+	}
+
+	for _, badUpdate := range badUpdates {
+		t.Run(badUpdate.name, func(t *testing.T) {
+			_ = mgr.WriteUserInfo(badUpdate.user)
+			resps, err := mgr.UploadStatus([]StatusUpdate{badUpdate.update})
+			if err != nil {
+				t.Error(err)
+			}
+
+			if len(resps) != 1 {
+				t.Fatal("expecting 1 response")
+			}
+
+			resp := resps[0]
+			if resp.Action != TERMINATE {
+				t.Errorf("didn't terminate when %v", badUpdate.name)
+			}
+		})
+
+	}
+}
+
+func TestLocalManager_ListAllUsers(t *testing.T) {
+	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
+	defer os.Remove(tmpDB.Name())
+	mgr, err := MakeLocalManager(tmpDB.Name(), mockWorldState)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var wg sync.WaitGroup
+	var users []UserInfo
+	for i := 0; i < 100; i++ {
+		randUID := make([]byte, 16)
+		rand.Read(randUID)
+		newUser := UserInfo{
+			UID:         randUID,
+			SessionsCap: rand.Int31(),
+			UpRate:      rand.Int63(),
+			DownRate:    rand.Int63(),
+			UpCredit:    rand.Int63(),
+			DownCredit:  rand.Int63(),
+			ExpiryTime:  rand.Int63(),
+		}
+		users = append(users, newUser)
+		wg.Add(1)
+		go func() {
+			err = mgr.WriteUserInfo(newUser)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	listedUsers, err := mgr.ListAllUsers()
+	if err != nil {
+		t.Error(err)
+	}
+
+	sort.Slice(users, func(i, j int) bool {
+		return binary.BigEndian.Uint64(users[i].UID[0:8]) < binary.BigEndian.Uint64(users[j].UID[0:8])
+	})
+	sort.Slice(listedUsers, func(i, j int) bool {
+		return binary.BigEndian.Uint64(listedUsers[i].UID[0:8]) < binary.BigEndian.Uint64(listedUsers[j].UID[0:8])
+	})
+	if !reflect.DeepEqual(users, listedUsers) {
+		t.Error("listed users deviates from uploaded ones")
+	}
 }

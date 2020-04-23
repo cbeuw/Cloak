@@ -16,7 +16,7 @@ type StatusUpdate struct {
 
 type UserInfo struct {
 	UID         []byte
-	SessionsCap int
+	SessionsCap int32
 	UpRate      int64
 	DownRate    int64
 	UpCredit    int64
