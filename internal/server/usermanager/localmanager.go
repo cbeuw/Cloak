@@ -127,7 +127,6 @@ func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusRespo
 					"User no longer exists",
 				}
 				responses = append(responses, resp)
-				continue
 			}
 
 			oldUp := int64(Uint64(bucket.Get([]byte("UpCredit"))))
@@ -139,12 +138,10 @@ func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusRespo
 					"No upload credit left",
 				}
 				responses = append(responses, resp)
-				continue
 			}
 			err := bucket.Put([]byte("UpCredit"), i64ToB(newUp))
 			if err != nil {
 				log.Error(err)
-				continue
 			}
 
 			oldDown := int64(Uint64(bucket.Get([]byte("DownCredit"))))
@@ -156,12 +153,10 @@ func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusRespo
 					"No download credit left",
 				}
 				responses = append(responses, resp)
-				continue
 			}
 			err = bucket.Put([]byte("DownCredit"), i64ToB(newDown))
 			if err != nil {
 				log.Error(err)
-				continue
 			}
 
 			expiry := int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
@@ -172,7 +167,6 @@ func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusRespo
 					"User has expired",
 				}
 				responses = append(responses, resp)
-				continue
 			}
 		}
 		return nil
