@@ -11,6 +11,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const defaultUploadInterval = 1 * time.Minute
+
 // userPanel is used to authenticate new users and book keep active users
 type userPanel struct {
 	Manager usermanager.UserManager
@@ -19,6 +21,8 @@ type userPanel struct {
 	activeUsers       map[[16]byte]*ActiveUser
 	usageUpdateQueueM sync.Mutex
 	usageUpdateQueue  map[[16]byte]*usagePair
+
+	uploadInterval time.Duration
 }
 
 func MakeUserPanel(manager usermanager.UserManager) *userPanel {
@@ -26,6 +30,7 @@ func MakeUserPanel(manager usermanager.UserManager) *userPanel {
 		Manager:          manager,
 		activeUsers:      make(map[[16]byte]*ActiveUser),
 		usageUpdateQueue: make(map[[16]byte]*usagePair),
+		uploadInterval:   defaultUploadInterval,
 	}
 	go ret.regularQueueUpload()
 	return ret
@@ -199,7 +204,7 @@ func (panel *userPanel) commitUpdate() error {
 
 func (panel *userPanel) regularQueueUpload() {
 	for {
-		time.Sleep(1 * time.Minute)
+		time.Sleep(panel.uploadInterval)
 		go func() {
 			panel.updateUsageQueue()
 			err := panel.commitUpdate()
