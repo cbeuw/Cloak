@@ -4,14 +4,17 @@ import (
 	"encoding/base64"
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
+	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 )
 
-const MOCK_DB_NAME = "userpanel_test_mock_database.db"
-
 func TestUserPanel_BypassUser(t *testing.T) {
-	manager, err := usermanager.MakeLocalManager(MOCK_DB_NAME, common.RealWorldState)
+	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
+	defer os.Remove(tmpDB.Name())
+
+	manager, err := usermanager.MakeLocalManager(tmpDB.Name(), common.RealWorldState)
 	if err != nil {
 		t.Error("failed to make local manager", err)
 	}
@@ -57,8 +60,130 @@ func TestUserPanel_BypassUser(t *testing.T) {
 	if err != nil {
 		t.Error("failed to close localmanager", err)
 	}
-	err = os.Remove(MOCK_DB_NAME)
+}
+
+var mockUID = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+var mockWorldState = common.WorldOfTime(time.Unix(1, 0))
+var validUserInfo = usermanager.UserInfo{
+	UID:         mockUID,
+	SessionsCap: 10,
+	UpRate:      100,
+	DownRate:    1000,
+	UpCredit:    10000,
+	DownCredit:  100000,
+	ExpiryTime:  1000000,
+}
+
+func TestUserPanel_GetUser(t *testing.T) {
+	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
+	defer os.Remove(tmpDB.Name())
+	mgr, err := usermanager.MakeLocalManager(tmpDB.Name(), mockWorldState)
 	if err != nil {
-		t.Error("failed to delete mockdb", err)
+		t.Fatal(err)
 	}
+	panel := MakeUserPanel(mgr)
+
+	t.Run("normal user", func(t *testing.T) {
+		_ = mgr.WriteUserInfo(validUserInfo)
+
+		activeUser, err := panel.GetUser(validUserInfo.UID)
+		if err != nil {
+			t.Error(err)
+		}
+
+		again, err := panel.GetUser(validUserInfo.UID)
+		if err != nil {
+			t.Errorf("can't get existing user: %v", err)
+		}
+
+		if activeUser != again {
+			t.Error("got different references")
+		}
+	})
+	t.Run("non existent user", func(t *testing.T) {
+		_, err = panel.GetUser(make([]byte, 16))
+		if err != usermanager.ErrUserNotFound {
+			t.Errorf("expecting error %v, got %v", usermanager.ErrUserNotFound, err)
+		}
+	})
+}
+
+func TestUserPanel_UpdateUsageQueue(t *testing.T) {
+	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
+	defer os.Remove(tmpDB.Name())
+	mgr, err := usermanager.MakeLocalManager(tmpDB.Name(), mockWorldState)
+	if err != nil {
+		t.Fatal(err)
+	}
+	panel := MakeUserPanel(mgr)
+
+	t.Run("normal update", func(t *testing.T) {
+		_ = mgr.WriteUserInfo(validUserInfo)
+
+		user, err := panel.GetUser(validUserInfo.UID)
+		if err != nil {
+			t.Error(err)
+		}
+
+		user.valve.AddTx(1)
+		user.valve.AddRx(2)
+		panel.updateUsageQueue()
+		err = panel.commitUpdate()
+		if err != nil {
+			t.Error(err)
+		}
+
+		if user.valve.GetRx() != 0 || user.valve.GetTx() != 0 {
+			t.Error("rx and tx stats are not cleared")
+		}
+
+		updatedUinfo, _ := mgr.GetUserInfo(validUserInfo.UID)
+		if updatedUinfo.DownCredit != validUserInfo.DownCredit-1 {
+			t.Error("down credit incorrect update")
+		}
+		if updatedUinfo.UpCredit != validUserInfo.UpCredit-2 {
+			t.Error("up credit incorrect update")
+		}
+
+		// another update
+		user.valve.AddTx(3)
+		user.valve.AddRx(4)
+		panel.updateUsageQueue()
+		err = panel.commitUpdate()
+		if err != nil {
+			t.Error(err)
+		}
+
+		updatedUinfo, _ = mgr.GetUserInfo(validUserInfo.UID)
+		if updatedUinfo.DownCredit != validUserInfo.DownCredit-(1+3) {
+			t.Error("down credit incorrect update")
+		}
+		if updatedUinfo.UpCredit != validUserInfo.UpCredit-(2+4) {
+			t.Error("up credit incorrect update")
+		}
+	})
+	t.Run("terminating update", func(t *testing.T) {
+		_ = mgr.WriteUserInfo(validUserInfo)
+
+		user, err := panel.GetUser(validUserInfo.UID)
+		if err != nil {
+			t.Error(err)
+		}
+
+		user.valve.AddTx(validUserInfo.DownCredit + 100)
+		panel.updateUsageQueue()
+		err = panel.commitUpdate()
+		if err != nil {
+			t.Error(err)
+		}
+
+		if panel.isActive(validUserInfo.UID) {
+			t.Error("user not terminated")
+		}
+
+		updatedUinfo, _ := mgr.GetUserInfo(validUserInfo.UID)
+		if updatedUinfo.DownCredit != -100 {
+			t.Error("down credit not updated correctly after the user has been terminated")
+		}
+	})
 }

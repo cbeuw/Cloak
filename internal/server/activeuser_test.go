@@ -6,6 +6,7 @@ import (
 	"github.com/cbeuw/Cloak/internal/common"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
+	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -24,7 +25,10 @@ func getSeshConfig(unordered bool) mux.SessionConfig {
 }
 
 func TestActiveUser_Bypass(t *testing.T) {
-	manager, err := usermanager.MakeLocalManager(MOCK_DB_NAME, common.RealWorldState)
+	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
+	defer os.Remove(tmpDB.Name())
+
+	manager, err := usermanager.MakeLocalManager(tmpDB.Name(), common.RealWorldState)
 	if err != nil {
 		t.Fatal("failed to make local manager", err)
 	}
@@ -114,9 +118,5 @@ func TestActiveUser_Bypass(t *testing.T) {
 	err = manager.Close()
 	if err != nil {
 		t.Fatal("failed to close localmanager", err)
-	}
-	err = os.Remove(MOCK_DB_NAME)
-	if err != nil {
-		t.Fatal("failed to delete mockdb", err)
 	}
 }
