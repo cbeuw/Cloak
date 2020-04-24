@@ -178,7 +178,7 @@ func TestSwitchboard_ConnsCount(t *testing.T) {
 
 	sesh.sb.closeAll()
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	if sesh.sb.connsCount() != 0 {
 		t.Error("connsCount incorrect")
 	}

@@ -60,7 +60,7 @@ func TestReadBlock(t *testing.T) {
 	pipe := NewBufferedPipe()
 	b := []byte{0x01, 0x02, 0x03}
 	go func() {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		pipe.Write(b)
 	}()
 	b2 := make([]byte, len(b))

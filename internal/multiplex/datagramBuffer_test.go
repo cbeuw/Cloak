@@ -76,7 +76,7 @@ func TestDatagramBuffer_BlockingRead(t *testing.T) {
 	pipe := NewDatagramBuffer()
 	b := []byte{0x01, 0x02, 0x03}
 	go func() {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		pipe.Write(Frame{Payload: b})
 	}()
 	b2 := make([]byte, len(b))

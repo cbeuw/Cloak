@@ -3,8 +3,6 @@ package multiplex
 import (
 	"encoding/binary"
 	"io"
-	"time"
-
 	//"log"
 	"sort"
 	"testing"
@@ -28,8 +26,6 @@ func TestRecvNewFrame(t *testing.T) {
 			}
 			sb.Write(frame)
 		}
-
-		time.Sleep(100 * time.Millisecond)
 
 		var sortedResult []uint64
 		for x := 0; x < len(set); x++ {
