@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"sync"
 	"sync/atomic"
@@ -79,6 +80,10 @@ func (panel *userPanel) GetUser(UID []byte) (*ActiveUser, error) {
 
 // TerminateActiveUser terminates a user and deletes its references
 func (panel *userPanel) TerminateActiveUser(user *ActiveUser, reason string) {
+	log.WithFields(log.Fields{
+		"UID":    base64.StdEncoding.EncodeToString(user.arrUID[:]),
+		"reason": reason,
+	}).Info("forcefully terminating user")
 	panel.updateUsageQueueForOne(user)
 	user.closeAllSessions(reason)
 	panel.activeUsersM.Lock()
@@ -147,7 +152,6 @@ func (panel *userPanel) updateUsageQueueForOne(user *ActiveUser) {
 // and act to each user according to the responses
 func (panel *userPanel) commitUpdate() error {
 	panel.usageUpdateQueueM.Lock()
-	defer panel.usageUpdateQueueM.Unlock()
 	statuses := make([]usermanager.StatusUpdate, 0, len(panel.usageUpdateQueue))
 	for arrUID, usage := range panel.usageUpdateQueue {
 		panel.activeUsersM.RLock()
@@ -155,6 +159,9 @@ func (panel *userPanel) commitUpdate() error {
 		panel.activeUsersM.RUnlock()
 		var numSession int
 		if user != nil {
+			if user.bypass {
+				continue
+			}
 			numSession = user.NumSession()
 		}
 		status := usermanager.StatusUpdate{
@@ -167,6 +174,8 @@ func (panel *userPanel) commitUpdate() error {
 		}
 		statuses = append(statuses, status)
 	}
+	panel.usageUpdateQueue = make(map[[16]byte]*usagePair)
+	panel.usageUpdateQueueM.Unlock()
 
 	responses, err := panel.Manager.UploadStatus(statuses)
 	if err != nil {
@@ -185,7 +194,6 @@ func (panel *userPanel) commitUpdate() error {
 			}
 		}
 	}
-	panel.usageUpdateQueue = make(map[[16]byte]*usagePair)
 	return nil
 }
 
