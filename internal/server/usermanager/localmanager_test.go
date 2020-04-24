@@ -342,7 +342,7 @@ func TestLocalManager_ListAllUsers(t *testing.T) {
 		users = append(users, newUser)
 		wg.Add(1)
 		go func() {
-			err = mgr.WriteUserInfo(newUser)
+			err := mgr.WriteUserInfo(newUser)
 			if err != nil {
 				t.Fatal(err)
 			}
