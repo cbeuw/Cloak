@@ -304,8 +304,8 @@ func TestLocalManager_UploadStatus(t *testing.T) {
 				t.Error(err)
 			}
 
-			if len(resps) != 1 {
-				t.Fatal("expecting 1 response")
+			if len(resps) == 0 {
+				t.Fatal("expecting responses")
 			}
 
 			resp := resps[0]
