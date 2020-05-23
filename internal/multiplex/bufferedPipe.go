@@ -92,8 +92,9 @@ func (p *bufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 				return n, er
 			}
 			p.rwCond.Broadcast()
+		} else {
+			p.rwCond.Wait()
 		}
-		p.rwCond.Wait()
 	}
 }
 
