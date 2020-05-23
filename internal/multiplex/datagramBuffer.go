@@ -98,6 +98,7 @@ func (d *datagramBuffer) WriteTo(w io.Writer) (n int64, err error) {
 				return n, er
 			}
 			d.rwCond.Broadcast()
+			continue
 		}
 		d.rwCond.Wait()
 	}

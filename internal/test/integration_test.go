@@ -42,7 +42,6 @@ func serveTCPEcho(l net.Listener) {
 	}
 }
 
-/*
 func serveUDPEcho(listener *connutil.PipeListener) {
 	for {
 		conn, err := listener.ListenPacket("udp", "")
@@ -56,7 +55,7 @@ func serveUDPEcho(listener *connutil.PipeListener) {
 			defer conn.Close()
 			buf := make([]byte, bufSize)
 			for {
-				r,_, err := conn.ReadFrom(buf)
+				r, _, err := conn.ReadFrom(buf)
 				if err != nil {
 					log.Error(err)
 					return
@@ -74,8 +73,6 @@ func serveUDPEcho(listener *connutil.PipeListener) {
 		}()
 	}
 }
-
-*/
 
 var bypassUID = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 var publicKey, _ = base64.StdEncoding.DecodeString("7f7TuKrs264VNSgMno8PkDlyhGhVuOSR8JHLE6H4Ljc=")
@@ -123,6 +120,18 @@ func basicServerState(ws common.WorldState, db *os.File) *server.State {
 	return state
 }
 
+type mockUDPDialer struct {
+	addrCh chan *net.UDPAddr
+	raddr  *net.UDPAddr
+}
+
+func (m *mockUDPDialer) Dial(network, address string) (net.Conn, error) {
+	if m.raddr == nil {
+		m.raddr = <-m.addrCh
+	}
+	return net.DialUDP("udp", nil, m.raddr)
+}
+
 func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, ai client.AuthInfo, serverState *server.State) (common.Dialer, *connutil.PipeListener, common.Dialer, net.Listener, error) {
 	// transport
 	ckClientDialer, ckServerListener := connutil.DialerListener(10 * 1024)
@@ -130,10 +139,23 @@ func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, a
 		return client.MakeSession(rcc, ai, ckClientDialer, false)
 	}
 
-	proxyToCkClientD, proxyToCkClientL := connutil.DialerListener(10 * 1024)
+	var proxyToCkClientD common.Dialer
 	if ai.Unordered {
-		go client.RouteUDP(proxyToCkClientL.ListenPacket, lcc, clientSeshMaker)
+		addrCh := make(chan *net.UDPAddr, 1)
+		mDialer := &mockUDPDialer{
+			addrCh: addrCh,
+		}
+		acceptor := func() (*net.UDPConn, error) {
+			laddr, _ := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+			conn, err := net.ListenUDP("udp", laddr)
+			addrCh <- conn.LocalAddr().(*net.UDPAddr)
+			return conn, err
+		}
+		go client.RouteUDP(acceptor, lcc.Timeout, clientSeshMaker)
+		proxyToCkClientD = mDialer
 	} else {
+		var proxyToCkClientL *connutil.PipeListener
+		proxyToCkClientD, proxyToCkClientL = connutil.DialerListener(10 * 1024)
 		go client.RouteTCP(proxyToCkClientL, lcc.Timeout, clientSeshMaker)
 	}
 
@@ -180,7 +202,7 @@ func runEchoTest(t *testing.T, conns []net.Conn, maxMsgLen int) {
 func TestUDP(t *testing.T) {
 	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
 	defer os.Remove(tmpDB.Name())
-	log.SetLevel(log.FatalLevel)
+	log.SetLevel(log.TraceLevel)
 
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 	lcc, rcc, ai := basicClientConfigs(worldState)
@@ -222,6 +244,17 @@ func TestUDP(t *testing.T) {
 		if !bytes.Equal(testData, recvBuf[:r]) {
 			t.Error("read wrong data")
 		}
+	})
+
+	t.Run("user echo", func(t *testing.T) {
+		go serveUDPEcho(pxyServerL)
+		var conn [1]net.Conn
+		conn[0], err = pxyClientD.Dial("udp", "")
+		if err != nil {
+			t.Error(err)
+		}
+
+		runEchoTest(t, conn[:], 1024)
 	})
 
 }

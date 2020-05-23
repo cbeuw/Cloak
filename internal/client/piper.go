@@ -4,96 +4,74 @@ import (
 	"github.com/cbeuw/Cloak/internal/common"
 	"io"
 	"net"
-	"sync/atomic"
 	"time"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	log "github.com/sirupsen/logrus"
 )
 
-func RouteUDP(listen func(string, string) (net.PacketConn, error), localConfig LocalConnConfig, newSeshFunc func() *mux.Session) {
+func RouteUDP(acceptFunc func() (*net.UDPConn, error), streamTimeout time.Duration, newSeshFunc func() *mux.Session) {
 	var sesh *mux.Session
-start:
-	localConn, err := listen("udp", localConfig.LocalAddr)
+	localConn, err := acceptFunc()
 	if err != nil {
 		log.Fatal(err)
 	}
-	var otherEnd atomic.Value
-	data := make([]byte, 10240)
-	i, oe, err := localConn.ReadFrom(data)
-	if err != nil {
-		log.Errorf("Failed to read first packet from proxy client: %v", err)
-		localConn.Close()
-		return
-	}
-	otherEnd.Store(oe)
 
-	if sesh == nil || sesh.IsClosed() {
-		sesh = newSeshFunc()
-	}
-	log.Debugf("proxy local address %v", otherEnd.Load().(net.Addr).String())
-	stream, err := sesh.OpenStream()
-	if err != nil {
-		log.Errorf("Failed to open stream: %v", err)
-		localConn.Close()
-		//localConnWrite.Close()
-		return
-	}
-	_, err = stream.Write(data[:i])
-	if err != nil {
-		log.Errorf("Failed to write to stream: %v", err)
-		localConn.Close()
-		//localConnWrite.Close()
-		stream.Close()
-		return
-	}
+	streams := make(map[string]*mux.Stream)
 
-	// stream to proxy
-	go func() {
-		buf := make([]byte, 16380)
-		for {
-			i, err := io.ReadAtLeast(stream, buf, 1)
-			if err != nil {
-				log.Print(err)
-				localConn.Close()
-				stream.Close()
-				break
-			}
-			_, err = localConn.WriteTo(buf[:i], otherEnd.Load().(net.Addr))
-			if err != nil {
-				log.Print(err)
-				localConn.Close()
-				stream.Close()
-				break
-			}
-		}
-	}()
-
-	// proxy to stream
-	buf := make([]byte, 16380)
-	if localConfig.Timeout != 0 {
-		localConn.SetReadDeadline(time.Now().Add(localConfig.Timeout))
-	}
+	data := make([]byte, 8192)
 	for {
-		if localConfig.Timeout != 0 {
-			localConn.SetReadDeadline(time.Now().Add(localConfig.Timeout))
-		}
-		i, oe, err := localConn.ReadFrom(buf)
+		i, addr, err := localConn.ReadFrom(data)
 		if err != nil {
-			localConn.Close()
-			stream.Close()
-			break
+			log.Errorf("Failed to read first packet from proxy client: %v", err)
+			localConn, err = acceptFunc()
+			if err != nil {
+				log.Fatal(err)
+			}
+			continue
 		}
-		otherEnd.Store(oe)
-		_, err = stream.Write(buf[:i])
+
+		if sesh == nil || sesh.IsClosed() {
+			sesh = newSeshFunc()
+		}
+
+		stream, ok := streams[addr.String()]
+		if !ok {
+			stream, err = sesh.OpenStream()
+			if err != nil {
+				log.Errorf("Failed to open stream: %v", err)
+				continue
+			}
+			streams[addr.String()] = stream
+			proxyAddr := addr
+			go func() {
+				buf := make([]byte, 8192)
+				for {
+					n, err := stream.Read(buf)
+					if err != nil {
+						log.Tracef("copying stream to proxy client: %v", err)
+						stream.Close()
+						return
+					}
+
+					_, err = localConn.WriteTo(buf[:n], proxyAddr)
+					if err != nil {
+						log.Tracef("copying stream to proxy client: %v", err)
+						stream.Close()
+						return
+					}
+				}
+			}()
+		}
+
+		_, err = stream.Write(data[:i])
 		if err != nil {
-			localConn.Close()
+			log.Tracef("copying proxy client to stream: %v", err)
+			delete(streams, addr.String())
 			stream.Close()
-			break
+			continue
 		}
 	}
-	goto start
-
 }
 
 func RouteTCP(listener net.Listener, streamTimeout time.Duration, newSeshFunc func() *mux.Session) {
