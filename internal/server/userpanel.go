@@ -80,6 +80,9 @@ func (panel *userPanel) GetUser(UID []byte) (*ActiveUser, error) {
 
 	copy(user.arrUID[:], UID)
 	panel.activeUsers[user.arrUID] = user
+	log.WithFields(log.Fields{
+		"UID": base64.StdEncoding.EncodeToString(UID),
+	}).Info("New active user")
 	return user, nil
 }
 
@@ -88,7 +91,7 @@ func (panel *userPanel) TerminateActiveUser(user *ActiveUser, reason string) {
 	log.WithFields(log.Fields{
 		"UID":    base64.StdEncoding.EncodeToString(user.arrUID[:]),
 		"reason": reason,
-	}).Info("forcefully terminating user")
+	}).Info("Terminating active user")
 	panel.updateUsageQueueForOne(user)
 	user.closeAllSessions(reason)
 	panel.activeUsersM.Lock()
