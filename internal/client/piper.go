@@ -10,9 +10,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func RouteUDP(acceptFunc func() (*net.UDPConn, error), streamTimeout time.Duration, newSeshFunc func() *mux.Session) {
+func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration, newSeshFunc func() *mux.Session) {
 	var sesh *mux.Session
-	localConn, err := acceptFunc()
+	localConn, err := bindFunc()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,10 +24,6 @@ func RouteUDP(acceptFunc func() (*net.UDPConn, error), streamTimeout time.Durati
 		i, addr, err := localConn.ReadFrom(data)
 		if err != nil {
 			log.Errorf("Failed to read first packet from proxy client: %v", err)
-			localConn, err = acceptFunc()
-			if err != nil {
-				log.Fatal(err)
-			}
 			continue
 		}
 
