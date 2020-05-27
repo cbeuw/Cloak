@@ -17,7 +17,7 @@ if [ -z "$v" ]; then
 fi
 
 output="{{.Dir}}-{{.OS}}-{{.Arch}}-$v"
-osarch="!darwin/arm !darwin/arm64"
+osarch="!darwin/arm !darwin/arm64 !darwin/386"
 
 echo "Compiling:"
 
