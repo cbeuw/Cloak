@@ -30,6 +30,8 @@ func main() {
 	var udp bool
 	var config string
 	var b64AdminUID string
+	var vpnMode bool
+	var tcpFastOpen bool
 
 	log_init()
 
@@ -38,6 +40,8 @@ func main() {
 	verbosity := flag.String("verbosity", "info", "verbosity level")
 	if ssPluginMode {
 		config = os.Getenv("SS_PLUGIN_OPTIONS")
+		flag.BoolVar(&vpnMode, "V", false, "ignored.")
+		flag.BoolVar(&tcpFastOpen, "fast-open", false, "ignored.")
 		flag.Parse() // for verbosity only
 	} else {
 		flag.StringVar(&localHost, "i", "127.0.0.1", "localHost: Cloak listens to proxy clients on this ip")
