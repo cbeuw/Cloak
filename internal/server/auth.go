@@ -31,7 +31,7 @@ const (
 )
 
 var ErrTimestampOutOfWindow = errors.New("timestamp is outside of the accepting window")
-var ErrUnreconisedProtocol = errors.New("unreconised protocol")
+var ErrUnrecognisedProtocol = errors.New("unrecognised protocol")
 
 // decryptClientInfo checks if a the authFragments are valid. It doesn't check if the UID is authorised
 func decryptClientInfo(fragments authFragments, serverTime time.Time) (info ClientInfo, err error) {
@@ -74,7 +74,7 @@ func AuthFirstPacket(firstPacket []byte, sta *State) (info ClientInfo, finisher 
 	case 0x16:
 		transport = &TLS{}
 	default:
-		err = ErrUnreconisedProtocol
+		err = ErrUnrecognisedProtocol
 		return
 	}
 
