@@ -17,22 +17,22 @@ import (
 var b64 = base64.StdEncoding.EncodeToString
 
 func Serve(l net.Listener, sta *State) {
-	waitDur := [10]time.Duration{5 * time.Millisecond, 10 * time.Millisecond, 30 * time.Millisecond, 50 * time.Millisecond,
-		100 * time.Millisecond, 300 * time.Millisecond, 500 * time.Millisecond, 1 * time.Second,
-		3 * time.Second, 5 * time.Second}
+	waitDur := [10]time.Duration{
+		50 * time.Millisecond, 100 * time.Millisecond, 300 * time.Millisecond, 500 * time.Millisecond, 1 * time.Second,
+		3 * time.Second, 5 * time.Second, 10 * time.Second, 15 * time.Second, 30 * time.Second}
 
 	fails := 0
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			if fails >= 10 {
-				log.Fatalf("could not accept more connections after 10 retries: %v", err)
-			}
 			log.Errorf("%v, retrying", err)
 			time.Sleep(waitDur[fails])
-			fails++
+			if fails < 9 {
+				fails++
+			}
 			continue
 		}
+		fails = 0
 		go dispatchConnection(conn, sta)
 	}
 }
