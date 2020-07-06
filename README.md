@@ -81,7 +81,7 @@ Example:
 
 `ServerName` is the domain you want to make your ISP or firewall think you are visiting.
 
-`NumConn` is the amount of underlying TCP connections you want to use. The default of 4 should be appropriate for most people. Setting it too high will hinder the performance. 
+`NumConn` is the amount of underlying TCP connections you want to use. The default of 4 should be appropriate for most people. Setting it too high will hinder the performance. Setting it to 0 will disable connection multiplexing and each TCP connection will spawn a separate short lived session that will be closed after it is terminated. This makes it behave like GoQuiet. This maybe useful for people with unstable connections.
 
 `BrowserSig` is the browser you want to **appear** to be using. It's not relevant to the browser you are actually using. Currently, `chrome` and `firefox` are supported.
 
