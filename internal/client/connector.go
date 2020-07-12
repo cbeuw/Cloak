@@ -25,10 +25,16 @@ func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.D
 		authInfo.SessionId = 0
 	}
 
-	connsCh := make(chan net.Conn, connConfig.NumConn)
+	numConn := connConfig.NumConn
+	if numConn <= 0 {
+		log.Infof("Using session per connection (no multiplexing)")
+		numConn = 1
+	}
+
+	connsCh := make(chan net.Conn, numConn)
 	var _sessionKey atomic.Value
 	var wg sync.WaitGroup
-	for i := 0; i < connConfig.NumConn; i++ {
+	for i := 0; i < numConn; i++ {
 		wg.Add(1)
 		go func() {
 		makeconn:
@@ -70,7 +76,7 @@ func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.D
 	}
 	sesh := mux.MakeSession(authInfo.SessionId, seshConfig)
 
-	for i := 0; i < connConfig.NumConn; i++ {
+	for i := 0; i < numConn; i++ {
 		conn := <-connsCh
 		sesh.AddConnection(conn)
 	}

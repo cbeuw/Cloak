@@ -172,8 +172,8 @@ func (raw *RawConfig) SplitConfigs(worldState common.WorldState) (local LocalCon
 		return nullErr("RemotePort")
 	}
 	remote.RemoteAddr = net.JoinHostPort(raw.RemoteHost, raw.RemotePort)
-	if raw.NumConn == 0 {
-		return nullErr("NumConn")
+	if raw.NumConn <= 0 {
+		raw.NumConn = 0
 	}
 	remote.NumConn = raw.NumConn
 
