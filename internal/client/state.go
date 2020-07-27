@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -85,6 +86,10 @@ func ssvToJson(ssv string) (ret []byte) {
 			break
 		}
 		sp := strings.SplitN(ln, "=", 2)
+		if len(sp) < 2 {
+			log.Errorf("Malformed config option: %v", ln)
+			continue
+		}
 		key := sp[0]
 		value := sp[1]
 		// JSON doesn't like quotation marks around int and bool
