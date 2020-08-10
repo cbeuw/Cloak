@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
@@ -173,13 +172,13 @@ func composeServerHello(sessionId []byte, nonce [12]byte, encryptedSessionKeyWit
 	serverHello[7] = []byte{0x00}                                             // compression method null
 	serverHello[8] = []byte{0x00, 0x2e}                                       // extensions length 46
 
-	keyShare, _ := hex.DecodeString("00330024001d0020")
+	keyShare := []byte{0x00, 0x33, 0x00, 0x24, 0x00, 0x1d, 0x00, 0x20}
 	keyExchange := make([]byte, 32)
 	copy(keyExchange, encryptedSessionKeyWithTag[20:48])
 	common.CryptoRandRead(keyExchange[28:32])
 	serverHello[9] = append(keyShare, keyExchange...)
 
-	serverHello[10], _ = hex.DecodeString("002b00020304")
+	serverHello[10] = []byte{0x00, 0x2b, 0x00, 0x02, 0x03, 0x04} // supported versions
 	var ret []byte
 	for _, s := range serverHello {
 		ret = append(ret, s...)
