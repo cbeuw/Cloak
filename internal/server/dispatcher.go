@@ -141,8 +141,8 @@ func dispatchConnection(conn net.Conn, sta *State) {
 			log.Error("Failed to send first packet to redirection server", err)
 			return
 		}
-		go io.Copy(webConn, conn)
-		go io.Copy(conn, webConn)
+		go common.Copy(webConn, conn)
+		go common.Copy(conn, webConn)
 	}
 
 	if err != nil {

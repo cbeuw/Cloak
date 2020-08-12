@@ -115,6 +115,24 @@ func TestReadFirstPacket(t *testing.T) {
 		assert.NoError(t, ret.err)
 	})
 
+	t.Run("TLS bad recordlayer length", func(t *testing.T) {
+		local, remote := connutil.AsyncPipe()
+		buf := make([]byte, 1500)
+		retChan := make(chan rfpReturnValue)
+		go rfp(remote, buf, retChan)
+
+		first, _ := hex.DecodeString("160301ffff")
+		local.Write(first)
+
+		ret := <-retChan
+
+		assert.Equal(t, len(first), ret.n)
+		assert.Equal(t, first, buf[:ret.n])
+		assert.IsType(t, TLS{}, ret.transport)
+		assert.Equal(t, io.ErrShortBuffer, ret.err)
+		assert.True(t, ret.redirOnErr)
+	})
+
 	t.Run("Good WebSocket", func(t *testing.T) {
 		local, remote := connutil.AsyncPipe()
 		buf := make([]byte, 1500)
