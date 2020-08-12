@@ -66,18 +66,7 @@ var ErrBadProxyMethod = errors.New("invalid proxy method")
 // if it is from a Cloak client, it returns the ClientInfo with the decrypted fields. It doesn't check if the user
 // is authorised. It also returns a finisher callback function to be called when the caller wishes to proceed with
 // the handshake
-func AuthFirstPacket(firstPacket []byte, sta *State) (info ClientInfo, finisher Responder, err error) {
-	var transport Transport
-	switch firstPacket[0] {
-	case 0x47:
-		transport = &WebSocket{}
-	case 0x16:
-		transport = &TLS{}
-	default:
-		err = ErrUnrecognisedProtocol
-		return
-	}
-
+func AuthFirstPacket(firstPacket []byte, transport Transport, sta *State) (info ClientInfo, finisher Responder, err error) {
 	fragments, finisher, err := transport.processFirstPacket(firstPacket, sta.StaticPv)
 	if err != nil {
 		return

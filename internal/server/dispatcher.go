@@ -3,6 +3,8 @@ package server
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
+	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"io"
@@ -37,21 +39,91 @@ func Serve(l net.Listener, sta *State) {
 	}
 }
 
+func connReadLine(conn net.Conn, buf []byte) (int, error) {
+	i := 0
+	for ; i < len(buf); i++ {
+		_, err := io.ReadFull(conn, buf[i:i+1])
+		if err != nil {
+			return i, err
+		}
+		if buf[i] == '\n' {
+			return i + 1, nil
+		}
+	}
+	return i, io.ErrShortBuffer
+}
+
+func readFirstPacket(conn net.Conn, buf []byte, timeout time.Duration) (int, Transport, bool, error) {
+	conn.SetReadDeadline(time.Now().Add(timeout))
+	defer conn.SetReadDeadline(time.Time{})
+
+	_, err := io.ReadFull(conn, buf[:1])
+	if err != nil {
+		err = fmt.Errorf("read error after connection is established: %v", err)
+		conn.Close()
+		return 0, nil, false, err
+	}
+
+	// TODO: give the option to match the protocol with port
+	bufOffset := 1
+	var transport Transport
+	switch buf[0] {
+	case 0x16:
+		transport = TLS{}
+		recordLayerLength := 5
+
+		i, err := io.ReadFull(conn, buf[bufOffset:recordLayerLength])
+		bufOffset += i
+		if err != nil {
+			err = fmt.Errorf("read error after connection is established: %v", err)
+			conn.Close()
+			return bufOffset, transport, false, err
+		}
+		dataLength := int(binary.BigEndian.Uint16(buf[3:5]))
+		if dataLength+recordLayerLength > len(buf) {
+			return bufOffset, transport, true, io.ErrShortBuffer
+		}
+
+		i, err = io.ReadFull(conn, buf[recordLayerLength:dataLength+recordLayerLength])
+		bufOffset += i
+		if err != nil {
+			err = fmt.Errorf("read error after connection is established: %v", err)
+			conn.Close()
+			return bufOffset, transport, false, err
+		}
+	case 0x47:
+		transport = WebSocket{}
+
+		for {
+			i, err := connReadLine(conn, buf[bufOffset:])
+			line := buf[bufOffset : bufOffset+i]
+			bufOffset += i
+			if err != nil {
+				if err == io.ErrShortBuffer {
+					return bufOffset, transport, true, err
+				} else {
+					err = fmt.Errorf("error reading first packet: %v", err)
+					conn.Close()
+					return bufOffset, transport, false, err
+				}
+			}
+
+			if bytes.Equal(line, []byte("\r\n")) {
+				break
+			}
+		}
+	default:
+		err = fmt.Errorf("unrecognised protocol signature")
+		return bufOffset, transport, true, ErrUnrecognisedProtocol
+	}
+	return bufOffset, transport, true, nil
+}
+
 func dispatchConnection(conn net.Conn, sta *State) {
-	remoteAddr := conn.RemoteAddr()
 	var err error
 	buf := make([]byte, 1500)
 
-	// TODO: potential fingerprint for active probers here
-	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
-	i, err := io.ReadAtLeast(conn, buf, 1)
-	if err != nil {
-		log.WithField("remoteAddr", remoteAddr).
-			Infof("failed to read anything after connection is established: %v", err)
-		conn.Close()
-		return
-	}
-	conn.SetReadDeadline(time.Time{})
+	i, transport, redirOnErr, err := readFirstPacket(conn, buf, 15*time.Second)
 	data := buf[:i]
 
 	goWeb := func() {
@@ -73,10 +145,21 @@ func dispatchConnection(conn net.Conn, sta *State) {
 		go io.Copy(conn, webConn)
 	}
 
-	ci, finishHandshake, err := AuthFirstPacket(data, sta)
+	if err != nil {
+		log.WithField("remoteAddr", conn.RemoteAddr()).
+			Warnf("error reading first packet: %v", err)
+		if redirOnErr {
+			goWeb()
+		} else {
+			conn.Close()
+		}
+		return
+	}
+
+	ci, finishHandshake, err := AuthFirstPacket(data, transport, sta)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"remoteAddr":       remoteAddr,
+			"remoteAddr":       conn.RemoteAddr(),
 			"UID":              b64(ci.UID),
 			"sessionId":        ci.SessionId,
 			"proxyMethod":      ci.ProxyMethod,
@@ -132,7 +215,7 @@ func dispatchConnection(conn net.Conn, sta *State) {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"UID":        b64(ci.UID),
-			"remoteAddr": remoteAddr,
+			"remoteAddr": conn.RemoteAddr(),
 			"error":      err,
 		}).Warn("+1 unauthorised UID")
 		goWeb()

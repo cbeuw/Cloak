@@ -74,6 +74,7 @@ func (tls *TLSConn) Read(buffer []byte) (n int, err error) {
 		err = io.ErrShortBuffer
 		return
 	}
+	// we overwrite the record layer here
 	return io.ReadFull(tls.Conn, buffer[:dataLength])
 }
 
