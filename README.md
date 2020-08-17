@@ -1,14 +1,19 @@
+[![Build Status](https://travis-ci.org/cbeuw/Cloak.svg?branch=master)](https://travis-ci.org/cbeuw/Cloak)
+[![codecov](https://codecov.io/gh/cbeuw/Cloak/branch/master/graph/badge.svg)](https://codecov.io/gh/cbeuw/Cloak)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=SAUYKGSREP8GL&source=url)
+
+
 ![image](https://user-images.githubusercontent.com/7034308/65361318-0a719180-dbfb-11e9-96de-56d1023856f0.png)
 
 ![Cloak](https://user-images.githubusercontent.com/7034308/65385852-7eab5280-dd2b-11e9-8887-db449b250e2a.png)
 
-Cloak is a universal pluggable transport that cryptographically obfuscates proxy traffic as legitimate HTTPS traffic, disguises the proxy server as a normal web server, multiplexes traffic through a fixed amount of TCP connections and provides multi-user usage control. 
+Cloak is a universal pluggable transport that cryptographically obfuscates proxy traffic as legitimate HTTPS traffic and disguises the proxy server as a normal web server to evade internet censorship. 
 
-Cloak works fundamentally by masquerading proxy traffic as normal web browsing traffic. This increases the collateral damage to censorship actions and therefore make it very difficult, if not impossible, for censors to selectively block censorship evasion tools and proxy servers without affecting services that the state may also heavily rely on. 
+Cloak works by masquerading proxy traffic as normal web browsing traffic. This increases the collateral damage to censorship actions and therefore make it very difficult, if not impossible, for censors to selectively block censorship evasion tools and proxy servers without affecting services that the state may also heavily rely on. 
 
-Cloak eliminates any "fingerprints" exposed by traditional proxy protocol designs which can be identified by adversaries through deep packet inspection. If a non-Cloak program or an unauthorised Cloak user (such as an adversary's prober) attempts to connect to Cloak server, it will serve as a transparent proxy between said machine and an ordinary website, so that to any unauthorised third party, a host running Cloak server is indistinguishable from an innocent web server. This is achieved through the use a series of [cryptographic stegnatography techniques](https://github.com/cbeuw/Cloak/wiki/Steganography-and-encryption).
+Cloak eliminates "fingerprints" exposed by traditional proxy protocol designs which can be identified by adversaries through deep packet inspection. If a non-Cloak program or an unauthorised Cloak user (such as an adversary's prober) attempts to connect to Cloak server, it will serve as a transparent proxy between said machine and an ordinary website, so that to any unauthorised third party, a host running Cloak server is indistinguishable from an innocent web server. This is achieved through the use a series of [cryptographic stegnatography techniques](https://github.com/cbeuw/Cloak/wiki/Steganography-and-encryption).
 
-Since Cloak is transparent, it can be used in conjunction with any proxy software that tunnels traffic through TCP, such as Shadowsocks, OpenVPN and Tor. Multiple proxy servers can be running on the same server host machine and Cloak server will act as a reverse proxy, bridging clients with their desired proxy end.
+Since Cloak is transparent, it can be used in conjunction with any proxy software that tunnels traffic through TCP or UDP, such as Shadowsocks, OpenVPN and Tor. Multiple proxy servers can be running on the same server host machine and Cloak server will act as a reverse proxy, bridging clients with their desired proxy end.
 
 Cloak multiplexes traffic through multiple underlying TCP connections which reduces head-of-line blocking and eliminates TCP handshake overhead. This also makes the traffic pattern more similar to real websites.
 
@@ -16,9 +21,22 @@ Cloak provides multi-user support, allowing multiple clients to connect to the p
 
 Cloak has two modes of [_Transport_](https://github.com/cbeuw/Cloak/wiki/CDN-mode): `direct` and `CDN`. Clients can either connect to the host running Cloak server directly, or it can instead connect to a CDN edge server, which may be used by many legitimate websites as well, thus further increases the collateral damage to censorship. 
 
-**Cloak 2.x is not compatible with legacy Cloak 1.x's protocol, configuration file or database file. Cloak 1.x protocol has critical cryptographic flaws regarding encrypting stream headers. Using Cloak 1.x is strongly discouraged**
-
 This project was evolved from [GoQuiet](https://github.com/cbeuw/GoQuiet). Through multiplexing, Cloak provides a significant reduction in webpage loading time compared to GoQuiet (from 10% to 50%+, depending on the amount of content on the webpage, see [benchmarks](https://github.com/cbeuw/Cloak/wiki/Web-page-loading-benchmarks)).
+
+Table of Contents
+=================
+* [Quick Start](#quick-start)
+* [Build](#build)
+* [Configuration](#configuration)
+    * [Server](#server)
+    * [Client](#client)
+* [Setup](#setup)
+    * [For the administrator of the server](#for-the-administrator-of-the-server)
+        * [To add users](#to-add-users)
+            * [Unrestricted users](#unrestricted-users)
+            * [Users subject to bandwidth and credit controls](#users-subject-to-bandwidth-and-credit-controls)
+    * [Instructions for clients](#instructions-for-clients)
+* [Support me](#support-me)
 
 ## Quick Start
 To quickly deploy Cloak with Shadowsocks on a server, you can run this [script](https://github.com/HirbodBehnam/Shadowsocks-Cloak-Installer/blob/master/Cloak2-Installer.sh) written by @HirbodBehnam 
@@ -32,6 +50,7 @@ github.com/juju/ratelimit
 github.com/gorilla/mux
 github.com/gorilla/websocket
 github.com/sirupsen/logrus
+github.com/stretchr/testify
 golang.org/x/crypto
 github.com/refraction-networking/utls
 ```
@@ -122,7 +141,7 @@ Note: the user database is persistent as it's in-disk. You don't need to add the
 4. [Configure the proxy program.](https://github.com/cbeuw/Cloak/wiki/Underlying-proxy-configuration-guides) Run `ck-client -c <path to ckclient.json> -s <ip of your server>`
 
 ## Support me
-If you find this project useful, you can visit my [merch store](https://teespring.com/en-GB/stores/andys-scribble) which sells some of my designed t-shirts, phone cases, mugs and other bits and bobs; alternatively you can donate directly to me
+If you find this project useful, you can visit my [merch store](https://www.redbubble.com/people/cbeuw/explore); alternatively you can donate directly to me
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=SAUYKGSREP8GL&source=url)
 
