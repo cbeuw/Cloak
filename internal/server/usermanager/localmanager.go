@@ -7,8 +7,8 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-var Uint32 = binary.BigEndian.Uint32
-var Uint64 = binary.BigEndian.Uint64
+var u32 = binary.BigEndian.Uint32
+var u64 = binary.BigEndian.Uint64
 
 func i64ToB(value int64) []byte {
 	oct := make([]byte, 8)
@@ -48,11 +48,11 @@ func (manager *localManager) AuthenticateUser(UID []byte) (int64, int64, error) 
 		if bucket == nil {
 			return ErrUserNotFound
 		}
-		upRate = int64(Uint64(bucket.Get([]byte("UpRate"))))
-		downRate = int64(Uint64(bucket.Get([]byte("DownRate"))))
-		upCredit = int64(Uint64(bucket.Get([]byte("UpCredit"))))
-		downCredit = int64(Uint64(bucket.Get([]byte("DownCredit"))))
-		expiryTime = int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
+		upRate = int64(u64(bucket.Get([]byte("UpRate"))))
+		downRate = int64(u64(bucket.Get([]byte("DownRate"))))
+		upCredit = int64(u64(bucket.Get([]byte("UpCredit"))))
+		downCredit = int64(u64(bucket.Get([]byte("DownCredit"))))
+		expiryTime = int64(u64(bucket.Get([]byte("ExpiryTime"))))
 		return nil
 	})
 	if err != nil {
@@ -83,10 +83,10 @@ func (manager *localManager) AuthoriseNewSession(UID []byte, ainfo Authorisation
 		if bucket == nil {
 			return ErrUserNotFound
 		}
-		sessionsCap = int(Uint32(bucket.Get([]byte("SessionsCap"))))
-		upCredit = int64(Uint64(bucket.Get([]byte("UpCredit"))))
-		downCredit = int64(Uint64(bucket.Get([]byte("DownCredit"))))
-		expiryTime = int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
+		sessionsCap = int(u32(bucket.Get([]byte("SessionsCap"))))
+		upCredit = int64(u64(bucket.Get([]byte("UpCredit"))))
+		downCredit = int64(u64(bucket.Get([]byte("DownCredit"))))
+		expiryTime = int64(u64(bucket.Get([]byte("ExpiryTime"))))
 		return nil
 	})
 	if err != nil {
@@ -129,7 +129,7 @@ func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusRespo
 				responses = append(responses, resp)
 			}
 
-			oldUp := int64(Uint64(bucket.Get([]byte("UpCredit"))))
+			oldUp := int64(u64(bucket.Get([]byte("UpCredit"))))
 			newUp := oldUp - status.UpUsage
 			if newUp <= 0 {
 				resp = StatusResponse{
@@ -144,7 +144,7 @@ func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusRespo
 				log.Error(err)
 			}
 
-			oldDown := int64(Uint64(bucket.Get([]byte("DownCredit"))))
+			oldDown := int64(u64(bucket.Get([]byte("DownCredit"))))
 			newDown := oldDown - status.DownUsage
 			if newDown <= 0 {
 				resp = StatusResponse{
@@ -159,7 +159,7 @@ func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusRespo
 				log.Error(err)
 			}
 
-			expiry := int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
+			expiry := int64(u64(bucket.Get([]byte("ExpiryTime"))))
 			if manager.world.Now().Unix() > expiry {
 				resp = StatusResponse{
 					status.UID,
@@ -179,12 +179,12 @@ func (manager *localManager) ListAllUsers() (infos []UserInfo, err error) {
 		err = tx.ForEach(func(UID []byte, bucket *bolt.Bucket) error {
 			var uinfo UserInfo
 			uinfo.UID = UID
-			uinfo.SessionsCap = int32(Uint32(bucket.Get([]byte("SessionsCap"))))
-			uinfo.UpRate = int64(Uint64(bucket.Get([]byte("UpRate"))))
-			uinfo.DownRate = int64(Uint64(bucket.Get([]byte("DownRate"))))
-			uinfo.UpCredit = int64(Uint64(bucket.Get([]byte("UpCredit"))))
-			uinfo.DownCredit = int64(Uint64(bucket.Get([]byte("DownCredit"))))
-			uinfo.ExpiryTime = int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
+			uinfo.SessionsCap = int32(u32(bucket.Get([]byte("SessionsCap"))))
+			uinfo.UpRate = int64(u64(bucket.Get([]byte("UpRate"))))
+			uinfo.DownRate = int64(u64(bucket.Get([]byte("DownRate"))))
+			uinfo.UpCredit = int64(u64(bucket.Get([]byte("UpCredit"))))
+			uinfo.DownCredit = int64(u64(bucket.Get([]byte("DownCredit"))))
+			uinfo.ExpiryTime = int64(u64(bucket.Get([]byte("ExpiryTime"))))
 			infos = append(infos, uinfo)
 			return nil
 		})
@@ -200,12 +200,12 @@ func (manager *localManager) GetUserInfo(UID []byte) (uinfo UserInfo, err error)
 			return ErrUserNotFound
 		}
 		uinfo.UID = UID
-		uinfo.SessionsCap = int32(Uint32(bucket.Get([]byte("SessionsCap"))))
-		uinfo.UpRate = int64(Uint64(bucket.Get([]byte("UpRate"))))
-		uinfo.DownRate = int64(Uint64(bucket.Get([]byte("DownRate"))))
-		uinfo.UpCredit = int64(Uint64(bucket.Get([]byte("UpCredit"))))
-		uinfo.DownCredit = int64(Uint64(bucket.Get([]byte("DownCredit"))))
-		uinfo.ExpiryTime = int64(Uint64(bucket.Get([]byte("ExpiryTime"))))
+		uinfo.SessionsCap = int32(u32(bucket.Get([]byte("SessionsCap"))))
+		uinfo.UpRate = int64(u64(bucket.Get([]byte("UpRate"))))
+		uinfo.DownRate = int64(u64(bucket.Get([]byte("DownRate"))))
+		uinfo.UpCredit = int64(u64(bucket.Get([]byte("UpCredit"))))
+		uinfo.DownCredit = int64(u64(bucket.Get([]byte("DownCredit"))))
+		uinfo.ExpiryTime = int64(u64(bucket.Get([]byte("ExpiryTime"))))
 		return nil
 	})
 	return

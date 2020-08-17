@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
@@ -52,6 +53,8 @@ func connReadLine(conn net.Conn, buf []byte) (int, error) {
 	}
 	return i, io.ErrShortBuffer
 }
+
+var ErrUnrecognisedProtocol = errors.New("unrecognised protocol")
 
 func readFirstPacket(conn net.Conn, buf []byte, timeout time.Duration) (int, Transport, bool, error) {
 	conn.SetReadDeadline(time.Now().Add(timeout))
@@ -113,7 +116,6 @@ func readFirstPacket(conn net.Conn, buf []byte, timeout time.Duration) (int, Tra
 			}
 		}
 	default:
-		err = fmt.Errorf("unrecognised protocol signature")
 		return bufOffset, transport, true, ErrUnrecognisedProtocol
 	}
 	return bufOffset, transport, true, nil

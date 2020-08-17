@@ -92,8 +92,7 @@ func main() {
 
 	bindAddr, err := parseBindAddr(raw.BindAddr)
 	if err != nil {
-		err = fmt.Errorf("unable to parse BindAddr: %v", err)
-		return
+		log.Fatalf("unable to parse BindAddr: %v", err)
 	}
 	if !pluginMode && len(bindAddr) == 0 {
 		https, _ := net.ResolveTCPAddr("tcp", ":443")

@@ -8,7 +8,7 @@ import (
 
 // Valve needs to be universal, across all sessions that belong to a user
 type LimitedValve struct {
-	// traffic directions from the server's perspective are refered
+	// traffic directions from the server's perspective are referred
 	// exclusively as rx and tx.
 	// rx is from client to server, tx is from server to client
 	// DO NOT use terms up or down as this is used in usermanager
