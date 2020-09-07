@@ -62,3 +62,10 @@ func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey 
 
 	return
 }
+
+func (ws *WSOverTLS) Close() error {
+	if ws.WebSocketConn != nil {
+		return ws.WebSocketConn.Close()
+	}
+	return nil
+}
