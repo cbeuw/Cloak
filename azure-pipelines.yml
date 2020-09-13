@@ -64,7 +64,7 @@ steps:
 # Create, edit, or delete a GitHub release
 - task: GitHubRelease@0
   inputs:
-    gitHubConnection: cbeuw
+    gitHubConnection: github.com_cbeuw
     repositoryName: '$(Build.Repository.Name)' 
     action: 'create' # Options: create, edit, delete
     target: '$(Build.SourceVersion)' # Required when action == Create || Action == Edit
