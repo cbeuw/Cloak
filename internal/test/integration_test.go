@@ -3,6 +3,7 @@ package test
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/client"
 	"github.com/cbeuw/Cloak/internal/common"
@@ -185,7 +186,10 @@ func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, a
 
 	netToCkServerD, ckServerListener := connutil.DialerListener(10 * 1024)
 	clientSeshMaker := func() *mux.Session {
-		return client.MakeSession(rcc, ai, netToCkServerD, false)
+		quad := make([]byte, 4)
+		common.RandRead(ai.WorldState.Rand, quad)
+		ai.SessionId = binary.BigEndian.Uint32(quad)
+		return client.MakeSession(rcc, ai, netToCkServerD)
 	}
 
 	var proxyToCkClientD common.Dialer

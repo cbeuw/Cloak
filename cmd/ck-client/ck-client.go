@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
@@ -151,10 +152,11 @@ func main() {
 	if adminUID != nil {
 		log.Infof("API base is %v", localConfig.LocalAddr)
 		authInfo.UID = adminUID
+		authInfo.SessionId = 0
 		remoteConfig.NumConn = 1
 
 		seshMaker = func() *mux.Session {
-			return client.MakeSession(remoteConfig, authInfo, d, true)
+			return client.MakeSession(remoteConfig, authInfo, d)
 		}
 	} else {
 		var network string
@@ -165,7 +167,12 @@ func main() {
 		}
 		log.Infof("Listening on %v %v for %v client", network, localConfig.LocalAddr, authInfo.ProxyMethod)
 		seshMaker = func() *mux.Session {
-			return client.MakeSession(remoteConfig, authInfo, d, false)
+			// sessionID is usergenerated. There shouldn't be a security concern because the scope of
+			// sessionID is limited to its UID.
+			quad := make([]byte, 4)
+			common.RandRead(authInfo.WorldState.Rand, quad)
+			authInfo.SessionId = binary.BigEndian.Uint32(quad)
+			return client.MakeSession(remoteConfig, authInfo, d)
 		}
 	}
 

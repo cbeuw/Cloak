@@ -1,7 +1,6 @@
 package client
 
 import (
-	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/common"
 	"net"
 	"sync"
@@ -12,18 +11,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.Dialer, isAdmin bool) *mux.Session {
+// On different invocations to MakeSession, authInfo.SessionId MUST be different
+func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.Dialer) *mux.Session {
 	log.Info("Attempting to start a new session")
-	//TODO: let caller set this
-	if !isAdmin {
-		// sessionID is usergenerated. There shouldn't be a security concern because the scope of
-		// sessionID is limited to its UID.
-		quad := make([]byte, 4)
-		common.RandRead(authInfo.WorldState.Rand, quad)
-		authInfo.SessionId = binary.BigEndian.Uint32(quad)
-	} else {
-		authInfo.SessionId = 0
-	}
 
 	connsCh := make(chan net.Conn, connConfig.NumConn)
 	var _sessionKey atomic.Value
@@ -48,6 +38,7 @@ func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.D
 				time.Sleep(time.Second * 3)
 				goto makeconn
 			}
+			// sessionKey given by each connection should be identical
 			_sessionKey.Store(sk)
 			connsCh <- transportConn
 			wg.Done()
