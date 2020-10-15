@@ -9,7 +9,7 @@ import (
 func TestDatagramBuffer_RW(t *testing.T) {
 	b := []byte{0x01, 0x02, 0x03}
 	t.Run("simple write", func(t *testing.T) {
-		pipe := NewDatagramBuffer()
+		pipe := NewDatagramBufferedPipe()
 		_, err := pipe.Write(Frame{Payload: b})
 		if err != nil {
 			t.Error(
@@ -21,7 +21,7 @@ func TestDatagramBuffer_RW(t *testing.T) {
 	})
 
 	t.Run("simple read", func(t *testing.T) {
-		pipe := NewDatagramBuffer()
+		pipe := NewDatagramBufferedPipe()
 		_, _ = pipe.Write(Frame{Payload: b})
 		b2 := make([]byte, len(b))
 		n, err := pipe.Read(b2)
@@ -54,7 +54,7 @@ func TestDatagramBuffer_RW(t *testing.T) {
 	})
 
 	t.Run("writing closing frame", func(t *testing.T) {
-		pipe := NewDatagramBuffer()
+		pipe := NewDatagramBufferedPipe()
 		toBeClosed, err := pipe.Write(Frame{Closing: C_STREAM})
 		if !toBeClosed {
 			t.Error("should be to be closed")
@@ -73,7 +73,7 @@ func TestDatagramBuffer_RW(t *testing.T) {
 }
 
 func TestDatagramBuffer_BlockingRead(t *testing.T) {
-	pipe := NewDatagramBuffer()
+	pipe := NewDatagramBufferedPipe()
 	b := []byte{0x01, 0x02, 0x03}
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -108,7 +108,7 @@ func TestDatagramBuffer_BlockingRead(t *testing.T) {
 }
 
 func TestDatagramBuffer_CloseThenRead(t *testing.T) {
-	pipe := NewDatagramBuffer()
+	pipe := NewDatagramBufferedPipe()
 	b := []byte{0x01, 0x02, 0x03}
 	pipe.Write(Frame{Payload: b})
 	b2 := make([]byte, len(b))

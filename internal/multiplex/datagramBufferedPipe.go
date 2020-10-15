@@ -9,10 +9,10 @@ import (
 	"time"
 )
 
-// datagramBuffer is the same as bufferedPipe with the exception that it's message-oriented,
+// datagramBufferedPipe is the same as streamBufferedPipe with the exception that it's message-oriented,
 // instead of byte-oriented. The integrity of datagrams written into this buffer is preserved.
 // it won't get chopped up into individual bytes
-type datagramBuffer struct {
+type datagramBufferedPipe struct {
 	pLens     []int
 	buf       *bytes.Buffer
 	closed    bool
@@ -21,14 +21,14 @@ type datagramBuffer struct {
 	rDeadline time.Time
 }
 
-func NewDatagramBuffer() *datagramBuffer {
-	d := &datagramBuffer{
+func NewDatagramBufferedPipe() *datagramBufferedPipe {
+	d := &datagramBufferedPipe{
 		rwCond: sync.NewCond(&sync.Mutex{}),
 	}
 	return d
 }
 
-func (d *datagramBuffer) Read(target []byte) (int, error) {
+func (d *datagramBufferedPipe) Read(target []byte) (int, error) {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
 	if d.buf == nil {
@@ -63,7 +63,7 @@ func (d *datagramBuffer) Read(target []byte) (int, error) {
 	return dataLen, nil
 }
 
-func (d *datagramBuffer) WriteTo(w io.Writer) (n int64, err error) {
+func (d *datagramBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
 	if d.buf == nil {
@@ -104,7 +104,7 @@ func (d *datagramBuffer) WriteTo(w io.Writer) (n int64, err error) {
 	}
 }
 
-func (d *datagramBuffer) Write(f Frame) (toBeClosed bool, err error) {
+func (d *datagramBufferedPipe) Write(f Frame) (toBeClosed bool, err error) {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
 	if d.buf == nil {
@@ -135,7 +135,7 @@ func (d *datagramBuffer) Write(f Frame) (toBeClosed bool, err error) {
 	return false, nil
 }
 
-func (d *datagramBuffer) Close() error {
+func (d *datagramBufferedPipe) Close() error {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
 
@@ -144,7 +144,7 @@ func (d *datagramBuffer) Close() error {
 	return nil
 }
 
-func (d *datagramBuffer) SetReadDeadline(t time.Time) {
+func (d *datagramBufferedPipe) SetReadDeadline(t time.Time) {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
 
@@ -152,7 +152,7 @@ func (d *datagramBuffer) SetReadDeadline(t time.Time) {
 	d.rwCond.Broadcast()
 }
 
-func (d *datagramBuffer) SetWriteToTimeout(t time.Duration) {
+func (d *datagramBufferedPipe) SetWriteToTimeout(t time.Duration) {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
 

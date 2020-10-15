@@ -34,7 +34,8 @@ type SessionConfig struct {
 
 	Singleplex bool
 
-	MaxFrameSize      int // maximum size of the frame, including the header
+	// maximum size of Frame.Payload
+	MaxFrameSize      int
 	SendBufferSize    int
 	ReceiveBufferSize int
 }
@@ -64,7 +65,8 @@ type Session struct {
 
 	terminalMsg atomic.Value
 
-	maxStreamUnitWrite int // the max size passed to Write calls before it splits it into multiple frames
+	// the max size passed to Write calls before it splits it into multiple frames
+	maxStreamUnitWrite int
 }
 
 func MakeSession(id uint32, config SessionConfig) *Session {
@@ -89,7 +91,7 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 		sesh.MaxFrameSize = defaultSendRecvBufSize - 1024
 	}
 	// todo: validation. this must be smaller than the buffer sizes
-	sesh.maxStreamUnitWrite = sesh.MaxFrameSize - HEADER_LEN - sesh.Obfuscator.minOverhead
+	sesh.maxStreamUnitWrite = sesh.MaxFrameSize - HEADER_LEN - sesh.Obfuscator.maxOverhead
 
 	sbConfig := switchboardConfig{
 		valve:          sesh.Valve,
@@ -156,7 +158,7 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 	if atomic.SwapUint32(&s.closed, 1) == 1 {
 		return fmt.Errorf("closing stream %v: %w", s.id, errRepeatStreamClosing)
 	}
-	_ = s.recvBuf.Close() // both datagramBuffer and streamBuffer won't return err on Close()
+	_ = s.recvBuf.Close() // recvBuf.Close should not return error
 
 	if active {
 		// Notify remote that this stream is closed
@@ -291,6 +293,7 @@ func (sesh *Session) Close() error {
 		return true
 	})
 
+	// we send a notice frame telling remote to close the session
 	pad := genRandomPadding()
 	f := &Frame{
 		StreamID: 0xffffffff,

@@ -43,7 +43,7 @@ type Stream struct {
 func makeStream(sesh *Session, id uint32) *Stream {
 	var recvBuf recvBuffer
 	if sesh.Unordered {
-		recvBuf = NewDatagramBuffer()
+		recvBuf = NewDatagramBufferedPipe()
 	} else {
 		recvBuf = NewStreamBuffer()
 	}

@@ -20,7 +20,12 @@ type switchboardConfig struct {
 	recvBufferSize int
 }
 
-// switchboard is responsible for keeping the reference of TCP connections between client and server
+// switchboard is responsible for managing TCP connections between client and server.
+// It has several purposes: constantly receiving incoming data from all connections
+// and pass them to Session.recvDataFromRemote(); accepting data through
+// switchboard.send(), in which it selects a connection according to its
+// switchboardStrategy and send the data off using that; and counting, as well as
+// rate limiting, data received and sent through its Valve.
 type switchboard struct {
 	session *Session
 

@@ -32,11 +32,17 @@ type Obfuscator struct {
 	// Used in Stream.Write. Add multiplexing headers, encrypt and add TLS header
 	Obfs Obfser
 	// Remove TLS header, decrypt and unmarshall frames
-	Deobfs      Deobfser
-	SessionKey  [32]byte
-	minOverhead int
+	Deobfs     Deobfser
+	SessionKey [32]byte
+
+	maxOverhead int
 }
 
+// MakeObfs returns a function of type Obfser. An Obfser takes three arguments:
+// a *Frame with all the field set correctly, a []byte as buffer to put encrypted
+// message in, and an int called payloadOffsetInBuf to be used when *Frame.payload
+// is in the byte slice used as buffer (2nd argument). payloadOffsetInBuf specifies
+// the index at which data belonging to *Frame.Payload starts in the buffer.
 func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 	obfs := func(f *Frame, buf []byte, payloadOffsetInBuf int) (int, error) {
 		// we need the encrypted data to be at least 8 bytes to be used as nonce for salsa20 stream header encryption
@@ -48,7 +54,9 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 		}
 		var extraLen int
 		if payloadCipher == nil {
-			if extraLen = 8 - payloadLen; extraLen < 0 {
+			extraLen = 8 - payloadLen
+			if extraLen < 0 {
+				// if our payload is already greater than 8 bytes
 				extraLen = 0
 			}
 		} else {
@@ -92,6 +100,9 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 	return obfs
 }
 
+// MakeDeobfs returns a function Deobfser. A Deobfser takes in a single byte slice,
+// containing the message to be decrypted, and returns a *Frame containing the frame
+// information and plaintext
 func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 	// stream header length + minimum data size (i.e. nonce size of salsa20)
 	const minInputLen = HEADER_LEN + 8
@@ -151,7 +162,7 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator Obfu
 	switch encryptionMethod {
 	case E_METHOD_PLAIN:
 		payloadCipher = nil
-		obfuscator.minOverhead = 0
+		obfuscator.maxOverhead = 0
 	case E_METHOD_AES_GCM:
 		var c cipher.Block
 		c, err = aes.NewCipher(sessionKey[:])
@@ -162,13 +173,13 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator Obfu
 		if err != nil {
 			return
 		}
-		obfuscator.minOverhead = payloadCipher.Overhead()
+		obfuscator.maxOverhead = payloadCipher.Overhead()
 	case E_METHOD_CHACHA20_POLY1305:
 		payloadCipher, err = chacha20poly1305.New(sessionKey[:])
 		if err != nil {
 			return
 		}
-		obfuscator.minOverhead = payloadCipher.Overhead()
+		obfuscator.maxOverhead = payloadCipher.Overhead()
 	default:
 		return obfuscator, errors.New("Unknown encryption method")
 	}

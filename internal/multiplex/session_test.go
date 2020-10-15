@@ -335,7 +335,7 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 	}
 }
 
-func TestParallel(t *testing.T) {
+func TestParallelStreams(t *testing.T) {
 	rand.Seed(0)
 
 	var sessionKey [32]byte

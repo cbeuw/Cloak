@@ -48,13 +48,17 @@ type streamBuffer struct {
 	nextRecvSeq uint64
 	sh          sorterHeap
 
-	buf *bufferedPipe
+	buf *streamBufferedPipe
 }
 
+// streamBuffer is a wrapper around streamBufferedPipe.
+// Its main function is to sort frames in order, and wait for frames to arrive
+// if they have arrived out-of-order. Then it writes the payload of frames into
+// a streamBufferedPipe.
 func NewStreamBuffer() *streamBuffer {
 	sb := &streamBuffer{
 		sh:  []*Frame{},
-		buf: NewBufferedPipe(),
+		buf: NewStreamBufferedPipe(),
 	}
 	return sb
 }

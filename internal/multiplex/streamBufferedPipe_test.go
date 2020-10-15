@@ -8,7 +8,7 @@ import (
 )
 
 func TestPipeRW(t *testing.T) {
-	pipe := NewBufferedPipe()
+	pipe := NewStreamBufferedPipe()
 	b := []byte{0x01, 0x02, 0x03}
 	n, err := pipe.Write(b)
 	if n != len(b) {
@@ -57,7 +57,7 @@ func TestPipeRW(t *testing.T) {
 }
 
 func TestReadBlock(t *testing.T) {
-	pipe := NewBufferedPipe()
+	pipe := NewStreamBufferedPipe()
 	b := []byte{0x01, 0x02, 0x03}
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -92,7 +92,7 @@ func TestReadBlock(t *testing.T) {
 }
 
 func TestPartialRead(t *testing.T) {
-	pipe := NewBufferedPipe()
+	pipe := NewStreamBufferedPipe()
 	b := []byte{0x01, 0x02, 0x03}
 	pipe.Write(b)
 	b1 := make([]byte, 1)
@@ -148,7 +148,7 @@ func TestPartialRead(t *testing.T) {
 }
 
 func TestReadAfterClose(t *testing.T) {
-	pipe := NewBufferedPipe()
+	pipe := NewStreamBufferedPipe()
 	b := []byte{0x01, 0x02, 0x03}
 	pipe.Write(b)
 	b2 := make([]byte, len(b))
@@ -184,7 +184,7 @@ func BenchmarkBufferedPipe_RW(b *testing.B) {
 	testData := make([]byte, PAYLOAD_LEN)
 	rand.Read(testData)
 
-	pipe := NewBufferedPipe()
+	pipe := NewStreamBufferedPipe()
 
 	smallBuf := make([]byte, PAYLOAD_LEN-10)
 	go func() {

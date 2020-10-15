@@ -4,7 +4,6 @@ package multiplex
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"sync"
 	"time"
@@ -12,10 +11,8 @@ import (
 
 const BUF_SIZE_LIMIT = 1 << 20 * 500
 
-var ErrTimeout = errors.New("deadline exceeded")
-
-// The point of a bufferedPipe is that Read() will block until data is available
-type bufferedPipe struct {
+// The point of a streamBufferedPipe is that Read() will block until data is available
+type streamBufferedPipe struct {
 	// only alloc when on first Read or Write
 	buf *bytes.Buffer
 
@@ -25,14 +22,14 @@ type bufferedPipe struct {
 	wtTimeout time.Duration
 }
 
-func NewBufferedPipe() *bufferedPipe {
-	p := &bufferedPipe{
+func NewStreamBufferedPipe() *streamBufferedPipe {
+	p := &streamBufferedPipe{
 		rwCond: sync.NewCond(&sync.Mutex{}),
 	}
 	return p
 }
 
-func (p *bufferedPipe) Read(target []byte) (int, error) {
+func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
 	if p.buf == nil {
@@ -60,7 +57,7 @@ func (p *bufferedPipe) Read(target []byte) (int, error) {
 	return n, err
 }
 
-func (p *bufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
+func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
 	if p.buf == nil {
@@ -98,7 +95,7 @@ func (p *bufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 	}
 }
 
-func (p *bufferedPipe) Write(input []byte) (int, error) {
+func (p *streamBufferedPipe) Write(input []byte) (int, error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
 	if p.buf == nil {
@@ -120,7 +117,7 @@ func (p *bufferedPipe) Write(input []byte) (int, error) {
 	return n, err
 }
 
-func (p *bufferedPipe) Close() error {
+func (p *streamBufferedPipe) Close() error {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
 
@@ -129,7 +126,7 @@ func (p *bufferedPipe) Close() error {
 	return nil
 }
 
-func (p *bufferedPipe) SetReadDeadline(t time.Time) {
+func (p *streamBufferedPipe) SetReadDeadline(t time.Time) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
 
@@ -137,7 +134,7 @@ func (p *bufferedPipe) SetReadDeadline(t time.Time) {
 	p.rwCond.Broadcast()
 }
 
-func (p *bufferedPipe) SetWriteToTimeout(d time.Duration) {
+func (p *streamBufferedPipe) SetWriteToTimeout(d time.Duration) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
 
