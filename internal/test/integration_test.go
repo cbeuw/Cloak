@@ -80,51 +80,48 @@ var bypassUID = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 var publicKey, _ = base64.StdEncoding.DecodeString("7f7TuKrs264VNSgMno8PkDlyhGhVuOSR8JHLE6H4Ljc=")
 var privateKey, _ = base64.StdEncoding.DecodeString("SMWeC6VuZF8S/id65VuFQFlfa7hTEJBpL6wWhqPP100=")
 
-var udpClientConfigs = map[string]client.RawConfig{
-	"basic": {
-		ServerName:       "www.example.com",
-		ProxyMethod:      "openvpn",
-		EncryptionMethod: "plain",
-		UID:              bypassUID[:],
-		PublicKey:        publicKey,
-		NumConn:          4,
-		UDP:              true,
-		Transport:        "direct",
-		RemoteHost:       "fake.com",
-		RemotePort:       "9999",
-		LocalHost:        "127.0.0.1",
-		LocalPort:        "9999",
-	},
+var basicUDPConfig = client.RawConfig{
+	ServerName:       "www.example.com",
+	ProxyMethod:      "openvpn",
+	EncryptionMethod: "plain",
+	UID:              bypassUID[:],
+	PublicKey:        publicKey,
+	NumConn:          4,
+	UDP:              true,
+	Transport:        "direct",
+	RemoteHost:       "fake.com",
+	RemotePort:       "9999",
+	LocalHost:        "127.0.0.1",
+	LocalPort:        "9999",
 }
-var tcpClientConfigs = map[string]client.RawConfig{
-	"basic": {
-		ServerName:       "www.example.com",
-		ProxyMethod:      "shadowsocks",
-		EncryptionMethod: "plain",
-		UID:              bypassUID[:],
-		PublicKey:        publicKey,
-		NumConn:          4,
-		UDP:              false,
-		Transport:        "direct",
-		RemoteHost:       "fake.com",
-		RemotePort:       "9999",
-		LocalHost:        "127.0.0.1",
-		LocalPort:        "9999",
-	},
-	"singleplex": {
-		ServerName:       "www.example.com",
-		ProxyMethod:      "shadowsocks",
-		EncryptionMethod: "plain",
-		UID:              bypassUID[:],
-		PublicKey:        publicKey,
-		NumConn:          0,
-		UDP:              false,
-		Transport:        "direct",
-		RemoteHost:       "fake.com",
-		RemotePort:       "9999",
-		LocalHost:        "127.0.0.1",
-		LocalPort:        "9999",
-	},
+
+var basicTCPConfig = client.RawConfig{
+	ServerName:       "www.example.com",
+	ProxyMethod:      "shadowsocks",
+	EncryptionMethod: "plain",
+	UID:              bypassUID[:],
+	PublicKey:        publicKey,
+	NumConn:          4,
+	UDP:              false,
+	Transport:        "direct",
+	RemoteHost:       "fake.com",
+	RemotePort:       "9999",
+	LocalHost:        "127.0.0.1",
+	LocalPort:        "9999",
+}
+var singleplexTCPConfig = client.RawConfig{
+	ServerName:       "www.example.com",
+	ProxyMethod:      "shadowsocks",
+	EncryptionMethod: "plain",
+	UID:              bypassUID[:],
+	PublicKey:        publicKey,
+	NumConn:          0,
+	UDP:              false,
+	Transport:        "direct",
+	RemoteHost:       "fake.com",
+	RemotePort:       "9999",
+	LocalHost:        "127.0.0.1",
+	LocalPort:        "9999",
 }
 
 func generateClientConfigs(rawConfig client.RawConfig, state common.WorldState) (client.LocalConnConfig, client.RemoteConnConfig, client.AuthInfo) {
@@ -260,7 +257,7 @@ func TestUDP(t *testing.T) {
 	log.SetLevel(log.ErrorLevel)
 
 	worldState := common.WorldOfTime(time.Unix(10, 0))
-	lcc, rcc, ai := generateClientConfigs(udpClientConfigs["basic"], worldState)
+	lcc, rcc, ai := generateClientConfigs(basicUDPConfig, worldState)
 	sta := basicServerState(worldState, tmpDB)
 
 	proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(lcc, rcc, ai, sta)
@@ -315,7 +312,7 @@ func TestUDP(t *testing.T) {
 func TestTCPSingleplex(t *testing.T) {
 	log.SetLevel(log.ErrorLevel)
 	worldState := common.WorldOfTime(time.Unix(10, 0))
-	lcc, rcc, ai := generateClientConfigs(tcpClientConfigs["singleplex"], worldState)
+	lcc, rcc, ai := generateClientConfigs(singleplexTCPConfig, worldState)
 	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
 	defer os.Remove(tmpDB.Name())
 	sta := basicServerState(worldState, tmpDB)
@@ -370,7 +367,7 @@ func TestTCPMultiplex(t *testing.T) {
 	log.SetLevel(log.ErrorLevel)
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 
-	lcc, rcc, ai := generateClientConfigs(tcpClientConfigs["basic"], worldState)
+	lcc, rcc, ai := generateClientConfigs(basicTCPConfig, worldState)
 	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
 	defer os.Remove(tmpDB.Name())
 	sta := basicServerState(worldState, tmpDB)
@@ -442,7 +439,7 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 	log.SetLevel(log.ErrorLevel)
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 
-	for clientConfigName, clientConfig := range tcpClientConfigs {
+	for clientConfigName, clientConfig := range map[string]client.RawConfig{"basic": basicTCPConfig, "singleplex": singleplexTCPConfig} {
 		clientConfig := clientConfig
 		clientConfigName := clientConfigName
 		t.Run(clientConfigName, func(t *testing.T) {
@@ -513,7 +510,7 @@ func BenchmarkThroughput(b *testing.B) {
 	defer os.Remove(tmpDB.Name())
 	log.SetLevel(log.ErrorLevel)
 	worldState := common.WorldOfTime(time.Unix(10, 0))
-	lcc, rcc, ai := generateClientConfigs(tcpClientConfigs["basic"], worldState)
+	lcc, rcc, ai := generateClientConfigs(basicTCPConfig, worldState)
 	sta := basicServerState(worldState, tmpDB)
 	const bufSize = 16 * 1024
 
