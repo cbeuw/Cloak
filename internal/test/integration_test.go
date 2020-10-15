@@ -127,7 +127,7 @@ var tcpClientConfigs = map[string]client.RawConfig{
 }
 
 func generateClientConfigs(rawConfig client.RawConfig, state common.WorldState) (client.LocalConnConfig, client.RemoteConnConfig, client.AuthInfo) {
-	lcl, rmt, auth, err := rawConfig.SplitConfigs(state)
+	lcl, rmt, auth, err := rawConfig.ProcessRawConfig(state)
 	if err != nil {
 		log.Fatal(err)
 	}

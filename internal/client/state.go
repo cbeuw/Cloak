@@ -16,9 +16,9 @@ import (
 )
 
 // RawConfig represents the fields in the config json file
-// nullable means if it's empty, a default value will be chosen in SplitConfigs
+// nullable means if it's empty, a default value will be chosen in ProcessRawConfig
 // jsonOptional means if the json's empty, its value will be set from environment variables or commandline args
-// but it mustn't be empty when SplitConfigs is called
+// but it mustn't be empty when ProcessRawConfig is called
 type RawConfig struct {
 	ServerName       string
 	ProxyMethod      string
@@ -31,7 +31,7 @@ type RawConfig struct {
 	RemoteHost       string // jsonOptional
 	RemotePort       string // jsonOptional
 
-	// defaults set in SplitConfigs
+	// defaults set in ProcessRawConfig
 	UDP           bool   // nullable
 	BrowserSig    string // nullable
 	Transport     string // nullable
@@ -126,7 +126,7 @@ func ParseConfig(conf string) (raw *RawConfig, err error) {
 	return
 }
 
-func (raw *RawConfig) SplitConfigs(worldState common.WorldState) (local LocalConnConfig, remote RemoteConnConfig, auth AuthInfo, err error) {
+func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local LocalConnConfig, remote RemoteConnConfig, auth AuthInfo, err error) {
 	nullErr := func(field string) (local LocalConnConfig, remote RemoteConnConfig, auth AuthInfo, err error) {
 		err = fmt.Errorf("%v cannot be empty", field)
 		return

@@ -131,7 +131,7 @@ func main() {
 		}
 	}
 
-	localConfig, remoteConfig, authInfo, err := rawConfig.SplitConfigs(common.RealWorldState)
+	localConfig, remoteConfig, authInfo, err := rawConfig.ProcessRawConfig(common.RealWorldState)
 	if err != nil {
 		log.Fatal(err)
 	}
