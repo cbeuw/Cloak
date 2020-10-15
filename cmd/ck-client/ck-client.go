@@ -169,20 +169,18 @@ func main() {
 		}
 	}
 
-	useSessionPerConnection := remoteConfig.NumConn == 0
-
 	if authInfo.Unordered {
 		acceptor := func() (*net.UDPConn, error) {
 			udpAddr, _ := net.ResolveUDPAddr("udp", localConfig.LocalAddr)
 			return net.ListenUDP("udp", udpAddr)
 		}
 
-		client.RouteUDP(acceptor, localConfig.Timeout, seshMaker, useSessionPerConnection)
+		client.RouteUDP(acceptor, localConfig.Timeout, seshMaker)
 	} else {
 		listener, err := net.Listen("tcp", localConfig.LocalAddr)
 		if err != nil {
 			log.Fatal(err)
 		}
-		client.RouteTCP(listener, localConfig.Timeout, seshMaker, useSessionPerConnection)
+		client.RouteTCP(listener, localConfig.Timeout, seshMaker)
 	}
 }

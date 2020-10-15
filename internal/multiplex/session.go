@@ -21,6 +21,7 @@ const (
 var ErrBrokenSession = errors.New("broken session")
 var errRepeatSessionClosing = errors.New("trying to close a closed session")
 var errRepeatStreamClosing = errors.New("trying to close a closed stream")
+var errNoMultiplex = errors.New("a singleplexing session can have only one stream")
 
 type switchboardStrategy int
 
@@ -30,6 +31,8 @@ type SessionConfig struct {
 	Valve
 
 	Unordered bool
+
+	Singleplex bool
 
 	MaxFrameSize      int // maximum size of the frame, including the header
 	SendBufferSize    int
@@ -125,6 +128,11 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 	}
 	id := atomic.AddUint32(&sesh.nextStreamID, 1) - 1
 	// Because atomic.AddUint32 returns the value after incrementation
+	if sesh.Singleplex && id > 1 {
+		// if there are more than one streams, which shouldn't happen if we are
+		// singleplexing
+		return nil, errNoMultiplex
+	}
 	stream := makeStream(sesh, id)
 	sesh.streams.Store(id, stream)
 	sesh.streamCountIncr()
@@ -177,8 +185,12 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 
 	sesh.streams.Store(s.id, nil) // id may or may not exist. if we use Delete(s.id) here it will panic
 	if sesh.streamCountDecr() == 0 {
-		log.Debugf("session %v has no active stream left", sesh.id)
-		go sesh.timeoutAfter(30 * time.Second)
+		if sesh.Singleplex {
+			return sesh.Close()
+		} else {
+			log.Debugf("session %v has no active stream left", sesh.id)
+			go sesh.timeoutAfter(30 * time.Second)
+		}
 	}
 	return nil
 }

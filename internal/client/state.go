@@ -40,6 +40,7 @@ type RawConfig struct {
 }
 
 type RemoteConnConfig struct {
+	Singleplex     bool
 	NumConn        int
 	KeepAlive      time.Duration
 	RemoteAddr     string
@@ -178,9 +179,12 @@ func (raw *RawConfig) SplitConfigs(worldState common.WorldState) (local LocalCon
 	}
 	remote.RemoteAddr = net.JoinHostPort(raw.RemoteHost, raw.RemotePort)
 	if raw.NumConn <= 0 {
-		raw.NumConn = 0
+		remote.NumConn = 1
+		remote.Singleplex = true
+	} else {
+		remote.NumConn = raw.NumConn
+		remote.Singleplex = false
 	}
-	remote.NumConn = raw.NumConn
 
 	// Transport and (if TLS mode), browser
 	switch strings.ToLower(raw.Transport) {
