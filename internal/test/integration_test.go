@@ -190,6 +190,8 @@ func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, a
 
 	var proxyToCkClientD common.Dialer
 	if ai.Unordered {
+		// We can only "dial" a single UDP connection as we can't send packets from different context
+		// to a single UDP listener
 		addrCh := make(chan *net.UDPAddr, 1)
 		mDialer := &mockUDPDialer{
 			addrCh: addrCh,
@@ -251,7 +253,7 @@ func runEchoTest(t *testing.T, conns []net.Conn, maxMsgLen int) {
 func TestUDP(t *testing.T) {
 	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
 	defer os.Remove(tmpDB.Name())
-	log.SetLevel(log.TraceLevel)
+	log.SetLevel(log.ErrorLevel)
 
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 	lcc, rcc, ai := generateClientConfigs(udpClientConfigs["basic"], worldState)
@@ -481,16 +483,19 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 				clientConn, _ := proxyToCkClientD.Dial("", "")
 				go func() {
 					clientConn.Write(testData)
-					// TODO: this is time dependent. It could be due to the time it took for this
-					// connutil.StreamPipe's Close to be reflected on the copy function, instead of inherent bad sync
-					// in multiplexer
-					time.Sleep(10 * time.Millisecond)
+					// it takes time for this written data to be copied asynchronously
+					// into ck-server's domain. If the pipe is closed before that, read
+					// by ck-client in RoutTCP will fail as we have closed it.
+					time.Sleep(delayBeforeTestingConnClose)
 					clientConn.Close()
 				}()
 
 				readBuf := make([]byte, len(testData))
-				serverConn, _ := proxyFromCkServerL.Accept()
-				_, err := io.ReadFull(serverConn, readBuf)
+				serverConn, err := proxyFromCkServerL.Accept()
+				if err != nil {
+					t.Errorf("failed to accept a connection delievering data sent before closing: %v", err)
+				}
+				_, err = io.ReadFull(serverConn, readBuf)
 				if err != nil {
 					t.Errorf("failed to read data sent before closing: %v", err)
 				}
