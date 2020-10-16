@@ -1,5 +1,8 @@
 image: golang:latest
 
+stages:
+  - fuzz
+
 include:
   - template: Coverage-Fuzzing.gitlab-ci.yml
 
