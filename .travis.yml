@@ -3,8 +3,25 @@ language: go
 go:
   - "1.14"
 
-script:
-  - go test -race -coverprofile=coverage.txt -coverpkg=./... -covermode=atomic ./...
+services:
+  - docker
 
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+env:
+  global:
+    secure: Iidyp9e/IdH26KxE1aQfrdTLPDKQlGndfEiGXAo6Kw57DP7AXeC99c6TxQv1AGK71Qtorufvps0FVYrfTWT86OXw6ncNWaaCNDicPg1Sy/PmljqpnC/2sfkOgZ0CFOnlfL2qxUIZoNi4r6BwaKrd2cffSaq8+kCr0LPWyRTZIE8Q67LoHVEcEJcnOOp887GxIAAj8KSYpN2qu1hBS/NN6znPUxToT3az11g9Ik88Ut9iQmbwVf56+QJD+kD/RMkwhw5FmZh8fj1JaeLw6IIxmKd5g1FuAIC4lRb7fkv+zRpApFfVsPgEOk425a/g1hk5cKox5m6qRrq+REngWam3TSiDsdpsNHT+nUmAbXCXOijC59yNYffQ05DLUugChtmqdWPfCoJfWaVPH5T8Kc610thcovQmIXrJyBeGJQSwzyZvSGoreyon2klk+2Dpp2XSqN9Htwkeldy0kibCPlRO7dR12rrMP8mASda0hTqK8TV2CV2LWdDVcJHmOh6KpWP+grwSKJh6NbxdCJKjSejNp7f39DsqiW5W36AQoA4iFewjG4IwCqtdlJQMLbnZrGmLBF/c6yJ6DUnJZp4p5DcOmMGFzggEPLs8kB1f/kYJ6HBgAGlLpJ+swhUtSPKyf0jQ7Of7zsjFOrC+MTyfrxyGckPpQm1RUrj7c6jwOwasbZo=
+
+jobs:
+  include:
+    - script: go test -race -coverprofile=coverage.txt -coverpkg=./... -covermode=atomic ./...
+    - after_success: bash <(curl -s https://codecov.io/bash)
+
+    - stage: Build, Unit-Tests & Fuzz-Tests
+      go: 1.14
+      script:
+        - ./fuzzit.sh local-regression
+
+    - stage: Fuzzit (Fuzzing)
+      if: branch = master AND type IN (push)
+      go: 1.14
+      script:
+        - ./fuzzit.sh fuzzing

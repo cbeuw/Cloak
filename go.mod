@@ -1,6 +1,6 @@
 module github.com/cbeuw/Cloak
 
-go 1.13
+go 1.14
 
 require (
 	github.com/cbeuw/connutil v0.0.0-20200411160121-c5a5c4a9de14
