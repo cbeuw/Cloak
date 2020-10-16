@@ -1,0 +1,13 @@
+image: golang:latest
+
+include:
+  - template: Coverage-Fuzzing.gitlab-ci.yml
+
+multiplex_fuzz:
+  extends: .fuzz_base
+  script:
+    - pushd internal/multiplex
+    - go-fuzz-build -libfuzzer -o multiplex_fuzz.a .
+    - clang -fsanitize=fuzzer multiplex_fuzz.a -o multiplex_fuzz
+    - popd
+    - ./gitlab-cov-fuzz run --regression=$REGRESSION -- ./internal/multiplex/multiplex_fuzz
