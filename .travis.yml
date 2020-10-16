@@ -12,16 +12,18 @@ env:
 
 jobs:
   include:
-    - script: go test -race -coverprofile=coverage.txt -coverpkg=./... -covermode=atomic ./...
-    - after_success: bash <(curl -s https://codecov.io/bash)
-
-    - stage: Build, Unit-Tests & Fuzz-Tests
-      go: 1.14
+    - stage: Build, Unit-Tests
       script:
+        - go test -race -coverprofile=coverage.txt -coverpkg=./... -covermode=atomic ./...
+        - bash <(curl -s https://codecov.io/bash)
+
+    - stage: Fuzz-Tests
+      script:
+        - chmod +x ./fuzzit.sh
         - ./fuzzit.sh local-regression
 
     - stage: Fuzzit (Fuzzing)
       if: branch = master AND type IN (push)
-      go: 1.14
       script:
+        - chmod +x ./fuzzit.sh
         - ./fuzzit.sh fuzzing
