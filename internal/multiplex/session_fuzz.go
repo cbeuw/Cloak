@@ -1,3 +1,5 @@
+// +build gofuzz
+
 package multiplex
 
 func setupSesh_fuzz(unordered bool) *Session {
