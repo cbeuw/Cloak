@@ -60,6 +60,7 @@ func decryptClientInfo(fragments authFragments, serverTime time.Time) (info Clie
 
 var ErrReplay = errors.New("duplicate random")
 var ErrBadProxyMethod = errors.New("invalid proxy method")
+var ErrBadDecryption = errors.New("decryption/authentication faliure")
 
 // AuthFirstPacket checks if the first packet of data is ClientHello or HTTP GET, and checks if it was from a Cloak client
 // if it is from a Cloak client, it returns the ClientInfo with the decrypted fields. It doesn't check if the user
@@ -79,7 +80,7 @@ func AuthFirstPacket(firstPacket []byte, transport Transport, sta *State) (info 
 	info, err = decryptClientInfo(fragments, sta.WorldState.Now())
 	if err != nil {
 		log.Debug(err)
-		err = fmt.Errorf("transport %v in correct format but not Cloak: %v", transport, err)
+		err = fmt.Errorf("%w: %v", ErrBadDecryption, err)
 		return
 	}
 	if _, ok := sta.ProxyBook[info.ProxyMethod]; !ok {
