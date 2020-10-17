@@ -16,7 +16,7 @@ import (
 
 var version string
 
-func parseBindAddr(bindAddrs []string) ([]net.Addr, error) {
+func resolveBindAddr(bindAddrs []string) ([]net.Addr, error) {
 	var addrs []net.Addr
 	for _, addr := range bindAddrs {
 		bindAddr, err := net.ResolveTCPAddr("tcp", addr)
@@ -26,6 +26,45 @@ func parseBindAddr(bindAddrs []string) ([]net.Addr, error) {
 		addrs = append(addrs, bindAddr)
 	}
 	return addrs, nil
+}
+
+// parse what shadowsocks server wants us to bind and harmonise it with what's already in bindAddr from
+// our own config's BindAddr. This prevents duplicate bindings etc.
+func parseSSBindAddr(ssRemoteHost string, ssRemotePort string, ckBindAddr *[]net.Addr) error {
+	var ssBind string
+	// When listening on an IPv6 and IPv4, SS gives REMOTE_HOST as e.g. ::|0.0.0.0
+	v4nv6 := len(strings.Split(ssRemoteHost, "|")) == 2
+	if v4nv6 {
+		ssBind = ":" + ssRemotePort
+	} else {
+		ssBind = net.JoinHostPort(ssRemoteHost, ssRemotePort)
+	}
+	ssBindAddr, err := net.ResolveTCPAddr("tcp", ssBind)
+	if err != nil {
+		return fmt.Errorf("unable to resolve bind address provided by SS: %v", err)
+	}
+
+	shouldAppend := true
+	for i, addr := range *ckBindAddr {
+		if addr.String() == ssBindAddr.String() {
+			shouldAppend = false
+		}
+		if addr.String() == ":"+ssRemotePort { // already listening on all interfaces
+			shouldAppend = false
+		}
+		if addr.String() == "0.0.0.0:"+ssRemotePort || addr.String() == "[::]:"+ssRemotePort {
+			// if config listens on one ip version but ss wants to listen on both,
+			// listen on both
+			if ssBindAddr.String() == ":"+ssRemotePort {
+				shouldAppend = true
+				(*ckBindAddr)[i] = ssBindAddr
+			}
+		}
+	}
+	if shouldAppend {
+		*ckBindAddr = append(*ckBindAddr, ssBindAddr)
+	}
+	return nil
 }
 
 func main() {
@@ -90,17 +129,20 @@ func main() {
 		log.Fatalf("Configuration file error: %v", err)
 	}
 
-	bindAddr, err := parseBindAddr(raw.BindAddr)
+	bindAddr, err := resolveBindAddr(raw.BindAddr)
 	if err != nil {
 		log.Fatalf("unable to parse BindAddr: %v", err)
 	}
+
+	// in case the user hasn't specified any local address to bind to, we listen on 443 and 80
 	if !pluginMode && len(bindAddr) == 0 {
 		https, _ := net.ResolveTCPAddr("tcp", ":443")
 		http, _ := net.ResolveTCPAddr("tcp", ":80")
 		bindAddr = []net.Addr{https, http}
 	}
 
-	// when cloak is started as a shadowsocks plugin
+	// when cloak is started as a shadowsocks plugin, we parse the address ss-server
+	// is listening on into ProxyBook, and we parse the list of bindAddr
 	if pluginMode {
 		ssLocalHost := os.Getenv("SS_LOCAL_HOST")
 		ssLocalPort := os.Getenv("SS_LOCAL_PORT")
@@ -108,38 +150,9 @@ func main() {
 
 		ssRemoteHost := os.Getenv("SS_REMOTE_HOST")
 		ssRemotePort := os.Getenv("SS_REMOTE_PORT")
-		var ssBind string
-		// When listening on an IPv6 and IPv4, SS gives REMOTE_HOST as e.g. ::|0.0.0.0
-		v4nv6 := len(strings.Split(ssRemoteHost, "|")) == 2
-		if v4nv6 {
-			ssBind = ":" + ssRemotePort
-		} else {
-			ssBind = net.JoinHostPort(ssRemoteHost, ssRemotePort)
-		}
-		ssBindAddr, err := net.ResolveTCPAddr("tcp", ssBind)
+		err = parseSSBindAddr(ssRemoteHost, ssRemotePort, &bindAddr)
 		if err != nil {
-			log.Fatalf("unable to resolve bind address provided by SS: %v", err)
-		}
-
-		shouldAppend := true
-		for i, addr := range bindAddr {
-			if addr.String() == ssBindAddr.String() {
-				shouldAppend = false
-			}
-			if addr.String() == ":"+ssRemotePort { // already listening on all interfaces
-				shouldAppend = false
-			}
-			if addr.String() == "0.0.0.0:"+ssRemotePort || addr.String() == "[::]:"+ssRemotePort {
-				// if config listens on one ip version but ss wants to listen on both,
-				// listen on both
-				if ssBindAddr.String() == ":"+ssRemotePort {
-					shouldAppend = true
-					bindAddr[i] = ssBindAddr
-				}
-			}
-		}
-		if shouldAppend {
-			bindAddr = append(bindAddr, ssBindAddr)
+			log.Fatalf("failed to parse SS_REMOTE_HOST and SS_REMOTE_PORT: %v", err)
 		}
 	}
 
@@ -161,6 +174,7 @@ func main() {
 		if i != len(bindAddr)-1 {
 			go listen(addr)
 		} else {
+			// we block the main goroutine here so it doesn't quit
 			listen(addr)
 		}
 	}
