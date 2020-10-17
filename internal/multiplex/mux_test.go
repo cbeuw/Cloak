@@ -51,8 +51,8 @@ func makeSessionPair(numConn int) (*Session, *Session, []*connPair) {
 	paris := make([]*connPair, numConn)
 	for i := 0; i < numConn; i++ {
 		c, s := connutil.AsyncPipe()
-		clientConn := &common.TLSConn{Conn: c}
-		serverConn := &common.TLSConn{Conn: s}
+		clientConn := common.NewTLSConn(c)
+		serverConn := common.NewTLSConn(s)
 		paris[i] = &connPair{
 			clientConn: clientConn,
 			serverConn: serverConn,

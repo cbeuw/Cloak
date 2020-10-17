@@ -71,7 +71,7 @@ func (tls *DirectTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey
 		return
 	}
 	log.Trace("client hello sent successfully")
-	tls.TLSConn = &common.TLSConn{Conn: rawConn}
+	tls.TLSConn = common.NewTLSConn(rawConn)
 
 	buf := make([]byte, 1024)
 	log.Trace("waiting for ServerHello")

@@ -132,8 +132,8 @@ func TestStream_WriteSync(t *testing.T) {
 	clientSesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
 	serverSesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
 	w, r := connutil.AsyncPipe()
-	clientSesh.AddConnection(&common.TLSConn{Conn: w})
-	serverSesh.AddConnection(&common.TLSConn{Conn: r})
+	clientSesh.AddConnection(common.NewTLSConn(w))
+	serverSesh.AddConnection(common.NewTLSConn(r))
 	testData := make([]byte, payloadLen)
 	rand.Read(testData)
 

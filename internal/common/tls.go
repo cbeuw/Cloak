@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -37,6 +38,15 @@ func AddRecordLayer(input []byte, typ byte, ver uint16) []byte {
 
 type TLSConn struct {
 	net.Conn
+	writeM   sync.Mutex
+	writeBuf []byte
+}
+
+func NewTLSConn(conn net.Conn) *TLSConn {
+	return &TLSConn{
+		Conn:     conn,
+		writeBuf: make([]byte, 15000),
+	}
 }
 
 func (tls *TLSConn) LocalAddr() net.Addr {
@@ -79,9 +89,16 @@ func (tls *TLSConn) Read(buffer []byte) (n int, err error) {
 }
 
 func (tls *TLSConn) Write(in []byte) (n int, err error) {
-	// TODO: write record layer directly first?
-	toWrite := AddRecordLayer(in, ApplicationData, VersionTLS13)
-	n, err = tls.Conn.Write(toWrite)
+	msgLen := len(in)
+	tls.writeM.Lock()
+	tls.writeBuf = append(tls.writeBuf[:5], in...)
+	tls.writeBuf[0] = ApplicationData
+	tls.writeBuf[1] = byte(VersionTLS13 >> 8)
+	tls.writeBuf[2] = byte(VersionTLS13 & 0xFF)
+	tls.writeBuf[3] = byte(msgLen >> 8)
+	tls.writeBuf[4] = byte(msgLen & 0xFF)
+	n, err = tls.Conn.Write(tls.writeBuf[:recordLayerLength+msgLen])
+	tls.writeM.Unlock()
 	return n - recordLayerLength, err
 }
 

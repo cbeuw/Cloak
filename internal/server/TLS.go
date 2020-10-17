@@ -65,7 +65,7 @@ func (TLS) makeResponder(clientHelloSessionId []byte, sharedSecret [32]byte) Res
 			originalConn.Close()
 			return
 		}
-		preparedConn = &common.TLSConn{Conn: originalConn}
+		preparedConn = common.NewTLSConn(originalConn)
 		return
 	}
 	return respond
