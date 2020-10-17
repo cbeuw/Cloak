@@ -32,11 +32,26 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/rand"
+	"io"
 	"testing"
 )
 
 func TestCurve25519(t *testing.T) {
 	testECDH(t)
+}
+
+func TestErrors(t *testing.T) {
+	reader, writer := io.Pipe()
+	_ = writer.Close()
+	_, _, err := GenerateKey(reader)
+	if err == nil {
+		t.Error("GenerateKey should return error")
+	}
+
+	_, ok := Unmarshal([]byte{1})
+	if ok {
+		t.Error("Unmarshal should return false")
+	}
 }
 
 func BenchmarkCurve25519(b *testing.B) {
