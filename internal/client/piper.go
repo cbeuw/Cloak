@@ -44,7 +44,7 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 
 			streams[addr.String()] = stream
 			proxyAddr := addr
-			go func() {
+			go func(stream *mux.Stream, localConn *net.UDPConn) {
 				buf := make([]byte, 8192)
 				for {
 					n, err := stream.Read(buf)
@@ -61,7 +61,7 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 						return
 					}
 				}
-			}()
+			}(stream, localConn)
 		}
 
 		_, err = stream.Write(data[:i])
@@ -85,7 +85,7 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, newSeshFunc fu
 		if sesh == nil || sesh.IsClosed() || sesh.Singleplex {
 			sesh = newSeshFunc()
 		}
-		go func() {
+		go func(sesh *mux.Session, localConn net.Conn) {
 			data := make([]byte, 10240)
 			i, err := io.ReadAtLeast(localConn, data, 1)
 			if err != nil {
@@ -121,7 +121,7 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, newSeshFunc fu
 			if _, err = common.Copy(stream, localConn); err != nil {
 				log.Tracef("copying proxy client to stream: %v", err)
 			}
-		}()
+		}(sesh, localConn)
 	}
 
 }

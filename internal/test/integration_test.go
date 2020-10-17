@@ -108,7 +108,9 @@ var basicTCPConfig = client.RawConfig{
 	RemotePort:       "9999",
 	LocalHost:        "127.0.0.1",
 	LocalPort:        "9999",
+	BrowserSig:       "firefox",
 }
+
 var singleplexTCPConfig = client.RawConfig{
 	ServerName:       "www.example.com",
 	ProxyMethod:      "shadowsocks",
@@ -122,6 +124,7 @@ var singleplexTCPConfig = client.RawConfig{
 	RemotePort:       "9999",
 	LocalHost:        "127.0.0.1",
 	LocalPort:        "9999",
+	BrowserSig:       "chrome",
 }
 
 func generateClientConfigs(rawConfig client.RawConfig, state common.WorldState) (client.LocalConnConfig, client.RemoteConnConfig, client.AuthInfo) {
@@ -327,14 +330,7 @@ func TestTCPSingleplex(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = proxyConn1.Write([]byte("hello"))
-	if err != nil {
-		t.Error(err)
-	}
-
-	// make sure the server has accepted the connection before fetching the server
-	proxyConn1.Read(make([]byte, 10))
-
+	runEchoTest(t, []net.Conn{proxyConn1}, 65536)
 	user, err := sta.Panel.GetUser(ai.UID[:])
 	if err != nil {
 		t.Fatalf("failed to fetch user: %v", err)
@@ -348,18 +344,32 @@ func TestTCPSingleplex(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	proxyConn2.Write([]byte("hello"))
-	// make sure the server has accepted the connection before fetching the server
-	proxyConn2.Read(make([]byte, 10))
+	runEchoTest(t, []net.Conn{proxyConn2}, 65536)
 	if user.NumSession() != 2 {
 		t.Error("no extra session were made on second connection establishment")
 	}
+
+	// Both conns should work
+	runEchoTest(t, []net.Conn{proxyConn1, proxyConn2}, 65536)
 
 	proxyConn1.Close()
 	time.Sleep(delayBeforeTestingConnClose)
 	if user.NumSession() != 1 {
 		t.Error("first session was not closed on connection close")
 	}
+
+	// conn2 should still work
+	runEchoTest(t, []net.Conn{proxyConn2}, 65536)
+
+	var conns [numConns]net.Conn
+	for i := 0; i < numConns; i++ {
+		conns[i], err = proxyToCkClientD.Dial("", "")
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	runEchoTest(t, conns[:], 65536)
 
 }
 
