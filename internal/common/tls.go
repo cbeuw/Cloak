@@ -24,11 +24,7 @@ func AddRecordLayer(input []byte, typ byte, ver uint16) []byte {
 	msgLen := len(input)
 	retLen := msgLen + recordLayerLength
 	var ret []byte
-	if cap(input) >= retLen {
-		ret = input[:retLen]
-	} else {
-		ret = make([]byte, retLen)
-	}
+	ret = make([]byte, retLen)
 	copy(ret[recordLayerLength:], input)
 	ret[0] = typ
 	ret[1] = byte(ver >> 8)
