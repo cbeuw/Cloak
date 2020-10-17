@@ -528,9 +528,10 @@ func BenchmarkThroughput(b *testing.B) {
 				b.Fatal(err)
 			}
 
-			b.Run("single conn", func(b *testing.B) {
+			b.Run("single stream", func(b *testing.B) {
 				more := make(chan int, 10)
 				go func() {
+					// sender
 					writeBuf := make([]byte, bufSize+100)
 					serverConn, _ := proxyFromCkServerL.Accept()
 					for {
@@ -538,6 +539,7 @@ func BenchmarkThroughput(b *testing.B) {
 						<-more
 					}
 				}()
+				// receiver
 				clientConn, _ := proxyToCkClientD.Dial("", "")
 				readBuf := make([]byte, bufSize)
 				clientConn.Write([]byte{1}) // to make server accept
@@ -545,6 +547,7 @@ func BenchmarkThroughput(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
 					io.ReadFull(clientConn, readBuf)
+					// ask for more
 					more <- 0
 				}
 			})

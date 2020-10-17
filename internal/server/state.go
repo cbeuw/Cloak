@@ -111,6 +111,7 @@ func parseProxyBook(bookEntries map[string][]string) (map[string]net.Addr, error
 	return proxyBook, nil
 }
 
+// ParseConfig reads the config file or semicolon-separated options and parse them into a RawConfig
 func ParseConfig(conf string) (raw RawConfig, err error) {
 	content, errPath := ioutil.ReadFile(conf)
 	if errPath != nil {
@@ -132,7 +133,7 @@ func ParseConfig(conf string) (raw RawConfig, err error) {
 	return
 }
 
-// ParseConfig parses the config (either a path to json or the json itself as argument) into a State variable
+// InitState process the RawConfig and initialises a server State accordingly
 func InitState(preParse RawConfig, worldState common.WorldState) (sta *State, err error) {
 	sta = &State{
 		BypassUID:   make(map[[16]byte]struct{}),
