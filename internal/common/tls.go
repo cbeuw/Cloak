@@ -20,23 +20,23 @@ const (
 	initialWriteBufSize = 14336
 )
 
-//func AddRecordLayer(input []byte, typ byte, ver uint16) []byte {
-//	msgLen := len(input)
-//	retLen := msgLen + recordLayerLength
-//	var ret []byte
-//	if cap(input) >= retLen {
-//		ret = input[:retLen]
-//	} else {
-//		ret = make([]byte, retLen)
-//	}
-//	copy(ret[recordLayerLength:], input)
-//	ret[0] = typ
-//	ret[1] = byte(ver >> 8)
-//	ret[2] = byte(ver)
-//	ret[3] = byte(msgLen >> 8)
-//	ret[4] = byte(msgLen)
-//	return ret
-//}
+func AddRecordLayer(input []byte, typ byte, ver uint16) []byte {
+	msgLen := len(input)
+	retLen := msgLen + recordLayerLength
+	var ret []byte
+	if cap(input) >= retLen {
+		ret = input[:retLen]
+	} else {
+		ret = make([]byte, retLen)
+	}
+	copy(ret[recordLayerLength:], input)
+	ret[0] = typ
+	ret[1] = byte(ver >> 8)
+	ret[2] = byte(ver)
+	ret[3] = byte(msgLen >> 8)
+	ret[4] = byte(msgLen)
+	return ret
+}
 
 type TLSConn struct {
 	net.Conn
