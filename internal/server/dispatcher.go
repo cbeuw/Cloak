@@ -191,21 +191,20 @@ func dispatchConnection(conn net.Conn, sta *State) {
 	// added to the userinfo database. The distinction between going into the admin mode
 	// and normal proxy mode is that sessionID needs == 0 for admin mode
 	if bytes.Equal(ci.UID, sta.AdminUID) && ci.SessionId == 0 {
+		sesh := mux.MakeSession(0, seshConfig)
 		preparedConn, err := finishHandshake(conn, sessionKey, sta.WorldState.Rand)
 		if err != nil {
 			log.Error(err)
 			return
 		}
 		log.Trace("finished handshake")
-		sesh := mux.MakeSession(0, seshConfig)
 		sesh.AddConnection(preparedConn)
 		//TODO: Router could be nil in cnc mode
 		log.WithField("remoteAddr", preparedConn.RemoteAddr()).Info("New admin session")
 		err = http.Serve(sesh, usermanager.APIRouterOf(sta.Panel.Manager))
-		if err != nil {
-			log.Error(err)
-			return
-		}
+		// http.Serve never returns with non-nil error
+		log.Error(err)
+		return
 	}
 
 	var user *ActiveUser
@@ -231,30 +230,26 @@ func dispatchConnection(conn net.Conn, sta *State) {
 		return
 	}
 
-	if existing {
-		preparedConn, err := finishHandshake(conn, sesh.SessionKey, sta.WorldState.Rand)
-		if err != nil {
-			log.Error(err)
-			return
-		}
-		log.Trace("finished handshake")
-		sesh.AddConnection(preparedConn)
-		return
-	}
-
-	preparedConn, err := finishHandshake(conn, sessionKey, sta.WorldState.Rand)
+	preparedConn, err := finishHandshake(conn, sesh.SessionKey, sta.WorldState.Rand)
 	if err != nil {
 		log.Error(err)
 		return
 	}
 	log.Trace("finished handshake")
-
-	log.WithFields(log.Fields{
-		"UID":       b64(ci.UID),
-		"sessionID": ci.SessionId,
-	}).Info("New session")
 	sesh.AddConnection(preparedConn)
 
+	if !existing {
+		// if the session was newly made, we serve connections from the session streams to the proxy server
+		log.WithFields(log.Fields{
+			"UID":       b64(ci.UID),
+			"sessionID": ci.SessionId,
+		}).Info("New session")
+
+		serveSession(sesh, ci, user, sta)
+	}
+}
+
+func serveSession(sesh *mux.Session, ci ClientInfo, user *ActiveUser, sta *State) error {
 	for {
 		newStream, err := sesh.Accept()
 		if err != nil {
@@ -265,9 +260,9 @@ func dispatchConnection(conn net.Conn, sta *State) {
 					"reason":    sesh.TerminalMsg(),
 				}).Info("Session closed")
 				user.CloseSession(ci.SessionId, "")
-				return
+				return nil
 			} else {
-				// TODO: other errors
+				log.Errorf("unhandled error on session.Accept(): %v", err)
 				continue
 			}
 		}
@@ -276,7 +271,7 @@ func dispatchConnection(conn net.Conn, sta *State) {
 		if err != nil {
 			log.Errorf("Failed to connect to %v: %v", ci.ProxyMethod, err)
 			user.CloseSession(ci.SessionId, "Failed to connect to proxy server")
-			continue
+			return err
 		}
 		log.Tracef("%v endpoint has been successfully connected", ci.ProxyMethod)
 
@@ -294,5 +289,4 @@ func dispatchConnection(conn net.Conn, sta *State) {
 			}
 		}()
 	}
-
 }
