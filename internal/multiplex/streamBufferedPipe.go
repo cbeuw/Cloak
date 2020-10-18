@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-const BUF_SIZE_LIMIT = 1 << 20 * 500
-
 // The point of a streamBufferedPipe is that Read() will block until data is available
 type streamBufferedPipe struct {
 	// only alloc when on first Read or Write
@@ -105,7 +103,7 @@ func (p *streamBufferedPipe) Write(input []byte) (int, error) {
 		if p.closed {
 			return 0, io.ErrClosedPipe
 		}
-		if p.buf.Len() <= BUF_SIZE_LIMIT {
+		if p.buf.Len() <= recvBufferSizeLimit {
 			// if p.buf gets too large, write() will panic. We don't want this to happen
 			break
 		}

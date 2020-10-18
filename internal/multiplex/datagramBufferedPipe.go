@@ -13,7 +13,8 @@ import (
 // instead of byte-oriented. The integrity of datagrams written into this buffer is preserved.
 // it won't get chopped up into individual bytes
 type datagramBufferedPipe struct {
-	pLens     []int
+	pLens []int
+	// lazily allocated
 	buf       *bytes.Buffer
 	closed    bool
 	rwCond    *sync.Cond
@@ -114,7 +115,7 @@ func (d *datagramBufferedPipe) Write(f Frame) (toBeClosed bool, err error) {
 		if d.closed {
 			return true, io.ErrClosedPipe
 		}
-		if d.buf.Len() <= BUF_SIZE_LIMIT {
+		if d.buf.Len() <= recvBufferSizeLimit {
 			// if d.buf gets too large, write() will panic. We don't want this to happen
 			break
 		}

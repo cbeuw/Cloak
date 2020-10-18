@@ -21,3 +21,8 @@ type recvBuffer interface {
 	// has been written for a while. After that duration it should return ErrTimeout
 	SetWriteToTimeout(d time.Duration)
 }
+
+// size we want the amount of unread data in buffer to grow before recvBuffer.Write blocks.
+// If the buffer grows larger than what the system's memory can offer at the time of recvBuffer.Write,
+// a panic will happen.
+const recvBufferSizeLimit = defaultSendRecvBufSize << 12
