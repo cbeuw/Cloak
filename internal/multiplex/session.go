@@ -166,7 +166,7 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		}
 		s.nextSendSeq++
 
-		obfsBuf := make([]byte, len(padding)+64)
+		obfsBuf := make([]byte, len(padding)+HEADER_LEN+sesh.Obfuscator.maxOverhead)
 		i, err := sesh.Obfs(f, obfsBuf, 0)
 		if err != nil {
 			return err
@@ -180,7 +180,8 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		log.Tracef("stream %v passively closed", s.id)
 	}
 
-	sesh.streams.Store(s.id, nil) // id may or may not exist. if we use Delete(s.id) here it will panic
+	// id may or may not exist as this is user input, if we use Delete(s.id) here it will panic
+	sesh.streams.Store(s.id, nil)
 	if sesh.streamCountDecr() == 0 {
 		if sesh.Singleplex {
 			return sesh.Close()
@@ -276,6 +277,7 @@ func (sesh *Session) Close() error {
 	}
 	sesh.acceptCh <- nil
 
+	// close all streams
 	sesh.streams.Range(func(key, streamI interface{}) bool {
 		if streamI == nil {
 			return true
@@ -296,7 +298,7 @@ func (sesh *Session) Close() error {
 		Closing:  C_SESSION,
 		Payload:  pad,
 	}
-	obfsBuf := make([]byte, len(pad)+64)
+	obfsBuf := make([]byte, len(pad)+HEADER_LEN+sesh.Obfuscator.maxOverhead)
 	i, err := sesh.Obfs(f, obfsBuf, 0)
 	if err != nil {
 		return err
