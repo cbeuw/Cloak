@@ -20,6 +20,7 @@ var putU32 = binary.BigEndian.PutUint32
 var putU64 = binary.BigEndian.PutUint64
 
 const HEADER_LEN = 14
+const salsa20NonceSize = 8
 
 const (
 	E_METHOD_PLAIN = iota
@@ -54,14 +55,14 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 		}
 		var extraLen int
 		if payloadCipher == nil {
-			extraLen = 8 - payloadLen
+			extraLen = salsa20NonceSize - payloadLen
 			if extraLen < 0 {
 				// if our payload is already greater than 8 bytes
 				extraLen = 0
 			}
 		} else {
 			extraLen = payloadCipher.Overhead()
-			if extraLen < 8 {
+			if extraLen < salsa20NonceSize {
 				return 0, errors.New("AEAD's Overhead cannot be fewer than 8 bytes")
 			}
 		}
@@ -89,10 +90,10 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 				common.CryptoRandRead(extra)
 			}
 		} else {
-			payloadCipher.Seal(payload[:0], header[:12], payload, nil)
+			payloadCipher.Seal(payload[:0], header[:payloadCipher.NonceSize()], payload, nil)
 		}
 
-		nonce := buf[usefulLen-8 : usefulLen]
+		nonce := buf[usefulLen-salsa20NonceSize : usefulLen]
 		salsa20.XORKeyStream(header, header, nonce, &salsaKey)
 
 		return usefulLen, nil
@@ -105,7 +106,7 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 // information and plaintext
 func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 	// stream header length + minimum data size (i.e. nonce size of salsa20)
-	const minInputLen = HEADER_LEN + 8
+	const minInputLen = HEADER_LEN + salsa20NonceSize
 	deobfs := func(in []byte) (*Frame, error) {
 		if len(in) < minInputLen {
 			return nil, fmt.Errorf("input size %v, but it cannot be shorter than %v bytes", len(in), minInputLen)
@@ -114,7 +115,7 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 		header := in[:HEADER_LEN]
 		pldWithOverHead := in[HEADER_LEN:] // payload + potential overhead
 
-		nonce := in[len(in)-8:]
+		nonce := in[len(in)-salsa20NonceSize:]
 		salsa20.XORKeyStream(header, header, nonce, &salsaKey)
 
 		streamID := u32(header[0:4])
@@ -136,7 +137,7 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 				outputPayload = pldWithOverHead[:usefulPayloadLen]
 			}
 		} else {
-			_, err := payloadCipher.Open(pldWithOverHead[:0], header[:12], pldWithOverHead, nil)
+			_, err := payloadCipher.Open(pldWithOverHead[:0], header[:payloadCipher.NonceSize()], pldWithOverHead, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -162,7 +163,7 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator Obfu
 	switch encryptionMethod {
 	case E_METHOD_PLAIN:
 		payloadCipher = nil
-		obfuscator.maxOverhead = 0
+		obfuscator.maxOverhead = salsa20NonceSize
 	case E_METHOD_AES_GCM:
 		var c cipher.Block
 		c, err = aes.NewCipher(sessionKey[:])

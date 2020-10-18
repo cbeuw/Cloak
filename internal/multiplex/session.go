@@ -271,7 +271,7 @@ func (sesh *Session) passiveClose() error {
 func genRandomPadding() []byte {
 	lenB := make([]byte, 1)
 	common.CryptoRandRead(lenB)
-	pad := make([]byte, lenB[0])
+	pad := make([]byte, lenB[0]+1)
 	common.CryptoRandRead(pad)
 	return pad
 }
