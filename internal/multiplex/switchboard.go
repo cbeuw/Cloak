@@ -14,12 +14,6 @@ const (
 	UNIFORM_SPREAD
 )
 
-type switchboardConfig struct {
-	valve          Valve
-	strategy       switchboardStrategy
-	recvBufferSize int
-}
-
 // switchboard is responsible for managing TCP connections between client and server.
 // It has several purposes: constantly receiving incoming data from all connections
 // and pass them to Session.recvDataFromRemote(); accepting data through
@@ -29,8 +23,10 @@ type switchboardConfig struct {
 type switchboard struct {
 	session *Session
 
-	switchboardConfig
+	valve    Valve
+	strategy switchboardStrategy
 
+	// map of connId to net.Conn
 	conns      sync.Map
 	numConns   uint32
 	nextConnId uint32
@@ -38,13 +34,19 @@ type switchboard struct {
 	broken uint32
 }
 
-func makeSwitchboard(sesh *Session, config switchboardConfig) *switchboard {
-	// rates are uint64 because in the usermanager we want the bandwidth to be atomically
-	// operated (so that the bandwidth can change on the fly).
+func makeSwitchboard(sesh *Session) *switchboard {
+	var strategy switchboardStrategy
+	if sesh.Unordered {
+		log.Debug("Connection is unordered")
+		strategy = UNIFORM_SPREAD
+	} else {
+		strategy = FIXED_CONN_MAPPING
+	}
 	sb := &switchboard{
-		session:           sesh,
-		switchboardConfig: config,
-		nextConnId:        1,
+		session:    sesh,
+		strategy:   strategy,
+		valve:      sesh.Valve,
+		nextConnId: 1,
 	}
 	return sb
 }
@@ -156,7 +158,7 @@ func (sb *switchboard) closeAll() {
 // deplex function costantly reads from a TCP connection
 func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, sb.recvBufferSize)
+	buf := make([]byte, sb.session.ConnReceiveBufferSize)
 	for {
 		n, err := conn.Read(buf)
 		sb.valve.rxWait(n)

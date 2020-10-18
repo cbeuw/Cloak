@@ -27,9 +27,12 @@ type Stream struct {
 	// atomic
 	closed uint32
 
-	// only alloc when writing to the stream
+	// lazy allocation for obfsBuf. This is desirable because obfsBuf is only used when data is sent from
+	// the stream (through Write or ReadFrom). Some streams never send data so eager allocation will waste
+	// memory
 	allocIdempot sync.Once
-	obfsBuf      []byte
+	// obfuscation happens in this buffer
+	obfsBuf []byte
 
 	// we assign each stream a fixed underlying TCP connection to utilise order guarantee provided by TCP itself
 	// so that frameSorter should have few to none ooo frames to deal with
@@ -59,7 +62,8 @@ func makeStream(sesh *Session, id uint32) *Stream {
 
 func (s *Stream) isClosed() bool { return atomic.LoadUint32(&s.closed) == 1 }
 
-func (s *Stream) writeFrame(frame Frame) error {
+// receive a readily deobfuscated Frame so its payload can later be Read
+func (s *Stream) recvFrame(frame Frame) error {
 	toBeClosed, err := s.recvBuf.Write(frame)
 	if toBeClosed {
 		err = s.passiveClose()
@@ -125,7 +129,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 	}
 
 	if s.obfsBuf == nil {
-		s.obfsBuf = make([]byte, s.session.SendBufferSize)
+		s.obfsBuf = make([]byte, s.session.StreamSendBufferSize)
 	}
 	for n < len(in) {
 		var framePayload []byte
@@ -156,7 +160,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 
 func (s *Stream) ReadFrom(r io.Reader) (n int64, err error) {
 	if s.obfsBuf == nil {
-		s.obfsBuf = make([]byte, s.session.SendBufferSize)
+		s.obfsBuf = make([]byte, s.session.StreamSendBufferSize)
 	}
 	for {
 		if s.rfTimeout != 0 {
@@ -204,16 +208,17 @@ func (s *Stream) Close() error {
 	return s.session.closeStream(s, true)
 }
 
-// the following functions are purely for implementing net.Conn interface.
-// they are not used
-var errNotImplemented = errors.New("Not implemented")
-
 func (s *Stream) LocalAddr() net.Addr  { return s.session.addrs.Load().([]net.Addr)[0] }
 func (s *Stream) RemoteAddr() net.Addr { return s.session.addrs.Load().([]net.Addr)[1] }
 
 // TODO: implement the following
-func (s *Stream) SetDeadline(t time.Time) error      { return errNotImplemented }
 func (s *Stream) SetWriteToTimeout(d time.Duration)  { s.recvBuf.SetWriteToTimeout(d) }
 func (s *Stream) SetReadDeadline(t time.Time) error  { s.recvBuf.SetReadDeadline(t); return nil }
 func (s *Stream) SetReadFromTimeout(d time.Duration) { s.rfTimeout = d }
+
+// the following functions are purely for implementing net.Conn interface.
+// they are not used
+var errNotImplemented = errors.New("Not implemented")
+
+func (s *Stream) SetDeadline(t time.Time) error      { return errNotImplemented }
 func (s *Stream) SetWriteDeadline(t time.Time) error { return errNotImplemented }

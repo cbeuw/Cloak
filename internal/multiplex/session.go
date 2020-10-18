@@ -34,10 +34,14 @@ type SessionConfig struct {
 
 	Singleplex bool
 
-	// maximum size of Frame.Payload
-	MaxFrameSize      int
-	SendBufferSize    int
-	ReceiveBufferSize int
+	// maximum size of an obfuscated frame, including headers and overhead
+	MsgOnWireSizeLimit int
+
+	// this sets the buffer size used to send data from a Stream (Stream.obfsBuf)
+	StreamSendBufferSize int
+	// this sets the buffer size used to receive data from an underlying Conn (allocated in
+	// switchboard.deplex)
+	ConnReceiveBufferSize int
 }
 
 type Session struct {
@@ -66,6 +70,7 @@ type Session struct {
 	terminalMsg atomic.Value
 
 	// the max size passed to Write calls before it splits it into multiple frames
+	// i.e. the max size a piece of data can fit into a Frame.Payload
 	maxStreamUnitWrite int
 }
 
@@ -81,29 +86,19 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	if config.Valve == nil {
 		sesh.Valve = UNLIMITED_VALVE
 	}
-	if config.SendBufferSize <= 0 {
-		sesh.SendBufferSize = defaultSendRecvBufSize
+	if config.StreamSendBufferSize <= 0 {
+		sesh.StreamSendBufferSize = defaultSendRecvBufSize
 	}
-	if config.ReceiveBufferSize <= 0 {
-		sesh.ReceiveBufferSize = defaultSendRecvBufSize
+	if config.ConnReceiveBufferSize <= 0 {
+		sesh.ConnReceiveBufferSize = defaultSendRecvBufSize
 	}
-	if config.MaxFrameSize <= 0 {
-		sesh.MaxFrameSize = defaultSendRecvBufSize - 1024
+	if config.MsgOnWireSizeLimit <= 0 {
+		sesh.MsgOnWireSizeLimit = defaultSendRecvBufSize - 1024
 	}
-	// todo: validation. this must be smaller than the buffer sizes
-	sesh.maxStreamUnitWrite = sesh.MaxFrameSize - HEADER_LEN - sesh.Obfuscator.maxOverhead
+	// todo: validation. this must be smaller than StreamSendBufferSize
+	sesh.maxStreamUnitWrite = sesh.MsgOnWireSizeLimit - HEADER_LEN - sesh.Obfuscator.maxOverhead
 
-	sbConfig := switchboardConfig{
-		valve:          sesh.Valve,
-		recvBufferSize: sesh.ReceiveBufferSize,
-	}
-	if sesh.Unordered {
-		log.Debug("Connection is unordered")
-		sbConfig.strategy = UNIFORM_SPREAD
-	} else {
-		sbConfig.strategy = FIXED_CONN_MAPPING
-	}
-	sesh.sb = makeSwitchboard(sesh, sbConfig)
+	sesh.sb = makeSwitchboard(sesh)
 	go sesh.timeoutAfter(30 * time.Second)
 	return sesh
 }
@@ -218,12 +213,12 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 			// this is when the stream existed before but has since been closed. We do nothing
 			return nil
 		}
-		return existingStreamI.(*Stream).writeFrame(*frame)
+		return existingStreamI.(*Stream).recvFrame(*frame)
 	} else {
 		// new stream
 		sesh.streamCountIncr()
 		sesh.acceptCh <- newStream
-		return newStream.writeFrame(*frame)
+		return newStream.recvFrame(*frame)
 	}
 }
 

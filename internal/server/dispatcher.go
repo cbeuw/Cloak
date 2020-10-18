@@ -181,10 +181,10 @@ func dispatchConnection(conn net.Conn, sta *State) {
 	}
 
 	seshConfig := mux.SessionConfig{
-		Obfuscator:   obfuscator,
-		Valve:        nil,
-		Unordered:    ci.Unordered,
-		MaxFrameSize: appDataMaxLength,
+		Obfuscator:         obfuscator,
+		Valve:              nil,
+		Unordered:          ci.Unordered,
+		MsgOnWireSizeLimit: appDataMaxLength,
 	}
 
 	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
