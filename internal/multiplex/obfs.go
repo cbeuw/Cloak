@@ -185,6 +185,12 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator Obfu
 		return obfuscator, errors.New("Unknown encryption method")
 	}
 
+	if payloadCipher != nil {
+		if payloadCipher.NonceSize() > HEADER_LEN {
+			return obfuscator, errors.New("payload AEAD's nonce size cannot be greater than size of frame header")
+		}
+	}
+
 	obfuscator.Obfs = MakeObfs(sessionKey, payloadCipher)
 	obfuscator.Deobfs = MakeDeobfs(sessionKey, payloadCipher)
 	return
