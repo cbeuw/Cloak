@@ -150,10 +150,8 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-
 	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 	seshConfigOrdered.Obfuscator = obfuscator
-
 	sesh := MakeSession(0, seshConfigOrdered)
 
 	f1 := &Frame{
@@ -281,10 +279,8 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-
 	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 	seshConfigOrdered.Obfuscator = obfuscator
-
 	sesh := MakeSession(0, seshConfigOrdered)
 
 	// receive stream 1 closing first
@@ -336,11 +332,8 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 }
 
 func TestParallelStreams(t *testing.T) {
-	rand.Seed(0)
-
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-
 	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
 	seshConfigOrdered.Obfuscator = obfuscator
 	sesh := MakeSession(0, seshConfigOrdered)
@@ -442,6 +435,19 @@ func TestStream_SetReadDeadline(t *testing.T) {
 	sesh = MakeSession(0, seshConfigUnordered)
 	sesh.AddConnection(connutil.Discard())
 	testReadDeadline(sesh)
+}
+
+func TestSession_timeoutAfter(t *testing.T) {
+	var sessionKey [32]byte
+	rand.Read(sessionKey[:])
+	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
+	seshConfigOrdered.Obfuscator = obfuscator
+	seshConfigOrdered.InactivityTimeout = 100 * time.Millisecond
+	sesh := MakeSession(0, seshConfigOrdered)
+	time.Sleep(200 * time.Millisecond)
+	if !sesh.IsClosed() {
+		t.Error("session should have timed out")
+	}
 }
 
 func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {

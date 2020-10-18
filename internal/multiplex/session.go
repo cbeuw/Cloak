@@ -15,7 +15,8 @@ import (
 const (
 	acceptBacklog = 1024
 	// TODO: will this be a signature?
-	defaultSendRecvBufSize = 20480
+	defaultSendRecvBufSize   = 20480
+	defaultInactivityTimeout = 30 * time.Second
 )
 
 var ErrBrokenSession = errors.New("broken session")
@@ -37,11 +38,14 @@ type SessionConfig struct {
 	// maximum size of an obfuscated frame, including headers and overhead
 	MsgOnWireSizeLimit int
 
-	// this sets the buffer size used to send data from a Stream (Stream.obfsBuf)
+	// StreamSendBufferSize sets the buffer size used to send data from a Stream (Stream.obfsBuf)
 	StreamSendBufferSize int
-	// this sets the buffer size used to receive data from an underlying Conn (allocated in
+	// ConnReceiveBufferSize sets the buffer size used to receive data from an underlying Conn (allocated in
 	// switchboard.deplex)
 	ConnReceiveBufferSize int
+
+	// InactivityTimeout sets the duration a Session waits while it has no active streams before it closes itself
+	InactivityTimeout time.Duration
 }
 
 type Session struct {
@@ -95,11 +99,14 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	if config.MsgOnWireSizeLimit <= 0 {
 		sesh.MsgOnWireSizeLimit = defaultSendRecvBufSize - 1024
 	}
+	if config.InactivityTimeout == 0 {
+		sesh.InactivityTimeout = defaultInactivityTimeout
+	}
 	// todo: validation. this must be smaller than StreamSendBufferSize
 	sesh.maxStreamUnitWrite = sesh.MsgOnWireSizeLimit - HEADER_LEN - sesh.Obfuscator.maxOverhead
 
 	sesh.sb = makeSwitchboard(sesh)
-	go sesh.timeoutAfter(30 * time.Second)
+	go sesh.timeoutAfter(sesh.InactivityTimeout)
 	return sesh
 }
 
@@ -187,7 +194,7 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 			return sesh.Close()
 		} else {
 			log.Debugf("session %v has no active stream left", sesh.id)
-			go sesh.timeoutAfter(30 * time.Second)
+			go sesh.timeoutAfter(sesh.InactivityTimeout)
 		}
 	}
 	return nil
