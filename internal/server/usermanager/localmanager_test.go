@@ -25,28 +25,29 @@ var mockUserInfo = UserInfo{
 	ExpiryTime:  100,
 }
 
-func TestLocalManager_WriteUserInfo(t *testing.T) {
+func makeManager(t *testing.T) (mgr *localManager, cleaner func()) {
 	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
-	defer os.Remove(tmpDB.Name())
+	cleaner = func() { os.Remove(tmpDB.Name()) }
 	mgr, err := MakeLocalManager(tmpDB.Name(), mockWorldState)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return mgr, cleaner
+}
 
-	err = mgr.WriteUserInfo(mockUserInfo)
+func TestLocalManager_WriteUserInfo(t *testing.T) {
+	mgr, cleaner := makeManager(t)
+	defer cleaner()
 
+	err := mgr.WriteUserInfo(mockUserInfo)
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func TestLocalManager_GetUserInfo(t *testing.T) {
-	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
-	defer os.Remove(tmpDB.Name())
-	mgr, err := MakeLocalManager(tmpDB.Name(), mockWorldState)
-	if err != nil {
-		t.Fatal(err)
-	}
+	mgr, cleaner := makeManager(t)
+	defer cleaner()
 
 	t.Run("simple fetch", func(t *testing.T) {
 		_ = mgr.WriteUserInfo(mockUserInfo)
@@ -64,7 +65,7 @@ func TestLocalManager_GetUserInfo(t *testing.T) {
 		updatedUserInfo := mockUserInfo
 		updatedUserInfo.SessionsCap = mockUserInfo.SessionsCap + 1
 
-		err = mgr.WriteUserInfo(updatedUserInfo)
+		err := mgr.WriteUserInfo(updatedUserInfo)
 		if err != nil {
 			t.Error(err)
 		}
@@ -87,15 +88,11 @@ func TestLocalManager_GetUserInfo(t *testing.T) {
 }
 
 func TestLocalManager_DeleteUser(t *testing.T) {
-	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
-	defer os.Remove(tmpDB.Name())
-	mgr, err := MakeLocalManager(tmpDB.Name(), mockWorldState)
-	if err != nil {
-		t.Fatal(err)
-	}
+	mgr, cleaner := makeManager(t)
+	defer cleaner()
 
 	_ = mgr.WriteUserInfo(mockUserInfo)
-	err = mgr.DeleteUser(mockUID)
+	err := mgr.DeleteUser(mockUID)
 	if err != nil {
 		t.Error(err)
 	}
@@ -169,12 +166,8 @@ func TestLocalManager_AuthenticateUser(t *testing.T) {
 }
 
 func TestLocalManager_AuthoriseNewSession(t *testing.T) {
-	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
-	defer os.Remove(tmpDB.Name())
-	mgr, err := MakeLocalManager(tmpDB.Name(), mockWorldState)
-	if err != nil {
-		t.Fatal(err)
-	}
+	mgr, cleaner := makeManager(t)
+	defer cleaner()
 
 	t.Run("normal auth", func(t *testing.T) {
 		_ = mgr.WriteUserInfo(validUserInfo)
@@ -212,12 +205,9 @@ func TestLocalManager_AuthoriseNewSession(t *testing.T) {
 }
 
 func TestLocalManager_UploadStatus(t *testing.T) {
-	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
-	defer os.Remove(tmpDB.Name())
-	mgr, err := MakeLocalManager(tmpDB.Name(), mockWorldState)
-	if err != nil {
-		t.Fatal(err)
-	}
+	mgr, cleaner := makeManager(t)
+	defer cleaner()
+
 	t.Run("simple update", func(t *testing.T) {
 		_ = mgr.WriteUserInfo(validUserInfo)
 
@@ -318,12 +308,8 @@ func TestLocalManager_UploadStatus(t *testing.T) {
 }
 
 func TestLocalManager_ListAllUsers(t *testing.T) {
-	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
-	defer os.Remove(tmpDB.Name())
-	mgr, err := MakeLocalManager(tmpDB.Name(), mockWorldState)
-	if err != nil {
-		t.Fatal(err)
-	}
+	mgr, cleaner := makeManager(t)
+	defer cleaner()
 
 	var wg sync.WaitGroup
 	var users []UserInfo

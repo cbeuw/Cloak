@@ -92,13 +92,8 @@ func (ar *APIRouter) writeUserInfoHlr(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonUinfo := r.FormValue("UserInfo")
-	if jsonUinfo == "" {
-		http.Error(w, "UserInfo cannot be empty", http.StatusBadRequest)
-		return
-	}
 	var uinfo UserInfo
-	err = json.Unmarshal([]byte(jsonUinfo), &uinfo)
+	err = json.NewDecoder(r.Body).Decode(&uinfo)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
