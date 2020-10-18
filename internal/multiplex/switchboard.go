@@ -64,7 +64,7 @@ func (sb *switchboard) addConn(conn net.Conn) {
 	go sb.deplex(connId, conn)
 }
 
-// a pointer to connId is passed here so that the switchboard can reassign it
+// a pointer to connId is passed here so that the switchboard can reassign it if that connId isn't usable
 func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 	writeAndRegUsage := func(conn net.Conn, d []byte) (int, error) {
 		n, err = conn.Write(d)
