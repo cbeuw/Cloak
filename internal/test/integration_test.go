@@ -23,7 +23,8 @@ import (
 )
 
 const numConns = 200 // -race option limits the number of goroutines to 8192
-const delayBeforeTestingConnClose = 700 * time.Millisecond
+const delayBeforeTestingConnClose = 500 * time.Millisecond
+const connCloseRetries = 3
 
 func serveTCPEcho(l net.Listener) {
 	for {
@@ -353,9 +354,17 @@ func TestTCPSingleplex(t *testing.T) {
 	runEchoTest(t, []net.Conn{proxyConn1, proxyConn2}, 65536)
 
 	proxyConn1.Close()
+
+	retries := 0
+retry:
 	time.Sleep(delayBeforeTestingConnClose)
 	if user.NumSession() != 1 {
-		t.Error("first session was not closed on connection close")
+		retries++
+		if retries > connCloseRetries {
+			t.Error("first session was not closed on connection close")
+		} else {
+			goto retry
+		}
 	}
 
 	// conn2 should still work
@@ -469,9 +478,16 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 				serverConn, _ := proxyFromCkServerL.Accept()
 				serverConn.Close()
 
+				retries := 0
+			retry:
 				time.Sleep(delayBeforeTestingConnClose)
 				if _, err := clientConn.Read(make([]byte, 16)); err == nil {
-					t.Errorf("closing stream on server side is not reflected to the client: %v", err)
+					retries++
+					if retries > connCloseRetries {
+						t.Errorf("closing stream on server side is not reflected to the client: %v", err)
+					} else {
+						goto retry
+					}
 				}
 			})
 
@@ -482,9 +498,16 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 				serverConn, _ := proxyFromCkServerL.Accept()
 				clientConn.Close()
 
+				retries := 0
+			retry:
 				time.Sleep(delayBeforeTestingConnClose)
 				if _, err := serverConn.Read(make([]byte, 16)); err == nil {
-					t.Errorf("closing stream on client side is not reflected to the server: %v", err)
+					retries++
+					if retries > 3 {
+						t.Errorf("closing stream on client side is not reflected to the server: %v", err)
+					} else {
+						goto retry
+					}
 				}
 			})
 
@@ -496,8 +519,8 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 					clientConn.Write(testData)
 					// it takes time for this written data to be copied asynchronously
 					// into ck-server's domain. If the pipe is closed before that, read
-					// by ck-client in RoutTCP will fail as we have closed it.
-					time.Sleep(delayBeforeTestingConnClose)
+					// by ck-client in RouteTCP will fail as we have closed it.
+					time.Sleep(700 * time.Millisecond)
 					clientConn.Close()
 				}()
 
