@@ -23,7 +23,7 @@ import (
 )
 
 const numConns = 200 // -race option limits the number of goroutines to 8192
-const delayBeforeTestingConnClose = 500 * time.Millisecond
+const delayBeforeTestingConnClose = 700 * time.Millisecond
 
 func serveTCPEcho(l net.Listener) {
 	for {
