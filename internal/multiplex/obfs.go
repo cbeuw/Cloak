@@ -45,10 +45,38 @@ type Obfuscator struct {
 // is in the byte slice used as buffer (2nd argument). payloadOffsetInBuf specifies
 // the index at which data belonging to *Frame.Payload starts in the buffer.
 func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
+	// The method here is to use the first payloadCipher.NonceSize() bytes of the serialised frame header
+	// as iv/nonce for the AEAD cipher to encrypt the frame payload. Then we use
+	// the authentication tag produced appended to the end of the ciphertext (of size payloadCipher.Overhead())
+	// as nonce for Salsa20 to encrypt the frame header. Both with SessionKey as keys.
+	//
+	// Several cryptographic guarantees we have made here: that payloadCipher, as an AEAD, is given a unique
+	// iv/nonce each time, relative to its key; that the frame header encryptor Salsa20 is given a unique
+	// nonce each time, relative to its key; and that the authenticity of frame header is checked.
+	//
+	// The payloadCipher is given a unique iv/nonce each time because it is derived from the frame header, which
+	// contains the monotonically increasing stream id (uint32) and frame sequence (uint64). There will be a nonce
+	// reuse after 2^64-1 frames sent (sent, not received because frames going different ways are sequenced
+	// independently) by a stream, or after 2^32-1 streams created in a single session. We consider these number
+	// to be large enough that they may never happen in reasonable time frames. Of course, different sessions
+	// will produce the same combination of stream id and frame sequence, but they will have different session keys.
+	//
+	// Salsa20 is assumed to be given a unique nonce each time because we assume the tags produced by payloadCipher
+	// AEAD is unique each time, as payloadCipher itself is given a unique iv/nonce each time due to points made above.
+	// This is relatively a weak guarantee as we are assuming AEADs to produce different tags given different iv/nonces.
+	// This is almost certainly true but I cannot find a source that outright states this.
+	//
+	// Because the frame header, before it being encrypted, is fed into the AEAD, it is also authenticated.
+	// (rfc5116 s.2.1 "The nonce is authenticated internally to the algorithm").
+	//
+	// In case the user chooses to not encrypt the frame payload, payloadCipher will be nil. In this scenario,
+	// we pad the frame payload with random bytes until it reaches Salsa20's nonce size (8 bytes). Then we simply
+	// encrypt the frame header with the last 8 bytes of frame payload as nonce.
+	// If the payload provided by the user is greater than 8 bytes, then we use entirely the user input as nonce.
+	// We can't ensure its uniqueness ourselves, which is why plaintext mode must only be used when the user input
+	// is already random-like. For Cloak it would normally mean that the user is using a proxy protocol that sends
+	// encrypted data.
 	obfs := func(f *Frame, buf []byte, payloadOffsetInBuf int) (int, error) {
-		// we need the encrypted data to be at least 8 bytes to be used as nonce for salsa20 stream header encryption
-		// this will be the case if the encryption method is an AEAD cipher, however for plain, it's well possible
-		// that the frame payload is smaller than 8 bytes, so we need to add on the difference
 		payloadLen := len(f.Payload)
 		if payloadLen == 0 {
 			return 0, errors.New("payload cannot be empty")

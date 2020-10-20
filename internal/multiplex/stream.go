@@ -27,9 +27,8 @@ type Stream struct {
 	// been read by the consumer through Read or WriteTo
 	recvBuf recvBuffer
 
+	writingM    sync.Mutex
 	nextSendSeq uint64
-
-	writingM sync.Mutex
 
 	// atomic
 	closed uint32

@@ -14,7 +14,8 @@ const (
 	UNIFORM_SPREAD
 )
 
-// switchboard is responsible for managing TCP connections between client and server.
+// switchboard represents the connection pool. It is responsible for managing
+// transport-layer connections between client and server.
 // It has several purposes: constantly receiving incoming data from all connections
 // and pass them to Session.recvDataFromRemote(); accepting data through
 // switchboard.send(), in which it selects a connection according to its
