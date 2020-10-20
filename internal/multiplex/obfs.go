@@ -133,7 +133,7 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 // containing the message to be decrypted, and returns a *Frame containing the frame
 // information and plaintext
 func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
-	// stream header length + minimum data size (i.e. nonce size of salsa20)
+	// frame header length + minimum data size (i.e. nonce size of salsa20)
 	const minInputLen = HEADER_LEN + salsa20NonceSize
 	deobfs := func(in []byte) (*Frame, error) {
 		if len(in) < minInputLen {

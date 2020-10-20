@@ -29,10 +29,12 @@ type switchboardStrategy int
 type SessionConfig struct {
 	Obfuscator
 
+	// Valve is used to limit transmission rates, and record and limit usage
 	Valve
 
 	Unordered bool
 
+	// A Singleplexing session always has just one stream
 	Singleplex bool
 
 	// maximum size of an obfuscated frame, including headers and overhead
@@ -48,6 +50,8 @@ type SessionConfig struct {
 	InactivityTimeout time.Duration
 }
 
+// A Session represents a self-contained communication chain between local and remote. It manages its streams and sent
+// and receive data using the connection pool filled with connections added to the session.
 type Session struct {
 	id uint32
 
@@ -120,12 +124,14 @@ func (sesh *Session) streamCount() uint32 {
 	return atomic.LoadUint32(&sesh.activeStreamCount)
 }
 
+// AddConnection is used to add an underlying connection to the connection pool
 func (sesh *Session) AddConnection(conn net.Conn) {
 	sesh.sb.addConn(conn)
 	addrs := []net.Addr{conn.LocalAddr(), conn.RemoteAddr()}
 	sesh.addrs.Store(addrs)
 }
 
+// OpenStream is similar to net.Dial. It opens up a new stream
 func (sesh *Session) OpenStream() (*Stream, error) {
 	if sesh.IsClosed() {
 		return nil, ErrBrokenSession
@@ -144,6 +150,7 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 	return stream, nil
 }
 
+// Accept is similar to net.Listener's Accept(). It blocks and returns an incoming stream
 func (sesh *Session) Accept() (net.Conn, error) {
 	if sesh.IsClosed() {
 		return nil, ErrBrokenSession
