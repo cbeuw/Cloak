@@ -50,7 +50,7 @@ type SessionConfig struct {
 	InactivityTimeout time.Duration
 }
 
-// A Session represents a self-contained communication chain between local and remote. It manages its streams and sent
+// A Session represents a self-contained communication chain between local and remote. It manages its streams and send
 // and receive data using the connection pool filled with connections added to the session.
 type Session struct {
 	id uint32

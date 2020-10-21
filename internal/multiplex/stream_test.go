@@ -55,57 +55,6 @@ func BenchmarkStream_Write_Ordered(b *testing.B) {
 	}
 }
 
-/*
-func BenchmarkStream_Read_Ordered(b *testing.B) {
-	var sessionKey [32]byte
-	rand.Read(sessionKey[:])
-	sesh := setupSesh(false, sessionKey)
-	testPayload := make([]byte, payloadLen)
-	rand.Read(testPayload)
-
-	f := &Frame{
-		1,
-		0,
-		0,
-		testPayload,
-	}
-
-	obfsBuf := make([]byte, 17000)
-
-	l, _ := net.Listen("tcp", "127.0.0.1:0")
-	go func() {
-		// potentially bottlenecked here rather than the actual stream read throughput
-		conn, _ := net.Dial("tcp", l.Addr().String())
-		for {
-			i, _ := sesh.Obfs(f, obfsBuf)
-			f.Seq += 1
-			_, err := conn.Write(obfsBuf[:i])
-			if err != nil {
-				b.Error("cannot write to connection", err)
-			}
-		}
-	}()
-	conn, _ := l.Accept()
-
-	sesh.AddConnection(conn)
-	stream, err := sesh.Accept()
-	if err != nil {
-		b.Error("failed to accept stream", err)
-	}
-
-	//time.Sleep(5*time.Second) // wait for buffer to fill up
-
-	readBuf := make([]byte, payloadLen)
-	b.SetBytes(payloadLen)
-	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
-		stream.Read(readBuf)
-	}
-
-}
-
-*/
-
 func TestStream_Write(t *testing.T) {
 	hole := connutil.Discard()
 	var sessionKey [32]byte
