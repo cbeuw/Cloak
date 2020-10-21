@@ -28,7 +28,7 @@ const (
 	E_METHOD_CHACHA20_POLY1305
 )
 
-// Obfuscator is responsible for the obfuscation and deobfuscation of frames
+// Obfuscator is responsible for serialisation, obfuscation, and optional encryption of data frames.
 type Obfuscator struct {
 	// Used in Stream.Write. Add multiplexing headers, encrypt and add TLS header
 	Obfs Obfser
