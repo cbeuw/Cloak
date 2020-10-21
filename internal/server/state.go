@@ -203,17 +203,17 @@ func (sta *State) IsBypass(UID []byte) bool {
 	return exist
 }
 
-const TIMESTAMP_TOLERANCE = 180 * time.Second
+const timestampTolerance = 180 * time.Second
 
-const CACHE_CLEAN_INTERVAL = 12 * time.Hour
+const replayCacheAgeLimit = 12 * time.Hour
 
-// UsedRandomCleaner clears the cache of used random fields every CACHE_CLEAN_INTERVAL
+// UsedRandomCleaner clears the cache of used random fields every replayCacheAgeLimit
 func (sta *State) UsedRandomCleaner() {
 	for {
-		time.Sleep(CACHE_CLEAN_INTERVAL)
+		time.Sleep(replayCacheAgeLimit)
 		sta.usedRandomM.Lock()
 		for key, t := range sta.UsedRandom {
-			if time.Unix(t, 0).Before(sta.WorldState.Now().Add(TIMESTAMP_TOLERANCE)) {
+			if time.Unix(t, 0).Before(sta.WorldState.Now().Add(timestampTolerance)) {
 				delete(sta.UsedRandom, key)
 			}
 		}

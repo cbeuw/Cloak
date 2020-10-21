@@ -37,7 +37,7 @@ type connPair struct {
 func makeSessionPair(numConn int) (*Session, *Session, []*connPair) {
 	sessionKey := [32]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
 	sessionId := 1
-	obfuscator, _ := MakeObfuscator(E_METHOD_CHACHA20_POLY1305, sessionKey)
+	obfuscator, _ := MakeObfuscator(EncryptionMethodChaha20Poly1305, sessionKey)
 	clientConfig := SessionConfig{
 		Obfuscator: obfuscator,
 		Valve:      nil,

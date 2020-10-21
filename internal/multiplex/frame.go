@@ -1,9 +1,9 @@
 package multiplex
 
 const (
-	C_NOOP = iota
-	C_STREAM
-	C_SESSION
+	closingNothing = iota
+	closingStream
+	closingSession
 )
 
 type Frame struct {

@@ -157,7 +157,7 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 		f := &Frame{
 			StreamID: s.id,
 			Seq:      s.nextSendSeq,
-			Closing:  C_NOOP,
+			Closing:  closingNothing,
 			Payload:  framePayload,
 		}
 		s.nextSendSeq++
@@ -184,7 +184,7 @@ func (s *Stream) ReadFrom(r io.Reader) (n int64, err error) {
 				rder.SetReadDeadline(time.Now().Add(s.readFromTimeout))
 			}
 		}
-		read, er := r.Read(s.obfsBuf[HEADER_LEN : HEADER_LEN+s.session.maxStreamUnitWrite])
+		read, er := r.Read(s.obfsBuf[frameHeaderLength : frameHeaderLength+s.session.maxStreamUnitWrite])
 		if er != nil {
 			return n, er
 		}
@@ -196,11 +196,11 @@ func (s *Stream) ReadFrom(r io.Reader) (n int64, err error) {
 		f := &Frame{
 			StreamID: s.id,
 			Seq:      s.nextSendSeq,
-			Closing:  C_NOOP,
-			Payload:  s.obfsBuf[HEADER_LEN : HEADER_LEN+read],
+			Closing:  closingNothing,
+			Payload:  s.obfsBuf[frameHeaderLength : frameHeaderLength+read],
 		}
 		s.nextSendSeq++
-		err = s.obfuscateAndSend(f, HEADER_LEN)
+		err = s.obfuscateAndSend(f, frameHeaderLength)
 		s.writingM.Unlock()
 
 		if err != nil {

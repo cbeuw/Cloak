@@ -55,7 +55,7 @@ func TestDatagramBuffer_RW(t *testing.T) {
 
 	t.Run("writing closing frame", func(t *testing.T) {
 		pipe := NewDatagramBufferedPipe()
-		toBeClosed, err := pipe.Write(Frame{Closing: C_STREAM})
+		toBeClosed, err := pipe.Write(Frame{Closing: closingStream})
 		if !toBeClosed {
 			t.Error("should be to be closed")
 		}

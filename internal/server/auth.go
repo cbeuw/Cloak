@@ -50,7 +50,7 @@ func decryptClientInfo(fragments authFragments, serverTime time.Time) (info Clie
 
 	timestamp := int64(binary.BigEndian.Uint64(plaintext[29:37]))
 	clientTime := time.Unix(timestamp, 0)
-	if !(clientTime.After(serverTime.Truncate(TIMESTAMP_TOLERANCE)) && clientTime.Before(serverTime.Add(TIMESTAMP_TOLERANCE))) {
+	if !(clientTime.After(serverTime.Truncate(timestampTolerance)) && clientTime.Before(serverTime.Add(timestampTolerance))) {
 		err = fmt.Errorf("%v: received timestamp %v", ErrTimestampOutOfWindow, timestamp)
 		return
 	}

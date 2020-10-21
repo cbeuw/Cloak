@@ -548,9 +548,9 @@ func BenchmarkThroughput(b *testing.B) {
 	const bufSize = 16 * 1024
 
 	encryptionMethods := map[string]byte{
-		"plain":             mux.E_METHOD_PLAIN,
-		"chacha20-poly1305": mux.E_METHOD_CHACHA20_POLY1305,
-		"aes-gcm":           mux.E_METHOD_AES_GCM,
+		"plain":             mux.EncryptionMethodPlain,
+		"chacha20-poly1305": mux.EncryptionMethodChaha20Poly1305,
+		"aes-gcm":           mux.EncryptionMethodAESGCM,
 	}
 
 	for name, method := range encryptionMethods {

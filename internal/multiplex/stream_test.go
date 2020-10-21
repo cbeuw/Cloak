@@ -36,9 +36,9 @@ func BenchmarkStream_Write_Ordered(b *testing.B) {
 	testData := make([]byte, testDataLen)
 	rand.Read(testData)
 	eMethods := map[string]byte{
-		"plain":             E_METHOD_PLAIN,
-		"chacha20-poly1305": E_METHOD_CHACHA20_POLY1305,
-		"aes-gcm":           E_METHOD_AES_GCM,
+		"plain":             EncryptionMethodPlain,
+		"chacha20-poly1305": EncryptionMethodChaha20Poly1305,
+		"aes-gcm":           EncryptionMethodAESGCM,
 	}
 
 	for name, method := range eMethods {
@@ -59,7 +59,7 @@ func TestStream_Write(t *testing.T) {
 	hole := connutil.Discard()
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	sesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
+	sesh := setupSesh(false, sessionKey, EncryptionMethodPlain)
 	sesh.AddConnection(hole)
 	testData := make([]byte, payloadLen)
 	rand.Read(testData)
@@ -78,8 +78,8 @@ func TestStream_WriteSync(t *testing.T) {
 	// Close calls made after write MUST have a higher seq
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	clientSesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
-	serverSesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
+	clientSesh := setupSesh(false, sessionKey, EncryptionMethodPlain)
+	serverSesh := setupSesh(false, sessionKey, EncryptionMethodPlain)
 	w, r := connutil.AsyncPipe()
 	clientSesh.AddConnection(common.NewTLSConn(w))
 	serverSesh.AddConnection(common.NewTLSConn(r))
@@ -134,7 +134,7 @@ func TestStream_Close(t *testing.T) {
 	}
 
 	t.Run("active closing", func(t *testing.T) {
-		sesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
+		sesh := setupSesh(false, sessionKey, EncryptionMethodPlain)
 		rawConn, rawWritingEnd := connutil.AsyncPipe()
 		sesh.AddConnection(common.NewTLSConn(rawConn))
 		writingEnd := common.NewTLSConn(rawWritingEnd)
@@ -172,7 +172,7 @@ func TestStream_Close(t *testing.T) {
 	})
 
 	t.Run("passive closing", func(t *testing.T) {
-		sesh := setupSesh(false, sessionKey, E_METHOD_PLAIN)
+		sesh := setupSesh(false, sessionKey, EncryptionMethodPlain)
 		rawConn, rawWritingEnd := connutil.AsyncPipe()
 		sesh.AddConnection(common.NewTLSConn(rawConn))
 		writingEnd := common.NewTLSConn(rawWritingEnd)
@@ -196,7 +196,7 @@ func TestStream_Close(t *testing.T) {
 		closingFrame := &Frame{
 			1,
 			dataFrame.Seq + 1,
-			C_STREAM,
+			closingStream,
 			testPayload,
 		}
 
@@ -212,7 +212,7 @@ func TestStream_Close(t *testing.T) {
 		closingFrameDup := &Frame{
 			1,
 			dataFrame.Seq + 2,
-			C_STREAM,
+			closingStream,
 			testPayload,
 		}
 
@@ -260,7 +260,7 @@ func TestStream_Read(t *testing.T) {
 	obfsBuf := make([]byte, 512)
 
 	for name, unordered := range seshes {
-		sesh := setupSesh(unordered, emptyKey, E_METHOD_PLAIN)
+		sesh := setupSesh(unordered, emptyKey, EncryptionMethodPlain)
 		rawConn, rawWritingEnd := connutil.AsyncPipe()
 		sesh.AddConnection(common.NewTLSConn(rawConn))
 		writingEnd := common.NewTLSConn(rawWritingEnd)
@@ -356,8 +356,8 @@ func TestStream_Read(t *testing.T) {
 
 func TestStream_SetWriteToTimeout(t *testing.T) {
 	seshes := map[string]*Session{
-		"ordered":   setupSesh(false, emptyKey, E_METHOD_PLAIN),
-		"unordered": setupSesh(true, emptyKey, E_METHOD_PLAIN),
+		"ordered":   setupSesh(false, emptyKey, EncryptionMethodPlain),
+		"unordered": setupSesh(true, emptyKey, EncryptionMethodPlain),
 	}
 	for name, sesh := range seshes {
 		t.Run(name, func(t *testing.T) {
@@ -381,8 +381,8 @@ func TestStream_SetWriteToTimeout(t *testing.T) {
 
 func TestStream_SetReadFromTimeout(t *testing.T) {
 	seshes := map[string]*Session{
-		"ordered":   setupSesh(false, emptyKey, E_METHOD_PLAIN),
-		"unordered": setupSesh(true, emptyKey, E_METHOD_PLAIN),
+		"ordered":   setupSesh(false, emptyKey, EncryptionMethodPlain),
+		"unordered": setupSesh(true, emptyKey, EncryptionMethodPlain),
 	}
 	for name, sesh := range seshes {
 		t.Run(name, func(t *testing.T) {

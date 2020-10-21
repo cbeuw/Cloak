@@ -122,7 +122,7 @@ func (d *datagramBufferedPipe) Write(f Frame) (toBeClosed bool, err error) {
 		d.rwCond.Wait()
 	}
 
-	if f.Closing != C_NOOP {
+	if f.Closing != closingNothing {
 		d.closed = true
 		d.rwCond.Broadcast()
 		return true, nil

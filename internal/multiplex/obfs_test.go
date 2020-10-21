@@ -39,7 +39,7 @@ func TestGenerateObfs(t *testing.T) {
 	}
 
 	t.Run("plain", func(t *testing.T) {
-		obfuscator, err := MakeObfuscator(E_METHOD_PLAIN, sessionKey)
+		obfuscator, err := MakeObfuscator(EncryptionMethodPlain, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		} else {
@@ -47,7 +47,7 @@ func TestGenerateObfs(t *testing.T) {
 		}
 	})
 	t.Run("aes-gcm", func(t *testing.T) {
-		obfuscator, err := MakeObfuscator(E_METHOD_AES_GCM, sessionKey)
+		obfuscator, err := MakeObfuscator(EncryptionMethodAESGCM, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		} else {
@@ -55,7 +55,7 @@ func TestGenerateObfs(t *testing.T) {
 		}
 	})
 	t.Run("chacha20-poly1305", func(t *testing.T) {
-		obfuscator, err := MakeObfuscator(E_METHOD_CHACHA20_POLY1305, sessionKey)
+		obfuscator, err := MakeObfuscator(EncryptionMethodChaha20Poly1305, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		} else {

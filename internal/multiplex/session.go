@@ -108,7 +108,7 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 		sesh.InactivityTimeout = defaultInactivityTimeout
 	}
 	// todo: validation. this must be smaller than StreamSendBufferSize
-	sesh.maxStreamUnitWrite = sesh.MsgOnWireSizeLimit - HEADER_LEN - sesh.Obfuscator.maxOverhead
+	sesh.maxStreamUnitWrite = sesh.MsgOnWireSizeLimit - frameHeaderLength - sesh.Obfuscator.maxOverhead
 
 	sesh.sb = makeSwitchboard(sesh)
 	go sesh.timeoutAfter(sesh.InactivityTimeout)
@@ -176,12 +176,12 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		f := &Frame{
 			StreamID: s.id,
 			Seq:      s.nextSendSeq,
-			Closing:  C_STREAM,
+			Closing:  closingStream,
 			Payload:  padding,
 		}
 		s.nextSendSeq++
 
-		obfsBuf := make([]byte, len(padding)+HEADER_LEN+sesh.Obfuscator.maxOverhead)
+		obfsBuf := make([]byte, len(padding)+frameHeaderLength+sesh.Obfuscator.maxOverhead)
 		i, err := sesh.Obfs(f, obfsBuf, 0)
 		if err != nil {
 			return err
@@ -217,7 +217,7 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 		return fmt.Errorf("Failed to decrypt a frame for session %v: %v", sesh.id, err)
 	}
 
-	if frame.Closing == C_SESSION {
+	if frame.Closing == closingSession {
 		sesh.SetTerminalMsg("Received a closing notification frame")
 		return sesh.passiveClose()
 	}
@@ -310,10 +310,10 @@ func (sesh *Session) Close() error {
 	f := &Frame{
 		StreamID: 0xffffffff,
 		Seq:      0,
-		Closing:  C_SESSION,
+		Closing:  closingSession,
 		Payload:  pad,
 	}
-	obfsBuf := make([]byte, len(pad)+HEADER_LEN+sesh.Obfuscator.maxOverhead)
+	obfsBuf := make([]byte, len(pad)+frameHeaderLength+sesh.Obfuscator.maxOverhead)
 	i, err := sesh.Obfs(f, obfsBuf, 0)
 	if err != nil {
 		return err

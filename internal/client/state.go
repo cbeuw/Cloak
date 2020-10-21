@@ -161,11 +161,11 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 	// Encryption method
 	switch strings.ToLower(raw.EncryptionMethod) {
 	case "plain":
-		auth.EncryptionMethod = mux.E_METHOD_PLAIN
+		auth.EncryptionMethod = mux.EncryptionMethodPlain
 	case "aes-gcm":
-		auth.EncryptionMethod = mux.E_METHOD_AES_GCM
+		auth.EncryptionMethod = mux.EncryptionMethodAESGCM
 	case "chacha20-poly1305":
-		auth.EncryptionMethod = mux.E_METHOD_CHACHA20_POLY1305
+		auth.EncryptionMethod = mux.EncryptionMethodChaha20Poly1305
 	default:
 		err = fmt.Errorf("unknown encryption method %v", raw.EncryptionMethod)
 		return

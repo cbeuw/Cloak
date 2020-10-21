@@ -66,7 +66,7 @@ func TestTouchStone(t *testing.T) {
 			return
 		}
 
-		nineSixSixOver := time.Unix(1565998966, 0).Add(TIMESTAMP_TOLERANCE + 10)
+		nineSixSixOver := time.Unix(1565998966, 0).Add(timestampTolerance + 10)
 		_, err = decryptClientInfo(ai, nineSixSixOver)
 		if err == nil {
 			t.Errorf("expecting %v, got %v", ErrTimestampOutOfWindow, err)
@@ -82,7 +82,7 @@ func TestTouchStone(t *testing.T) {
 			return
 		}
 
-		nineSixSixUnder := time.Unix(1565998966, 0).Add(TIMESTAMP_TOLERANCE - 10)
+		nineSixSixUnder := time.Unix(1565998966, 0).Add(timestampTolerance - 10)
 		_, err = decryptClientInfo(ai, nineSixSixUnder)
 		if err == nil {
 			t.Errorf("expecting %v, got %v", ErrTimestampOutOfWindow, err)

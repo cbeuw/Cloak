@@ -3,7 +3,7 @@
 package multiplex
 
 func setupSesh_fuzz(unordered bool) *Session {
-	obfuscator, _ := MakeObfuscator(E_METHOD_PLAIN, [32]byte{})
+	obfuscator, _ := MakeObfuscator(EncryptionMethodPlain, [32]byte{})
 
 	seshConfig := SessionConfig{
 		Obfuscator: obfuscator,

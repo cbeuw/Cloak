@@ -27,7 +27,7 @@ func TestMakeAuthenticationPayload(t *testing.T) {
 					0x01, 0xd0, 0xb4, 0x87, 0x86, 0x9c, 0x15, 0x9b,
 					0x86, 0x19, 0x53, 0x6e, 0x60, 0xe9, 0x51, 0x42},
 				ProxyMethod:      "shadowsocks",
-				EncryptionMethod: multiplex.E_METHOD_PLAIN,
+				EncryptionMethod: multiplex.EncryptionMethodPlain,
 				MockDomain:       "d2jkinvisak5y9.cloudfront.net",
 				WorldState: common.WorldState{
 					Rand: bytes.NewBuffer([]byte{
