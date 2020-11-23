@@ -33,7 +33,7 @@ func makeAuthenticationPayload(authInfo AuthInfo) (ret authenticationPayload, sh
 	copy(plaintext, authInfo.UID)
 	copy(plaintext[16:28], authInfo.ProxyMethod)
 	plaintext[28] = authInfo.EncryptionMethod
-	binary.BigEndian.PutUint64(plaintext[29:37], uint64(authInfo.WorldState.Now().Unix()))
+	binary.BigEndian.PutUint64(plaintext[29:37], uint64(authInfo.WorldState.Now().UTC().Unix()))
 	binary.BigEndian.PutUint32(plaintext[37:41], authInfo.SessionId)
 
 	if authInfo.Unordered {

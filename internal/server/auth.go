@@ -50,7 +50,7 @@ func decryptClientInfo(fragments authFragments, serverTime time.Time) (info Clie
 
 	timestamp := int64(binary.BigEndian.Uint64(plaintext[29:37]))
 	clientTime := time.Unix(timestamp, 0)
-	if !(clientTime.After(serverTime.Truncate(timestampTolerance)) && clientTime.Before(serverTime.Add(timestampTolerance))) {
+	if !(clientTime.After(serverTime.Add(-timestampTolerance)) && clientTime.Before(serverTime.Add(timestampTolerance))) {
 		err = fmt.Errorf("%v: received timestamp %v", ErrTimestampOutOfWindow, timestamp)
 		return
 	}
@@ -77,7 +77,7 @@ func AuthFirstPacket(firstPacket []byte, transport Transport, sta *State) (info 
 		return
 	}
 
-	info, err = decryptClientInfo(fragments, sta.WorldState.Now())
+	info, err = decryptClientInfo(fragments, sta.WorldState.Now().UTC())
 	if err != nil {
 		log.Debug(err)
 		err = fmt.Errorf("%w: %v", ErrBadDecryption, err)
