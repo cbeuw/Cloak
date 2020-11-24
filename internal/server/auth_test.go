@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func TestTouchStone(t *testing.T) {
+func TestDecryptClientInfo(t *testing.T) {
 	pvBytes, _ := hex.DecodeString("10de5a3c4a4d04efafc3e06d1506363a72bd6d053baef123e6a9a79a0c04b547")
 	p, _ := ecdh.Unmarshal(pvBytes)
 	staticPv := p.(crypto.PrivateKey)
@@ -49,7 +49,7 @@ func TestTouchStone(t *testing.T) {
 			t.Errorf("expecting no error, got %v", err)
 			return
 		}
-		nineSixSixM50 := time.Unix(1565998966, 0).Truncate(50)
+		nineSixSixM50 := time.Unix(1565998966, 0).Add(-50)
 		_, err = decryptClientInfo(ai, nineSixSixM50)
 		if err != nil {
 			t.Errorf("expecting no error, got %v", err)
@@ -82,7 +82,7 @@ func TestTouchStone(t *testing.T) {
 			return
 		}
 
-		nineSixSixUnder := time.Unix(1565998966, 0).Add(timestampTolerance - 10)
+		nineSixSixUnder := time.Unix(1565998966, 0).Add(-(timestampTolerance + 10))
 		_, err = decryptClientInfo(ai, nineSixSixUnder)
 		if err == nil {
 			t.Errorf("expecting %v, got %v", ErrTimestampOutOfWindow, err)
