@@ -2,14 +2,7 @@ go get github.com/mitchellh/gox
 
 mkdir -p release
 
-read -rp "Cleaning $PWD/release directory. Proceed? [y/n]" res
-if [ ! "$res" == "y" ]; then
-	echo "Abort"
-	exit 1
-fi
-
-rm -rf ./release/*
-
+rm -f ./release/*
 
 if [ -z "$v" ]; then
 	echo "Version number cannot be null. Run with v=[version] release.sh"
