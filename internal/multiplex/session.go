@@ -195,7 +195,9 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		log.Tracef("stream %v passively closed", s.id)
 	}
 
-	// id may or may not exist as this is user input, if we use Delete(s.id) here it will panic
+	// We set it as nil to signify that the stream id had existed before.
+	// If we Delete(s.id) straight away, later on in recvDataFromRemote, it will not be able to tell
+	// if the frame it received was from a new stream or a dying stream whose frame arrived late
 	sesh.streams.Store(s.id, nil)
 	if sesh.streamCountDecr() == 0 {
 		if sesh.Singleplex {

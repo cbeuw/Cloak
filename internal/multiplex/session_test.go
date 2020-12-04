@@ -237,8 +237,9 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 	if s1I != nil {
 		t.Error("stream 1 exists after receiving stream close for the second time")
 	}
-	if sesh.streamCount() != 1 {
-		t.Error("stream count isn't 1 after stream 1 closed twice")
+	streamCount := sesh.streamCount()
+	if streamCount != 1 {
+		t.Errorf("stream count is %v after stream 1 closed twice, expected 1", streamCount)
 	}
 
 	// close session
