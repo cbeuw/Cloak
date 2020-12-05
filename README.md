@@ -4,7 +4,7 @@
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=SAUYKGSREP8GL&source=url)
 
 
-![logo](https://user-images.githubusercontent.com/7034308/96387206-3e214100-1198-11eb-8917-689d7c56e0cd.png)
+![logo](https://i.imgur.com/1TYy1vJ.png)
 
 ![diagram](https://user-images.githubusercontent.com/7034308/65385852-7eab5280-dd2b-11e9-8887-db449b250e2a.png)
 
