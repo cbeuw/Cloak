@@ -18,6 +18,8 @@ type streamBufferedPipe struct {
 	rwCond    *sync.Cond
 	rDeadline time.Time
 	wtTimeout time.Duration
+
+	timeoutTimer *time.Timer
 }
 
 func NewStreamBufferedPipe() *streamBufferedPipe {
@@ -42,7 +44,7 @@ func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 			if d <= 0 {
 				return 0, ErrTimeout
 			}
-			time.AfterFunc(d, p.rwCond.Broadcast)
+			p.broadcastAfter(d)
 		}
 		if p.buf.Len() > 0 {
 			break
@@ -72,12 +74,8 @@ func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 			}
 			if p.wtTimeout == 0 {
 				// if there hasn't been a scheduled broadcast
-				time.AfterFunc(d, p.rwCond.Broadcast)
+				p.broadcastAfter(d)
 			}
-		}
-		if p.wtTimeout != 0 {
-			p.rDeadline = time.Now().Add(p.wtTimeout)
-			time.AfterFunc(p.wtTimeout, p.rwCond.Broadcast)
 		}
 		if p.buf.Len() > 0 {
 			written, er := p.buf.WriteTo(w)
@@ -88,6 +86,10 @@ func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 			}
 			p.rwCond.Broadcast()
 		} else {
+			if p.wtTimeout != 0 {
+				p.rDeadline = time.Now().Add(p.wtTimeout)
+				p.broadcastAfter(p.wtTimeout)
+			}
 			p.rwCond.Wait()
 		}
 	}
@@ -138,4 +140,11 @@ func (p *streamBufferedPipe) SetWriteToTimeout(d time.Duration) {
 
 	p.wtTimeout = d
 	p.rwCond.Broadcast()
+}
+
+func (p *streamBufferedPipe) broadcastAfter(d time.Duration) {
+	if p.timeoutTimer != nil {
+		p.timeoutTimer.Stop()
+	}
+	p.timeoutTimer = time.AfterFunc(d, p.rwCond.Broadcast)
 }

@@ -20,6 +20,8 @@ type datagramBufferedPipe struct {
 	rwCond    *sync.Cond
 	wtTimeout time.Duration
 	rDeadline time.Time
+
+	timeoutTimer *time.Timer
 }
 
 func NewDatagramBufferedPipe() *datagramBufferedPipe {
@@ -45,7 +47,7 @@ func (d *datagramBufferedPipe) Read(target []byte) (int, error) {
 			if delta <= 0 {
 				return 0, ErrTimeout
 			}
-			time.AfterFunc(delta, d.rwCond.Broadcast)
+			d.broadcastAfter(delta)
 		}
 
 		if len(d.pLens) > 0 {
@@ -81,12 +83,8 @@ func (d *datagramBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 			}
 			if d.wtTimeout == 0 {
 				// if there hasn't been a scheduled broadcast
-				time.AfterFunc(delta, d.rwCond.Broadcast)
+				d.broadcastAfter(delta)
 			}
-		}
-		if d.wtTimeout != 0 {
-			d.rDeadline = time.Now().Add(d.wtTimeout)
-			time.AfterFunc(d.wtTimeout, d.rwCond.Broadcast)
 		}
 
 		if len(d.pLens) > 0 {
@@ -100,6 +98,11 @@ func (d *datagramBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 			}
 			d.rwCond.Broadcast()
 		} else {
+			if d.wtTimeout != 0 {
+				d.rDeadline = time.Now().Add(d.wtTimeout)
+				d.broadcastAfter(d.wtTimeout)
+			}
+
 			d.rwCond.Wait()
 		}
 	}
@@ -159,4 +162,11 @@ func (d *datagramBufferedPipe) SetWriteToTimeout(t time.Duration) {
 
 	d.wtTimeout = t
 	d.rwCond.Broadcast()
+}
+
+func (d *datagramBufferedPipe) broadcastAfter(t time.Duration) {
+	if d.timeoutTimer != nil {
+		d.timeoutTimer.Stop()
+	}
+	d.timeoutTimer = time.AfterFunc(t, d.rwCond.Broadcast)
 }
