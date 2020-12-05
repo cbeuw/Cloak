@@ -18,11 +18,14 @@ type streamBufferedPipe struct {
 	rwCond    *sync.Cond
 	rDeadline time.Time
 	wtTimeout time.Duration
+
+	timer *time.Timer
 }
 
 func NewStreamBufferedPipe() *streamBufferedPipe {
 	p := &streamBufferedPipe{
 		rwCond: sync.NewCond(&sync.Mutex{}),
+		timer:  time.NewTimer(0),
 	}
 	return p
 }
@@ -42,7 +45,7 @@ func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 			if d <= 0 {
 				return 0, ErrTimeout
 			}
-			time.AfterFunc(d, p.rwCond.Broadcast)
+			p.broadcastAfter(d)
 		}
 		if p.buf.Len() > 0 {
 			break
@@ -72,12 +75,12 @@ func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 			}
 			if p.wtTimeout == 0 {
 				// if there hasn't been a scheduled broadcast
-				time.AfterFunc(d, p.rwCond.Broadcast)
+				p.broadcastAfter(d)
 			}
 		}
 		if p.wtTimeout != 0 {
 			p.rDeadline = time.Now().Add(p.wtTimeout)
-			time.AfterFunc(p.wtTimeout, p.rwCond.Broadcast)
+			p.broadcastAfter(p.wtTimeout)
 		}
 		if p.buf.Len() > 0 {
 			written, er := p.buf.WriteTo(w)
@@ -138,4 +141,16 @@ func (p *streamBufferedPipe) SetWriteToTimeout(d time.Duration) {
 
 	p.wtTimeout = d
 	p.rwCond.Broadcast()
+}
+
+func (p *streamBufferedPipe) broadcastAfter(d time.Duration) {
+	// p.rwCond.L must be held, otherwise the following timer operations will race
+	if !p.timer.Stop() {
+		<-p.timer.C
+	}
+	p.timer.Reset(d)
+	go func() {
+		<-p.timer.C
+		p.rwCond.Broadcast()
+	}()
 }
