@@ -62,7 +62,7 @@ Table of Contents
 ```bash
 git clone https://github.com/cbeuw/Cloak
 cd Cloak
-go get -u ./...
+go get ./...
 make
 ```
 
@@ -116,7 +116,7 @@ and will raise an error. See Issue #13.**
 `KeepAlive` is the number of seconds to tell the OS to wait after no activity before sending TCP KeepAlive probes to the
 upstream proxy server. Zero or negative value disables it. Default is 0 (disabled).
 
-`StreamTimeout` is the number of seconds of no data sent after which the incoming Cloak client connection will be
+`StreamTimeout` is the number of seconds of no data *sent* after which the incoming Cloak client connection will be
 terminated. Default is 300 seconds.
 
 ### Client
@@ -131,17 +131,18 @@ instead a CDN is used, use `CDN`.
 `ProxyMethod` is the name of the proxy method you are using. This must match one of the entries in the
 server's `ProxyBook` exactly.
 
-`EncryptionMethod` is the name of the encryption algorithm you want Cloak to use. Note: Cloak isn't intended to provide
-transport security. The point of encryption is to hide fingerprints of proxy protocols and render the payload
-statistically random-like. If the proxy protocol is already fingerprint-less, which is the case for Shadowsocks, this
-field can be left as `plain`. Options are `plain`, `aes-gcm` and `chacha20-poly1305`.
+`EncryptionMethod` is the name of the encryption algorithm you want Cloak to use. Options are `plain`, `aes-gcm`
+and `chacha20-poly1305`. Note: Cloak isn't intended to provide transport security. The point of encryption is to hide
+fingerprints of proxy protocols and render the payload statistically random-like. **You may only leave it as `plain` if
+you are certain that your underlying proxy tool already provides BOTH encryption and authentication (via AEAD or similar
+techniques).**
 
 `ServerName` is the domain you want to make your ISP or firewall _think_ you are visiting. Ideally it should
 match `RedirAddr` in the server's configuration, a major site the censor allows, but it doesn't have to.
 
 `NumConn` is the amount of underlying TCP connections you want to use. The default of 4 should be appropriate for most
 people. Setting it too high will hinder the performance. Setting it to 0 will disable connection multiplexing and each
-TCP connection will spawn a separate short lived session that will be closed after it is terminated. This makes it
+TCP connection will spawn a separate short-lived session that will be closed after it is terminated. This makes it
 behave like GoQuiet. This maybe useful for people with unstable connections.
 
 `BrowserSig` is the browser you want to **appear** to be using. It's not relevant to the browser you are actually using.
@@ -151,7 +152,7 @@ Currently, `chrome` and `firefox` are supported.
 Cloak server. Zero or negative value disables it. Default is 0 (disabled). Warning: Enabling it might make your server
 more detectable as a proxy, but it will make the Cloak client detect internet interruption more quickly.
 
-`StreamTimeout` is the number of seconds of no data received after which the incoming proxy connection will be
+`StreamTimeout` is the number of seconds of no data *received* after which the incoming proxy connection will be
 terminated. Default is 300 seconds.
 
 ## Setup
