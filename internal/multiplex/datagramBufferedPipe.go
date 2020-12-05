@@ -20,14 +20,11 @@ type datagramBufferedPipe struct {
 	rwCond    *sync.Cond
 	wtTimeout time.Duration
 	rDeadline time.Time
-
-	timer *time.Timer
 }
 
 func NewDatagramBufferedPipe() *datagramBufferedPipe {
 	d := &datagramBufferedPipe{
 		rwCond: sync.NewCond(&sync.Mutex{}),
-		timer:  time.NewTimer(0),
 	}
 	return d
 }
@@ -48,7 +45,7 @@ func (d *datagramBufferedPipe) Read(target []byte) (int, error) {
 			if delta <= 0 {
 				return 0, ErrTimeout
 			}
-			d.broadcastAfter(delta)
+			time.AfterFunc(delta, d.rwCond.Broadcast)
 		}
 
 		if len(d.pLens) > 0 {
@@ -84,12 +81,12 @@ func (d *datagramBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 			}
 			if d.wtTimeout == 0 {
 				// if there hasn't been a scheduled broadcast
-				d.broadcastAfter(delta)
+				time.AfterFunc(delta, d.rwCond.Broadcast)
 			}
 		}
 		if d.wtTimeout != 0 {
 			d.rDeadline = time.Now().Add(d.wtTimeout)
-			d.broadcastAfter(d.wtTimeout)
+			time.AfterFunc(d.wtTimeout, d.rwCond.Broadcast)
 		}
 
 		if len(d.pLens) > 0 {
@@ -162,16 +159,4 @@ func (d *datagramBufferedPipe) SetWriteToTimeout(t time.Duration) {
 
 	d.wtTimeout = t
 	d.rwCond.Broadcast()
-}
-
-func (d *datagramBufferedPipe) broadcastAfter(delta time.Duration) {
-	// d.rwCond.L must be held, otherwise the following timer operations will race
-	if !d.timer.Stop() {
-		<-d.timer.C
-	}
-	d.timer.Reset(delta)
-	go func() {
-		<-d.timer.C
-		d.rwCond.Broadcast()
-	}()
 }
