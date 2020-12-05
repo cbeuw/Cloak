@@ -111,7 +111,7 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	sesh.maxStreamUnitWrite = sesh.MsgOnWireSizeLimit - frameHeaderLength - sesh.Obfuscator.maxOverhead
 
 	sesh.sb = makeSwitchboard(sesh)
-	go sesh.timeoutAfter(sesh.InactivityTimeout)
+	time.AfterFunc(sesh.InactivityTimeout, sesh.checkTimeout)
 	return sesh
 }
 
@@ -204,7 +204,7 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 			return sesh.Close()
 		} else {
 			log.Debugf("session %v has no active stream left", sesh.id)
-			go sesh.timeoutAfter(sesh.InactivityTimeout)
+			time.AfterFunc(sesh.InactivityTimeout, sesh.checkTimeout)
 		}
 	}
 	return nil
@@ -334,9 +334,7 @@ func (sesh *Session) IsClosed() bool {
 	return atomic.LoadUint32(&sesh.closed) == 1
 }
 
-func (sesh *Session) timeoutAfter(to time.Duration) {
-	time.Sleep(to)
-
+func (sesh *Session) checkTimeout() {
 	if sesh.streamCount() == 0 && !sesh.IsClosed() {
 		sesh.SetTerminalMsg("timeout")
 		sesh.Close()
