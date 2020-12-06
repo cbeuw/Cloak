@@ -18,6 +18,8 @@ type streamBufferedPipe struct {
 	rwCond    *sync.Cond
 	rDeadline time.Time
 	wtTimeout time.Duration
+
+	timeoutTimer *time.Timer
 }
 
 func NewStreamBufferedPipe() *streamBufferedPipe {
@@ -37,15 +39,19 @@ func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 		if p.closed && p.buf.Len() == 0 {
 			return 0, io.EOF
 		}
-		if !p.rDeadline.IsZero() {
-			d := time.Until(p.rDeadline)
-			if d <= 0 {
+
+		hasRDeadline := !p.rDeadline.IsZero()
+		if hasRDeadline {
+			if time.Until(p.rDeadline) <= 0 {
 				return 0, ErrTimeout
 			}
-			time.AfterFunc(d, p.rwCond.Broadcast)
 		}
 		if p.buf.Len() > 0 {
 			break
+		}
+
+		if hasRDeadline {
+			p.broadcastAfter(time.Until(p.rDeadline))
 		}
 		p.rwCond.Wait()
 	}
@@ -65,19 +71,12 @@ func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 		if p.closed && p.buf.Len() == 0 {
 			return 0, io.EOF
 		}
-		if !p.rDeadline.IsZero() {
-			d := time.Until(p.rDeadline)
-			if d <= 0 {
+
+		hasRDeadline := !p.rDeadline.IsZero()
+		if hasRDeadline {
+			if time.Until(p.rDeadline) <= 0 {
 				return 0, ErrTimeout
 			}
-			if p.wtTimeout == 0 {
-				// if there hasn't been a scheduled broadcast
-				time.AfterFunc(d, p.rwCond.Broadcast)
-			}
-		}
-		if p.wtTimeout != 0 {
-			p.rDeadline = time.Now().Add(p.wtTimeout)
-			time.AfterFunc(p.wtTimeout, p.rwCond.Broadcast)
 		}
 		if p.buf.Len() > 0 {
 			written, er := p.buf.WriteTo(w)
@@ -88,6 +87,15 @@ func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 			}
 			p.rwCond.Broadcast()
 		} else {
+			if p.wtTimeout == 0 {
+				if hasRDeadline {
+					p.broadcastAfter(time.Until(p.rDeadline))
+				}
+			} else {
+				p.rDeadline = time.Now().Add(p.wtTimeout)
+				p.broadcastAfter(p.wtTimeout)
+			}
+
 			p.rwCond.Wait()
 		}
 	}
@@ -138,4 +146,11 @@ func (p *streamBufferedPipe) SetWriteToTimeout(d time.Duration) {
 
 	p.wtTimeout = d
 	p.rwCond.Broadcast()
+}
+
+func (p *streamBufferedPipe) broadcastAfter(d time.Duration) {
+	if p.timeoutTimer != nil {
+		p.timeoutTimer.Stop()
+	}
+	p.timeoutTimer = time.AfterFunc(d, p.rwCond.Broadcast)
 }
