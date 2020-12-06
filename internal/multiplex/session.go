@@ -253,8 +253,7 @@ func (sesh *Session) TerminalMsg() string {
 	}
 }
 
-func (sesh *Session) passiveClose() error {
-	log.Debugf("attempting to passively close session %v", sesh.id)
+func (sesh *Session) closeSession(closeSwitchboard bool) error {
 	if atomic.SwapUint32(&sesh.closed, 1) == 1 {
 		log.Debugf("session %v has already been closed", sesh.id)
 		return errRepeatSessionClosing
@@ -273,7 +272,18 @@ func (sesh *Session) passiveClose() error {
 		return true
 	})
 
-	sesh.sb.closeAll()
+	if closeSwitchboard {
+		sesh.sb.closeAll()
+	}
+	return nil
+}
+
+func (sesh *Session) passiveClose() error {
+	log.Debugf("attempting to passively close session %v", sesh.id)
+	err := sesh.closeSession(true)
+	if err != nil {
+		return err
+	}
 	log.Debugf("session %v closed gracefully", sesh.id)
 	return nil
 }
@@ -288,25 +298,10 @@ func genRandomPadding() []byte {
 
 func (sesh *Session) Close() error {
 	log.Debugf("attempting to actively close session %v", sesh.id)
-	if atomic.SwapUint32(&sesh.closed, 1) == 1 {
-		log.Debugf("session %v has already been closed", sesh.id)
-		return errRepeatSessionClosing
+	err := sesh.closeSession(false)
+	if err != nil {
+		return err
 	}
-	sesh.acceptCh <- nil
-
-	// close all streams
-	sesh.streams.Range(func(key, streamI interface{}) bool {
-		if streamI == nil {
-			return true
-		}
-		stream := streamI.(*Stream)
-		atomic.StoreUint32(&stream.closed, 1)
-		_ = stream.recvBuf.Close() // will not block
-		sesh.streams.Delete(key)
-		sesh.streamCountDecr()
-		return true
-	})
-
 	// we send a notice frame telling remote to close the session
 	pad := genRandomPadding()
 	f := &Frame{
