@@ -39,15 +39,19 @@ func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 		if p.closed && p.buf.Len() == 0 {
 			return 0, io.EOF
 		}
-		if !p.rDeadline.IsZero() {
-			d := time.Until(p.rDeadline)
-			if d <= 0 {
+
+		hasRDeadline := !p.rDeadline.IsZero()
+		if hasRDeadline {
+			if time.Until(p.rDeadline) <= 0 {
 				return 0, ErrTimeout
 			}
-			p.broadcastAfter(d)
 		}
 		if p.buf.Len() > 0 {
 			break
+		}
+
+		if hasRDeadline {
+			p.broadcastAfter(time.Until(p.rDeadline))
 		}
 		p.rwCond.Wait()
 	}
@@ -67,14 +71,11 @@ func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 		if p.closed && p.buf.Len() == 0 {
 			return 0, io.EOF
 		}
-		if !p.rDeadline.IsZero() {
-			d := time.Until(p.rDeadline)
-			if d <= 0 {
+
+		hasRDeadline := !p.rDeadline.IsZero()
+		if hasRDeadline {
+			if time.Until(p.rDeadline) <= 0 {
 				return 0, ErrTimeout
-			}
-			if p.wtTimeout == 0 {
-				// if there hasn't been a scheduled broadcast
-				p.broadcastAfter(d)
 			}
 		}
 		if p.buf.Len() > 0 {
@@ -86,10 +87,15 @@ func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 			}
 			p.rwCond.Broadcast()
 		} else {
-			if p.wtTimeout != 0 {
+			if p.wtTimeout == 0 {
+				if hasRDeadline {
+					p.broadcastAfter(time.Until(p.rDeadline))
+				}
+			} else {
 				p.rDeadline = time.Now().Add(p.wtTimeout)
 				p.broadcastAfter(p.wtTimeout)
 			}
+
 			p.rwCond.Wait()
 		}
 	}
