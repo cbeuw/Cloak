@@ -63,22 +63,22 @@ func makeSessionPair(numConn int) (*Session, *Session, []*connPair) {
 	return clientSession, serverSession, paris
 }
 
-func runEchoTest(t *testing.T, streams []*Stream) {
-	const testDataLen = 16384
+func runEchoTest(t *testing.T, conns []net.Conn, maxMsgLen int) {
 	var wg sync.WaitGroup
-	for _, stream := range streams {
+	for _, conn := range conns {
 		wg.Add(1)
-		go func(stream *Stream) {
+		go func(conn net.Conn) {
+			testDataLen := rand.Intn(maxMsgLen)
 			testData := make([]byte, testDataLen)
 			rand.Read(testData)
 
-			n, err := stream.Write(testData)
+			n, err := conn.Write(testData)
 			if n != testDataLen {
 				t.Fatalf("written only %v, err %v", n, err)
 			}
 
 			recvBuf := make([]byte, testDataLen)
-			_, err = io.ReadFull(stream, recvBuf)
+			_, err = io.ReadFull(conn, recvBuf)
 			if err != nil {
 				t.Fatalf("failed to read back: %v", err)
 			}
@@ -87,7 +87,7 @@ func runEchoTest(t *testing.T, streams []*Stream) {
 				t.Fatalf("echoed data not correct")
 			}
 			wg.Done()
-		}(stream)
+		}(conn)
 	}
 	wg.Wait()
 }
@@ -95,11 +95,12 @@ func runEchoTest(t *testing.T, streams []*Stream) {
 func TestMultiplex(t *testing.T) {
 	const numStreams = 2000 // -race option limits the number of goroutines to 8192
 	const numConns = 4
+	const maxMsgLen = 16384
 
 	clientSession, serverSession, _ := makeSessionPair(numConns)
 	go serveEcho(serverSession)
 
-	streams := make([]*Stream, numStreams)
+	streams := make([]net.Conn, numStreams)
 	for i := 0; i < numStreams; i++ {
 		stream, err := clientSession.OpenStream()
 		if err != nil {
@@ -109,7 +110,7 @@ func TestMultiplex(t *testing.T) {
 	}
 
 	//test echo
-	runEchoTest(t, streams)
+	runEchoTest(t, streams, maxMsgLen)
 	if clientSession.streamCount() != numStreams {
 		t.Errorf("client stream count is wrong: %v", clientSession.streamCount())
 	}

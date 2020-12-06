@@ -17,8 +17,10 @@ var seshConfigUnordered = SessionConfig{
 	Unordered: true,
 }
 
+const testPayloadLen = 1024
+const obfsBufLen = testPayloadLen * 2
+
 func TestRecvDataFromRemote(t *testing.T) {
-	testPayloadLen := 1024
 	testPayload := make([]byte, testPayloadLen)
 	rand.Read(testPayload)
 	f := &Frame{
@@ -27,126 +29,88 @@ func TestRecvDataFromRemote(t *testing.T) {
 		0,
 		testPayload,
 	}
-	obfsBuf := make([]byte, 17000)
+	obfsBuf := make([]byte, obfsBufLen)
 
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	t.Run("plain ordered", func(t *testing.T) {
-		obfuscator, _ := MakeObfuscator(EncryptionMethodPlain, sessionKey)
-		seshConfigOrdered.Obfuscator = obfuscator
-		sesh := MakeSession(0, seshConfigOrdered)
-		n, _ := sesh.Obfs(f, obfsBuf, 0)
 
-		err := sesh.recvDataFromRemote(obfsBuf[:n])
+	MakeObfuscatorUnwrap := func(method byte, sessionKey [32]byte) Obfuscator {
+		ret, err := MakeObfuscator(method, sessionKey)
 		if err != nil {
-			t.Error(err)
-			return
+			t.Fatalf("failed to make an obfuscator: %v", err)
 		}
-		stream, err := sesh.Accept()
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		return ret
+	}
 
-		resultPayload := make([]byte, testPayloadLen)
-		_, err = stream.Read(resultPayload)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		if !bytes.Equal(testPayload, resultPayload) {
-			t.Errorf("Expecting %x, got %x", testPayload, resultPayload)
-		}
-	})
-	t.Run("aes-gcm ordered", func(t *testing.T) {
-		obfuscator, _ := MakeObfuscator(EncryptionMethodAESGCM, sessionKey)
-		seshConfigOrdered.Obfuscator = obfuscator
-		sesh := MakeSession(0, seshConfigOrdered)
-		n, _ := sesh.Obfs(f, obfsBuf, 0)
+	sessionTypes := []struct {
+		name   string
+		config SessionConfig
+	}{
+		{"ordered",
+			SessionConfig{}},
+		{"unordered",
+			SessionConfig{Unordered: true}},
+	}
 
-		err := sesh.recvDataFromRemote(obfsBuf[:n])
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		stream, err := sesh.Accept()
-		if err != nil {
-			t.Error(err)
-			return
-		}
+	encryptionMethods := []struct {
+		name       string
+		obfuscator Obfuscator
+	}{
+		{
+			"plain",
+			MakeObfuscatorUnwrap(EncryptionMethodPlain, sessionKey),
+		},
+		{
+			"aes-gcm",
+			MakeObfuscatorUnwrap(EncryptionMethodAESGCM, sessionKey),
+		},
+		{
+			"chacha20-poly1305",
+			MakeObfuscatorUnwrap(EncryptionMethodChaha20Poly1305, sessionKey),
+		},
+	}
 
-		resultPayload := make([]byte, testPayloadLen)
-		_, err = stream.Read(resultPayload)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		if !bytes.Equal(testPayload, resultPayload) {
-			t.Errorf("Expecting %x, got %x", testPayload, resultPayload)
-		}
-	})
-	t.Run("chacha20-poly1305 ordered", func(t *testing.T) {
-		obfuscator, _ := MakeObfuscator(EncryptionMethodChaha20Poly1305, sessionKey)
-		seshConfigOrdered.Obfuscator = obfuscator
-		sesh := MakeSession(0, seshConfigOrdered)
-		n, _ := sesh.Obfs(f, obfsBuf, 0)
+	for _, st := range sessionTypes {
+		t.Run(st.name, func(t *testing.T) {
+			for _, em := range encryptionMethods {
+				t.Run(em.name, func(t *testing.T) {
+					st.config.Obfuscator = em.obfuscator
+					sesh := MakeSession(0, st.config)
+					n, err := sesh.Obfs(f, obfsBuf, 0)
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					err = sesh.recvDataFromRemote(obfsBuf[:n])
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					stream, err := sesh.Accept()
+					if err != nil {
+						t.Error(err)
+						return
+					}
 
-		err := sesh.recvDataFromRemote(obfsBuf[:n])
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		stream, err := sesh.Accept()
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		resultPayload := make([]byte, testPayloadLen)
-		_, err = stream.Read(resultPayload)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		if !bytes.Equal(testPayload, resultPayload) {
-			t.Errorf("Expecting %x, got %x", testPayload, resultPayload)
-		}
-	})
-
-	t.Run("plain unordered", func(t *testing.T) {
-		obfuscator, _ := MakeObfuscator(EncryptionMethodPlain, sessionKey)
-		seshConfigUnordered.Obfuscator = obfuscator
-		sesh := MakeSession(0, seshConfigOrdered)
-		n, _ := sesh.Obfs(f, obfsBuf, 0)
-
-		err := sesh.recvDataFromRemote(obfsBuf[:n])
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		stream, err := sesh.Accept()
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		resultPayload := make([]byte, testPayloadLen)
-		_, err = stream.Read(resultPayload)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		if !bytes.Equal(testPayload, resultPayload) {
-			t.Errorf("Expecting %x, got %x", testPayload, resultPayload)
-		}
-	})
+					resultPayload := make([]byte, testPayloadLen)
+					_, err = stream.Read(resultPayload)
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					if !bytes.Equal(testPayload, resultPayload) {
+						t.Errorf("Expecting %x, got %x", testPayload, resultPayload)
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
-	testPayloadLen := 1024
 	testPayload := make([]byte, testPayloadLen)
 	rand.Read(testPayload)
-	obfsBuf := make([]byte, 17000)
+	obfsBuf := make([]byte, obfsBufLen)
 
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
@@ -273,10 +237,9 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 
 func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 	// Tests for when the closing frame of a stream is received first before any data frame
-	testPayloadLen := 1024
 	testPayload := make([]byte, testPayloadLen)
 	rand.Read(testPayload)
-	obfsBuf := make([]byte, 17000)
+	obfsBuf := make([]byte, obfsBufLen)
 
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
@@ -354,7 +317,7 @@ func TestParallelStreams(t *testing.T) {
 		}
 	}
 
-	numOfTests := 5000
+	const numOfTests = 5000
 	tests := make([]struct {
 		name  string
 		frame *Frame
@@ -368,11 +331,11 @@ func TestParallelStreams(t *testing.T) {
 	for _, tc := range tests {
 		wg.Add(1)
 		go func(frame *Frame) {
-			data := make([]byte, 1000)
-			n, _ := sesh.Obfs(frame, data, 0)
-			data = data[0:n]
+			obfsBuf := make([]byte, obfsBufLen)
+			n, _ := sesh.Obfs(frame, obfsBuf, 0)
+			obfsBuf = obfsBuf[0:n]
 
-			err := sesh.recvDataFromRemote(data)
+			err := sesh.recvDataFromRemote(obfsBuf)
 			if err != nil {
 				t.Error(err)
 			}
@@ -452,7 +415,6 @@ func TestSession_timeoutAfter(t *testing.T) {
 }
 
 func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
-	testPayloadLen := 1024
 	testPayload := make([]byte, testPayloadLen)
 	rand.Read(testPayload)
 	f := &Frame{
@@ -461,7 +423,7 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 		0,
 		testPayload,
 	}
-	obfsBuf := make([]byte, 17000)
+	obfsBuf := make([]byte, obfsBufLen)
 
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
