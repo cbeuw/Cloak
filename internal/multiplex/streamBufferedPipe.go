@@ -95,7 +95,7 @@ func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 				if !p.rDeadline.IsZero() {
 					p.broadcastAfter(time.Until(p.rDeadline))
 				}
-			} else {
+			} else if enforceTimeout {
 				p.broadcastAfter(p.wtTimeout)
 			}
 

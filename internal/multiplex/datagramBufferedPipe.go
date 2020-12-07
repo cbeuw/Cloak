@@ -105,7 +105,7 @@ func (d *datagramBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 				if !d.rDeadline.IsZero() {
 					d.broadcastAfter(time.Until(d.rDeadline))
 				}
-			} else {
+			} else if enforceTimeout {
 				d.broadcastAfter(d.wtTimeout)
 			}
 
