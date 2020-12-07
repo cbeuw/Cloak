@@ -85,7 +85,9 @@ func main() {
 	}
 
 	if ssPluginMode {
-		rawConfig.ProxyMethod = "shadowsocks"
+		if rawConfig.ProxyMethod == "" {
+			rawConfig.ProxyMethod = "shadowsocks"
+		}
 		// json takes precedence over environment variables
 		// i.e. if json field isn't empty, use that
 		if rawConfig.RemoteHost == "" {
