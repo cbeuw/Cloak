@@ -21,12 +21,14 @@ type datagramBufferedPipe struct {
 	wtTimeout time.Duration
 	rDeadline time.Time
 
-	timeoutTimer *time.Timer
+	timeoutTimer        *time.Timer
+	enforceReadDeadline bool
 }
 
 func NewDatagramBufferedPipe() *datagramBufferedPipe {
 	d := &datagramBufferedPipe{
 		rwCond: sync.NewCond(&sync.Mutex{}),
+		enforceReadDeadline: true,
 	}
 	return d
 }
@@ -42,7 +44,7 @@ func (d *datagramBufferedPipe) Read(target []byte) (int, error) {
 			return 0, io.EOF
 		}
 
-		hasRDeadline := !d.rDeadline.IsZero()
+		hasRDeadline := !d.rDeadline.IsZero() && d.enforceReadDeadline
 		if hasRDeadline {
 			if time.Until(d.rDeadline) <= 0 {
 				return 0, ErrTimeout
@@ -65,6 +67,7 @@ func (d *datagramBufferedPipe) Read(target []byte) (int, error) {
 	d.pLens = d.pLens[1:]
 	d.buf.Read(target[:dataLen])
 	// err will always be nil because we have already verified that buf.Len() != 0
+	d.enforceReadDeadline = false
 	d.rwCond.Broadcast()
 	return dataLen, nil
 }

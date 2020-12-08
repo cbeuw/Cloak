@@ -19,12 +19,14 @@ type streamBufferedPipe struct {
 	rDeadline time.Time
 	wtTimeout time.Duration
 
-	timeoutTimer *time.Timer
+	timeoutTimer        *time.Timer
+	enforceReadDeadline bool
 }
 
 func NewStreamBufferedPipe() *streamBufferedPipe {
 	p := &streamBufferedPipe{
 		rwCond: sync.NewCond(&sync.Mutex{}),
+		enforceReadDeadline: true,
 	}
 	return p
 }
@@ -40,7 +42,7 @@ func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 			return 0, io.EOF
 		}
 
-		hasRDeadline := !p.rDeadline.IsZero()
+		hasRDeadline := !p.rDeadline.IsZero() && p.enforceReadDeadline
 		if hasRDeadline {
 			if time.Until(p.rDeadline) <= 0 {
 				return 0, ErrTimeout
@@ -57,6 +59,7 @@ func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 	}
 	n, err := p.buf.Read(target)
 	// err will always be nil because we have already verified that buf.Len() != 0
+	p.enforceReadDeadline = false
 	p.rwCond.Broadcast()
 	return n, err
 }
