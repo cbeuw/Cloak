@@ -85,14 +85,17 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, newSeshFunc fu
 		if sesh == nil || sesh.IsClosed() || sesh.Singleplex {
 			sesh = newSeshFunc()
 		}
-		go func(sesh *mux.Session, localConn net.Conn) {
+		go func(sesh *mux.Session, localConn net.Conn, timeout time.Duration) {
 			data := make([]byte, 10240)
+			_ = localConn.SetReadDeadline(time.Now().Add(streamTimeout))
 			i, err := io.ReadAtLeast(localConn, data, 1)
 			if err != nil {
 				log.Errorf("Failed to read first packet from proxy client: %v", err)
 				localConn.Close()
 				return
 			}
+			var zeroTime time.Time
+			_ = localConn.SetReadDeadline(zeroTime)
 
 			stream, err := sesh.OpenStream()
 			if err != nil {
@@ -112,7 +115,6 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, newSeshFunc fu
 				return
 			}
 
-			stream.SetReadFromTimeout(streamTimeout) // if localConn hasn't sent anything to stream to a period of time, stream closes
 			go func() {
 				if _, err := common.Copy(localConn, stream); err != nil {
 					log.Tracef("copying stream to proxy client: %v", err)
@@ -121,7 +123,7 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, newSeshFunc fu
 			if _, err = common.Copy(stream, localConn); err != nil {
 				log.Tracef("copying proxy client to stream: %v", err)
 			}
-		}(sesh, localConn)
+		}(sesh, localConn, streamTimeout)
 	}
 
 }
