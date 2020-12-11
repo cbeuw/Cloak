@@ -140,6 +140,14 @@ techniques).**
 `ServerName` is the domain you want to make your ISP or firewall _think_ you are visiting. Ideally it should
 match `RedirAddr` in the server's configuration, a major site the censor allows, but it doesn't have to.
 
+`CdnHttpHost` is a setting that only has an effect when `Transport` is set to `CDN`. In `CDN` mode, Cloak makes a full 
+SSL handshake and then initiates an HTTP websocket request. This setting allows overriding the HTTP `Host` header 
+address value in the inner HTTP request. Note: This needs to be only a domain, the port is taken from the remote port 
+that Cloak connects to. This can be useful for some cases such as shadowsocks-android which don't pass the remote 
+address domain name but rather its resolved IP address. This override also allows you to try to use domain fronting by 
+specifying a different Host header than the outer domain passed in the SSL handshake's SNI field. If this field is not 
+set, the passed remote address will be used.
+
 `NumConn` is the amount of underlying TCP connections you want to use. The default of 4 should be appropriate for most
 people. Setting it too high will hinder the performance. Setting it to 0 will disable connection multiplexing and each
 TCP connection will spawn a separate short-lived session that will be closed after it is terminated. This makes it
