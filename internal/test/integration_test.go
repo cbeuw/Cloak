@@ -138,16 +138,15 @@ func generateClientConfigs(rawConfig client.RawConfig, state common.WorldState) 
 
 func basicServerState(ws common.WorldState, db *os.File) *server.State {
 	var serverConfig = server.RawConfig{
-		ProxyBook:     map[string][]string{"shadowsocks": {"tcp", "fake.com:9999"}, "openvpn": {"udp", "fake.com:9999"}},
-		BindAddr:      []string{"fake.com:9999"},
-		BypassUID:     [][]byte{bypassUID[:]},
-		RedirAddr:     "fake.com:9999",
-		PrivateKey:    privateKey,
-		AdminUID:      nil,
-		DatabasePath:  db.Name(),
-		StreamTimeout: 300,
-		KeepAlive:     15,
-		CncMode:       false,
+		ProxyBook:    map[string][]string{"shadowsocks": {"tcp", "fake.com:9999"}, "openvpn": {"udp", "fake.com:9999"}},
+		BindAddr:     []string{"fake.com:9999"},
+		BypassUID:    [][]byte{bypassUID[:]},
+		RedirAddr:    "fake.com:9999",
+		PrivateKey:   privateKey,
+		AdminUID:     nil,
+		DatabasePath: db.Name(),
+		KeepAlive:    15,
+		CncMode:      false,
 	}
 	state, err := server.InitState(serverConfig, ws)
 	if err != nil {

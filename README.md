@@ -116,9 +116,6 @@ and will raise an error. See Issue #13.**
 `KeepAlive` is the number of seconds to tell the OS to wait after no activity before sending TCP KeepAlive probes to the
 upstream proxy server. Zero or negative value disables it. Default is 0 (disabled).
 
-`StreamTimeout` is the number of seconds of no data *sent* after which the incoming Cloak client connection will be
-terminated. Default is 300 seconds.
-
 ### Client
 
 `UID` is your UID in base64.
@@ -152,8 +149,9 @@ Currently, `chrome` and `firefox` are supported.
 Cloak server. Zero or negative value disables it. Default is 0 (disabled). Warning: Enabling it might make your server
 more detectable as a proxy, but it will make the Cloak client detect internet interruption more quickly.
 
-`StreamTimeout` is the number of seconds of no data *received* after which the incoming proxy connection will be
-terminated. Default is 300 seconds.
+`StreamTimeout` is the number of seconds of Cloak waits for an incoming connection from a proxy program to send any
+data, after which the connection will be closed by Cloak. Cloak will not enforce any timeout on TCP connections after it
+is established.
 
 ## Setup
 

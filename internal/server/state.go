@@ -15,16 +15,15 @@ import (
 )
 
 type RawConfig struct {
-	ProxyBook     map[string][]string
-	BindAddr      []string
-	BypassUID     [][]byte
-	RedirAddr     string
-	PrivateKey    []byte
-	AdminUID      []byte
-	DatabasePath  string
-	StreamTimeout int
-	KeepAlive     int
-	CncMode       bool
+	ProxyBook    map[string][]string
+	BindAddr     []string
+	BypassUID    [][]byte
+	RedirAddr    string
+	PrivateKey   []byte
+	AdminUID     []byte
+	DatabasePath string
+	KeepAlive    int
+	CncMode      bool
 }
 
 // State type stores the global state of the program
@@ -34,8 +33,6 @@ type State struct {
 
 	WorldState common.WorldState
 	AdminUID   []byte
-	Timeout    time.Duration
-	//KeepAlive time.Duration
 
 	BypassUID map[[16]byte]struct{}
 	StaticPv  crypto.PrivateKey
@@ -151,12 +148,6 @@ func InitState(preParse RawConfig, worldState common.WorldState) (sta *State, er
 			return sta, err
 		}
 		sta.Panel = MakeUserPanel(manager)
-	}
-
-	if preParse.StreamTimeout == 0 {
-		sta.Timeout = time.Duration(300) * time.Second
-	} else {
-		sta.Timeout = time.Duration(preParse.StreamTimeout) * time.Second
 	}
 
 	if preParse.KeepAlive <= 0 {
