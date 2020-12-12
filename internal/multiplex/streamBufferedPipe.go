@@ -19,14 +19,12 @@ type streamBufferedPipe struct {
 	rDeadline time.Time
 	wtTimeout time.Duration
 
-	timeoutTimer        *time.Timer
-	enforceReadDeadline bool
+	timeoutTimer *time.Timer
 }
 
 func NewStreamBufferedPipe() *streamBufferedPipe {
 	p := &streamBufferedPipe{
 		rwCond: sync.NewCond(&sync.Mutex{}),
-		enforceReadDeadline: true,
 	}
 	return p
 }
@@ -42,7 +40,7 @@ func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 			return 0, io.EOF
 		}
 
-		hasRDeadline := !p.rDeadline.IsZero() && p.enforceReadDeadline
+		hasRDeadline := !p.rDeadline.IsZero()
 		if hasRDeadline {
 			if time.Until(p.rDeadline) <= 0 {
 				return 0, ErrTimeout
@@ -59,7 +57,6 @@ func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 	}
 	n, err := p.buf.Read(target)
 	// err will always be nil because we have already verified that buf.Len() != 0
-	p.enforceReadDeadline = false
 	p.rwCond.Broadcast()
 	return n, err
 }
@@ -67,7 +64,6 @@ func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
-	enforceTimeout := true
 	if p.buf == nil {
 		p.buf = new(bytes.Buffer)
 	}
@@ -76,14 +72,12 @@ func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 			return 0, io.EOF
 		}
 
-		if !p.rDeadline.IsZero() && enforceTimeout && time.Until(p.rDeadline) <= 0 {
-			return 0, ErrTimeout
+		hasRDeadline := !p.rDeadline.IsZero()
+		if hasRDeadline {
+			if time.Until(p.rDeadline) <= 0 {
+				return 0, ErrTimeout
+			}
 		}
-
-		if p.wtTimeout != 0 {
-			p.rDeadline = time.Now().Add(p.wtTimeout)
-		}
-
 		if p.buf.Len() > 0 {
 			written, er := p.buf.WriteTo(w)
 			n += written
@@ -91,14 +85,14 @@ func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 				p.rwCond.Broadcast()
 				return n, er
 			}
-			enforceTimeout = false
 			p.rwCond.Broadcast()
 		} else {
 			if p.wtTimeout == 0 {
-				if !p.rDeadline.IsZero() {
+				if hasRDeadline {
 					p.broadcastAfter(time.Until(p.rDeadline))
 				}
-			} else if enforceTimeout {
+			} else {
+				p.rDeadline = time.Now().Add(p.wtTimeout)
 				p.broadcastAfter(p.wtTimeout)
 			}
 

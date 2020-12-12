@@ -275,8 +275,6 @@ func serveSession(sesh *mux.Session, ci ClientInfo, user *ActiveUser, sta *State
 		}
 		log.Tracef("%v endpoint has been successfully connected", ci.ProxyMethod)
 
-		// if stream has nothing to send to proxy server for sta.Timeout period of time, stream will return error
-		newStream.(*mux.Stream).SetWriteToTimeout(sta.Timeout)
 		go func() {
 			if _, err := common.Copy(localConn, newStream); err != nil {
 				log.Tracef("copying stream to proxy server: %v", err)
