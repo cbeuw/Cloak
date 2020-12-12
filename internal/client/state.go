@@ -35,6 +35,7 @@ type RawConfig struct {
 	UDP           bool   // nullable
 	BrowserSig    string // nullable
 	Transport     string // nullable
+	CDNOriginHost string // nullable
 	StreamTimeout int    // nullable
 	KeepAlive     int    // nullable
 }
@@ -189,9 +190,16 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 	// Transport and (if TLS mode), browser
 	switch strings.ToLower(raw.Transport) {
 	case "cdn":
+		var cdnDomainPort string
+		if raw.CDNOriginHost == "" {
+			cdnDomainPort = net.JoinHostPort(raw.RemoteHost, raw.RemotePort)
+		} else {
+			cdnDomainPort = net.JoinHostPort(raw.CDNOriginHost, raw.RemotePort)
+		}
+
 		remote.TransportMaker = func() Transport {
 			return &WSOverTLS{
-				cdnDomainPort: remote.RemoteAddr,
+				cdnDomainPort: cdnDomainPort,
 			}
 		}
 	case "direct":
