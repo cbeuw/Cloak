@@ -23,6 +23,5 @@
   "RedirAddr": "204.79.197.200:443",
   "PrivateKey": "EN5aPEpNBO+vw+BtFQY2OnK9bQU7rvEj5qmnmgwEtUc=",
   "AdminUID": "5nneblJy6lniPJfr81LuYQ==",
-  "DatabasePath": "userinfo.db",
-  "StreamTimeout": 300
+  "DatabasePath": "userinfo.db"
 }
