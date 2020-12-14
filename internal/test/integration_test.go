@@ -206,12 +206,12 @@ func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, a
 			addrCh <- conn.LocalAddr().(*net.UDPAddr)
 			return conn, err
 		}
-		go client.RouteUDP(acceptor, lcc.Timeout, clientSeshMaker)
+		go client.RouteUDP(acceptor, lcc.Timeout, rcc.Singleplex, clientSeshMaker)
 		proxyToCkClientD = mDialer
 	} else {
 		var proxyToCkClientL *connutil.PipeListener
 		proxyToCkClientD, proxyToCkClientL = connutil.DialerListener(10 * 1024)
-		go client.RouteTCP(proxyToCkClientL, lcc.Timeout, clientSeshMaker)
+		go client.RouteTCP(proxyToCkClientL, lcc.Timeout, rcc.Singleplex, clientSeshMaker)
 	}
 
 	// set up server

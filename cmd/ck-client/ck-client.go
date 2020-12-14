@@ -184,12 +184,12 @@ func main() {
 			return net.ListenUDP("udp", udpAddr)
 		}
 
-		client.RouteUDP(acceptor, localConfig.Timeout, seshMaker)
+		client.RouteUDP(acceptor, localConfig.Timeout, remoteConfig.Singleplex, seshMaker)
 	} else {
 		listener, err := net.Listen("tcp", localConfig.LocalAddr)
 		if err != nil {
 			log.Fatal(err)
 		}
-		client.RouteTCP(listener, localConfig.Timeout, seshMaker)
+		client.RouteTCP(listener, localConfig.Timeout, remoteConfig.Singleplex, seshMaker)
 	}
 }
