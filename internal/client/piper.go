@@ -11,7 +11,7 @@ import (
 )
 
 func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration, singleplex bool, newSeshFunc func() *mux.Session) {
-	var multiplexSession *mux.Session
+	var sesh *mux.Session
 	localConn, err := bindFunc()
 	if err != nil {
 		log.Fatal(err)
@@ -27,25 +27,19 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 			continue
 		}
 
-		if !singleplex && (multiplexSession == nil || multiplexSession.IsClosed()) {
-			multiplexSession = newSeshFunc()
+		if !singleplex && (sesh == nil || sesh.IsClosed()) {
+			sesh = newSeshFunc()
 		}
 
 		stream, ok := streams[addr.String()]
 		if !ok {
-			var session *mux.Session
-			if multiplexSession != nil {
-				session = multiplexSession
-			} else {
-				session = newSeshFunc()
+			if singleplex {
+				sesh = newSeshFunc()
 			}
 
-			stream, err = session.OpenStream()
+			stream, err = sesh.OpenStream()
 			if err != nil {
 				log.Errorf("Failed to open stream: %v", err)
-				if session.Singleplex {
-					session.Close()
-				}
 				continue
 			}
 
@@ -82,22 +76,19 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 }
 
 func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex bool, newSeshFunc func() *mux.Session) {
-	var multiplexSession *mux.Session
+	var sesh *mux.Session
 	for {
 		localConn, err := listener.Accept()
 		if err != nil {
 			log.Fatal(err)
 			continue
 		}
-		if !singleplex && (multiplexSession == nil || multiplexSession.IsClosed()) {
-			multiplexSession = newSeshFunc()
+		if !singleplex && (sesh == nil || sesh.IsClosed()) {
+			sesh = newSeshFunc()
 		}
-		go func(multiplexSession *mux.Session, newSingleplexSeshFunc func() *mux.Session, localConn net.Conn, timeout time.Duration) {
-			var session *mux.Session
-			if multiplexSession != nil {
-				session = multiplexSession
-			} else {
-				session = newSingleplexSeshFunc()
+		go func(sesh *mux.Session, localConn net.Conn, timeout time.Duration) {
+			if singleplex {
+				sesh = newSeshFunc()
 			}
 
 			data := make([]byte, 10240)
@@ -111,13 +102,10 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex boo
 			var zeroTime time.Time
 			_ = localConn.SetReadDeadline(zeroTime)
 
-			stream, err := session.OpenStream()
+			stream, err := sesh.OpenStream()
 			if err != nil {
 				log.Errorf("Failed to open stream: %v", err)
 				localConn.Close()
-				if session.Singleplex {
-					session.Close()
-				}
 				return
 			}
 
@@ -137,6 +125,6 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex boo
 			if _, err = common.Copy(stream, localConn); err != nil {
 				log.Tracef("copying proxy client to stream: %v", err)
 			}
-		}(multiplexSession, newSeshFunc, localConn, streamTimeout)
+		}(sesh, localConn, streamTimeout)
 	}
 }
