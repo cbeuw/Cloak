@@ -39,6 +39,9 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 
 			stream, err = sesh.OpenStream()
 			if err != nil {
+				if singleplex {
+					sesh.Close()
+				}
 				log.Errorf("Failed to open stream: %v", err)
 				continue
 			}
@@ -106,6 +109,9 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex boo
 			if err != nil {
 				log.Errorf("Failed to open stream: %v", err)
 				localConn.Close()
+				if singleplex {
+					sesh.Close()
+				}
 				return
 			}
 
