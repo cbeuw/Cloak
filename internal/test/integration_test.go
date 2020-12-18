@@ -185,11 +185,9 @@ func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, a
 	//									whatever connection initiator (including a proper ck-client)
 
 	netToCkServerD, ckServerListener := connutil.DialerListener(10 * 1024)
-	var sessionCreateMutex sync.Mutex
 
 	clientSeshMaker := func() *mux.Session {
-		sessionCreateMutex.Lock()
-		defer sessionCreateMutex.Unlock()
+		ai := ai
 		quad := make([]byte, 4)
 		common.RandRead(ai.WorldState.Rand, quad)
 		ai.SessionId = binary.BigEndian.Uint32(quad)

@@ -169,6 +169,7 @@ func main() {
 		}
 		log.Infof("Listening on %v %v for %v client", network, localConfig.LocalAddr, authInfo.ProxyMethod)
 		seshMaker = func() *mux.Session {
+			authInfo := authInfo // copy the struct because we are overwriting SessionId
 			// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 			// sessionID is limited to its UID.
 			quad := make([]byte, 4)
