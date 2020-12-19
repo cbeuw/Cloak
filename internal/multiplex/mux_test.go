@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const eventualConsistencyTolerance = 500 * time.Millisecond
+
 func serveEcho(l net.Listener) {
 	for {
 		conn, err := l.Accept()
@@ -111,6 +113,8 @@ func TestMultiplex(t *testing.T) {
 
 	//test echo
 	runEchoTest(t, streams, maxMsgLen)
+
+	time.Sleep(eventualConsistencyTolerance)
 	if clientSession.streamCount() != numStreams {
 		t.Errorf("client stream count is wrong: %v", clientSession.streamCount())
 	}
@@ -148,7 +152,7 @@ func TestMux_StreamClosing(t *testing.T) {
 		t.Errorf("can't write to stream: %v", err)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(eventualConsistencyTolerance)
 	_ = toBeClosed.Close()
 	_, err = io.ReadFull(toBeClosed, recvBuf)
 	if err != nil {

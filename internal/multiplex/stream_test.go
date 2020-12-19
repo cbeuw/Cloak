@@ -230,7 +230,7 @@ func TestStream_Close(t *testing.T) {
 		if err != nil {
 			t.Errorf("can't read residual data %v", err)
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(eventualConsistencyTolerance)
 		if sI, _ := sesh.streams.Load(stream.(*Stream).id); sI != nil {
 			t.Error("stream still exists")
 			return

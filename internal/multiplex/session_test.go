@@ -408,7 +408,7 @@ func TestSession_timeoutAfter(t *testing.T) {
 	seshConfigOrdered.Obfuscator = obfuscator
 	seshConfigOrdered.InactivityTimeout = 100 * time.Millisecond
 	sesh := MakeSession(0, seshConfigOrdered)
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(2 * seshConfigOrdered.InactivityTimeout)
 	if !sesh.IsClosed() {
 		t.Error("session should have timed out")
 	}

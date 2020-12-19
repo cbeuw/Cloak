@@ -145,7 +145,7 @@ func TestSwitchboard_CloseOnOneDisconn(t *testing.T) {
 	sesh.AddConnection(conn1client)
 
 	conn0server.Close()
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(eventualConsistencyTolerance)
 	if !sesh.IsClosed() {
 		t.Error("session not closed after one conn is disconnected")
 		return
@@ -178,7 +178,7 @@ func TestSwitchboard_ConnsCount(t *testing.T) {
 
 	sesh.sb.closeAll()
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(eventualConsistencyTolerance)
 	if sesh.sb.connsCount() != 0 {
 		t.Error("connsCount incorrect")
 	}

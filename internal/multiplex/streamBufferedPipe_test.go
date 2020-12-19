@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const readBlockTime = 500 * time.Millisecond
+
 func TestPipeRW(t *testing.T) {
 	pipe := NewStreamBufferedPipe()
 	b := []byte{0x01, 0x02, 0x03}
@@ -60,7 +62,7 @@ func TestReadBlock(t *testing.T) {
 	pipe := NewStreamBufferedPipe()
 	b := []byte{0x01, 0x02, 0x03}
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(readBlockTime)
 		pipe.Write(b)
 	}()
 	b2 := make([]byte, len(b))
