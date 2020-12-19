@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration, newSeshFunc func() *mux.Session) {
+func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration, singleplex bool, newSeshFunc func() *mux.Session) {
 	var sesh *mux.Session
 	localConn, err := bindFunc()
 	if err != nil {
@@ -27,18 +27,22 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 			continue
 		}
 
-		if sesh == nil || sesh.IsClosed() || sesh.Singleplex {
+		if !singleplex && (sesh == nil || sesh.IsClosed()) {
 			sesh = newSeshFunc()
 		}
 
 		stream, ok := streams[addr.String()]
 		if !ok {
+			if singleplex {
+				sesh = newSeshFunc()
+			}
+
 			stream, err = sesh.OpenStream()
 			if err != nil {
-				log.Errorf("Failed to open stream: %v", err)
-				if sesh.Singleplex {
+				if singleplex {
 					sesh.Close()
 				}
+				log.Errorf("Failed to open stream: %v", err)
 				continue
 			}
 
@@ -74,7 +78,7 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 	}
 }
 
-func RouteTCP(listener net.Listener, streamTimeout time.Duration, newSeshFunc func() *mux.Session) {
+func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex bool, newSeshFunc func() *mux.Session) {
 	var sesh *mux.Session
 	for {
 		localConn, err := listener.Accept()
@@ -82,10 +86,14 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, newSeshFunc fu
 			log.Fatal(err)
 			continue
 		}
-		if sesh == nil || sesh.IsClosed() || sesh.Singleplex {
+		if !singleplex && (sesh == nil || sesh.IsClosed()) {
 			sesh = newSeshFunc()
 		}
 		go func(sesh *mux.Session, localConn net.Conn, timeout time.Duration) {
+			if singleplex {
+				sesh = newSeshFunc()
+			}
+
 			data := make([]byte, 10240)
 			_ = localConn.SetReadDeadline(time.Now().Add(streamTimeout))
 			i, err := io.ReadAtLeast(localConn, data, 1)
@@ -101,7 +109,7 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, newSeshFunc fu
 			if err != nil {
 				log.Errorf("Failed to open stream: %v", err)
 				localConn.Close()
-				if sesh.Singleplex {
+				if singleplex {
 					sesh.Close()
 				}
 				return
@@ -125,5 +133,4 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, newSeshFunc fu
 			}
 		}(sesh, localConn, streamTimeout)
 	}
-
 }

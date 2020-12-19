@@ -169,6 +169,7 @@ func main() {
 		}
 		log.Infof("Listening on %v %v for %v client", network, localConfig.LocalAddr, authInfo.ProxyMethod)
 		seshMaker = func() *mux.Session {
+			authInfo := authInfo // copy the struct because we are overwriting SessionId
 			// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 			// sessionID is limited to its UID.
 			quad := make([]byte, 4)
@@ -184,12 +185,12 @@ func main() {
 			return net.ListenUDP("udp", udpAddr)
 		}
 
-		client.RouteUDP(acceptor, localConfig.Timeout, seshMaker)
+		client.RouteUDP(acceptor, localConfig.Timeout, remoteConfig.Singleplex, seshMaker)
 	} else {
 		listener, err := net.Listen("tcp", localConfig.LocalAddr)
 		if err != nil {
 			log.Fatal(err)
 		}
-		client.RouteTCP(listener, localConfig.Timeout, seshMaker)
+		client.RouteTCP(listener, localConfig.Timeout, remoteConfig.Singleplex, seshMaker)
 	}
 }

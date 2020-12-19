@@ -185,7 +185,9 @@ func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, a
 	//									whatever connection initiator (including a proper ck-client)
 
 	netToCkServerD, ckServerListener := connutil.DialerListener(10 * 1024)
+
 	clientSeshMaker := func() *mux.Session {
+		ai := ai
 		quad := make([]byte, 4)
 		common.RandRead(ai.WorldState.Rand, quad)
 		ai.SessionId = binary.BigEndian.Uint32(quad)
@@ -206,12 +208,12 @@ func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, a
 			addrCh <- conn.LocalAddr().(*net.UDPAddr)
 			return conn, err
 		}
-		go client.RouteUDP(acceptor, lcc.Timeout, clientSeshMaker)
+		go client.RouteUDP(acceptor, lcc.Timeout, rcc.Singleplex, clientSeshMaker)
 		proxyToCkClientD = mDialer
 	} else {
 		var proxyToCkClientL *connutil.PipeListener
 		proxyToCkClientD, proxyToCkClientL = connutil.DialerListener(10 * 1024)
-		go client.RouteTCP(proxyToCkClientL, lcc.Timeout, clientSeshMaker)
+		go client.RouteTCP(proxyToCkClientL, lcc.Timeout, rcc.Singleplex, clientSeshMaker)
 	}
 
 	// set up server
