@@ -190,7 +190,7 @@ func dispatchConnection(conn net.Conn, sta *State) {
 	// adminUID can use the server as normal with unlimited QoS credits. The adminUID is not
 	// added to the userinfo database. The distinction between going into the admin mode
 	// and normal proxy mode is that sessionID needs == 0 for admin mode
-	if bytes.Equal(ci.UID, sta.AdminUID) && ci.SessionId == 0 {
+	if len(sta.AdminUID) != 0 && bytes.Equal(ci.UID, sta.AdminUID) && ci.SessionId == 0 {
 		sesh := mux.MakeSession(0, seshConfig)
 		preparedConn, err := finishHandshake(conn, sessionKey, sta.WorldState.Rand)
 		if err != nil {

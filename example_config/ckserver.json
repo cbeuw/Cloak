@@ -22,6 +22,6 @@
   ],
   "RedirAddr": "cloudflare.com",
   "PrivateKey": "---Private key here---",
-  "AdminUID": "---Admin UID here---",
+  "AdminUID": "---Admin UID here (optional)---",
   "DatabasePath": "userinfo.db"
 }

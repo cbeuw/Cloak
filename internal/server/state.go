@@ -168,6 +168,10 @@ func InitState(preParse RawConfig, worldState common.WorldState) (sta *State, er
 		return
 	}
 
+	if len(preParse.PrivateKey) == 0 {
+		err = fmt.Errorf("must have a valid private key. Run `ck-server -key` to generate one")
+		return
+	}
 	var pv [32]byte
 	copy(pv[:], preParse.PrivateKey)
 	sta.StaticPv = &pv
@@ -179,8 +183,10 @@ func InitState(preParse RawConfig, worldState common.WorldState) (sta *State, er
 		copy(arrUID[:], UID)
 		sta.BypassUID[arrUID] = struct{}{}
 	}
-	copy(arrUID[:], sta.AdminUID)
-	sta.BypassUID[arrUID] = struct{}{}
+	if len(sta.AdminUID) != 0 {
+		copy(arrUID[:], sta.AdminUID)
+		sta.BypassUID[arrUID] = struct{}{}
+	}
 
 	go sta.UsedRandomCleaner()
 	return sta, nil
