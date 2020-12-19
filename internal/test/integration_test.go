@@ -10,6 +10,7 @@ import (
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	"github.com/cbeuw/Cloak/internal/server"
 	"github.com/cbeuw/connutil"
+	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -356,17 +357,9 @@ func TestTCPSingleplex(t *testing.T) {
 
 	proxyConn1.Close()
 
-	retries := 0
-retry:
-	time.Sleep(delayBeforeTestingConnClose)
-	if user.NumSession() != 1 {
-		retries++
-		if retries > connCloseRetries {
-			t.Error("first session was not closed on connection close")
-		} else {
-			goto retry
-		}
-	}
+	assert.Eventually(t, func() bool {
+		return user.NumSession() == 1
+	}, time.Second, 10*time.Millisecond, "first session was not closed on connection close")
 
 	// conn2 should still work
 	runEchoTest(t, []net.Conn{proxyConn2}, 65536)
@@ -479,17 +472,10 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 				serverConn, _ := proxyFromCkServerL.Accept()
 				serverConn.Close()
 
-				retries := 0
-			retry:
-				time.Sleep(delayBeforeTestingConnClose)
-				if _, err := clientConn.Read(make([]byte, 16)); err == nil {
-					retries++
-					if retries > connCloseRetries {
-						t.Errorf("closing stream on server side is not reflected to the client: %v", err)
-					} else {
-						goto retry
-					}
-				}
+				assert.Eventually(t, func() bool {
+					_, err := clientConn.Read(make([]byte, 16))
+					return err != nil
+				}, time.Second, 10*time.Millisecond, "closing stream on server side is not reflected to the client")
 			})
 
 			t.Run("closing from client", func(t *testing.T) {
@@ -499,17 +485,10 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 				serverConn, _ := proxyFromCkServerL.Accept()
 				clientConn.Close()
 
-				retries := 0
-			retry:
-				time.Sleep(delayBeforeTestingConnClose)
-				if _, err := serverConn.Read(make([]byte, 16)); err == nil {
-					retries++
-					if retries > 3 {
-						t.Errorf("closing stream on client side is not reflected to the server: %v", err)
-					} else {
-						goto retry
-					}
-				}
+				assert.Eventually(t, func() bool {
+					_, err := serverConn.Read(make([]byte, 16))
+					return err != nil
+				}, time.Second, 10*time.Millisecond, "closing stream on client side is not reflected to the server")
 			})
 
 			t.Run("send then close", func(t *testing.T) {

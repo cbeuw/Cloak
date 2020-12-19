@@ -2,6 +2,7 @@ package multiplex
 
 import (
 	"github.com/cbeuw/connutil"
+	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"sync"
 	"testing"
@@ -145,11 +146,11 @@ func TestSwitchboard_CloseOnOneDisconn(t *testing.T) {
 	sesh.AddConnection(conn1client)
 
 	conn0server.Close()
-	time.Sleep(eventualConsistencyTolerance)
-	if !sesh.IsClosed() {
-		t.Error("session not closed after one conn is disconnected")
-		return
-	}
+
+	assert.Eventually(t, func() bool {
+		return sesh.IsClosed()
+	}, time.Second, 10*time.Millisecond, "session not closed after one conn is disconnected")
+
 	if _, err := conn1client.Write([]byte{0x00}); err == nil {
 		t.Error("the other conn is still connected")
 		return
@@ -178,9 +179,7 @@ func TestSwitchboard_ConnsCount(t *testing.T) {
 
 	sesh.sb.closeAll()
 
-	time.Sleep(eventualConsistencyTolerance)
-	if sesh.sb.connsCount() != 0 {
-		t.Error("connsCount incorrect")
-	}
-
+	assert.Eventuallyf(t, func() bool {
+		return sesh.sb.connsCount() == 0
+	}, time.Second, 10*time.Millisecond, "connsCount incorrect: %v", sesh.sb.connsCount())
 }

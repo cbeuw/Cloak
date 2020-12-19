@@ -3,6 +3,7 @@ package multiplex
 import (
 	"bytes"
 	"github.com/cbeuw/connutil"
+	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -408,10 +409,10 @@ func TestSession_timeoutAfter(t *testing.T) {
 	seshConfigOrdered.Obfuscator = obfuscator
 	seshConfigOrdered.InactivityTimeout = 100 * time.Millisecond
 	sesh := MakeSession(0, seshConfigOrdered)
-	time.Sleep(5 * seshConfigOrdered.InactivityTimeout)
-	if !sesh.IsClosed() {
-		t.Error("session should have timed out")
-	}
+
+	assert.Eventually(t, func() bool {
+		return sesh.IsClosed()
+	}, 5*seshConfigOrdered.InactivityTimeout, seshConfigOrdered.InactivityTimeout, "session should have timed out")
 }
 
 func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {

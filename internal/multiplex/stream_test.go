@@ -3,6 +3,7 @@ package multiplex
 import (
 	"bytes"
 	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -230,11 +231,11 @@ func TestStream_Close(t *testing.T) {
 		if err != nil {
 			t.Errorf("can't read residual data %v", err)
 		}
-		time.Sleep(eventualConsistencyTolerance)
-		if sI, _ := sesh.streams.Load(stream.(*Stream).id); sI != nil {
-			t.Error("stream still exists")
-			return
-		}
+
+		assert.Eventually(t, func() bool {
+			sI, _ := sesh.streams.Load(stream.(*Stream).id)
+			return sI == nil
+		}, time.Second, 10*time.Millisecond, "streams still exists")
 
 	})
 }
