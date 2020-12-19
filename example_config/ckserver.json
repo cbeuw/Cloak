@@ -18,10 +18,10 @@
     ":80"
   ],
   "BypassUID": [
-    "1rmq6Ag1jZJCImLBIL5wzQ=="
+    "---Bypass UID here---"
   ],
-  "RedirAddr": "204.79.197.200:443",
-  "PrivateKey": "EN5aPEpNBO+vw+BtFQY2OnK9bQU7rvEj5qmnmgwEtUc=",
-  "AdminUID": "5nneblJy6lniPJfr81LuYQ==",
+  "RedirAddr": "cloudflare.com",
+  "PrivateKey": "---Private key here---",
+  "AdminUID": "---Admin UID here---",
   "DatabasePath": "userinfo.db"
 }
