@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/cbeuw/Cloak.svg?branch=master)](https://travis-ci.org/cbeuw/Cloak)
+[![Build Status](https://github.com/cbeuw/Cloak/workflows/Build%20and%20test/badge.svg)](https://github.com/cbeuw/Cloak/actions)
 [![codecov](https://codecov.io/gh/cbeuw/Cloak/branch/master/graph/badge.svg)](https://codecov.io/gh/cbeuw/Cloak)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cbeuw/Cloak)](https://goreportcard.com/report/github.com/cbeuw/Cloak)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=SAUYKGSREP8GL&source=url)
