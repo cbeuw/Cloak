@@ -165,9 +165,8 @@ is established.
 
 0. Install at least one underlying proxy server (e.g. OpenVPN, Shadowsocks).
 1. Download [the latest release](https://github.com/cbeuw/Cloak/releases) or clone and build this repo.
-2. Run `ck-server -k`. The base64 string before the comma is the **public** key to be given to users, the one after the
-   comma is the **private** key to be kept secret.
-3. Run `ck-server -u`. This will be used as the `AdminUID`.
+2. Run `ck-server -key`. The **public** should be given to users, the **private** key should be kept secret.
+3. Run `ck-server -uid`. The new UID will be used as `AdminUID`.
 4. Copy example_config/ckserver.json into a desired location. Change `PrivateKey` to the private key you just obtained;
    change `AdminUID` to the UID you just obtained.
 5. Configure your underlying proxy server so that they all listen on localhost. Edit `ProxyBook` in the configuration
@@ -181,7 +180,7 @@ is established.
 
 ##### Unrestricted users
 
-Run `ck-server -u` and add the UID into the `BypassUID` field in `ckserver.json`
+Run `ck-server -uid` and add the UID into the `BypassUID` field in `ckserver.json`
 
 ##### Users subject to bandwidth and credit controls
 

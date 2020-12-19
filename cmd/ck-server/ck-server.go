@@ -80,8 +80,11 @@ func main() {
 		askVersion := flag.Bool("v", false, "Print the version number")
 		printUsage := flag.Bool("h", false, "Print this message")
 
-		genUID := flag.Bool("u", false, "Generate a UID")
-		genKeyPair := flag.Bool("k", false, "Generate a pair of public and private key, output in the format of pubkey,pvkey")
+		genUIDScript := flag.Bool("u", false, "Generate a UID to STDOUT")
+		genKeyPairScript := flag.Bool("k", false, "Generate a pair of public and private key and output to STDOUT in the format of <public key>,<private key>")
+
+		genUIDHuman := flag.Bool("uid", false, "Generate and print out a UID")
+		genKeyPairHuman := flag.Bool("key", false, "Generate and print out a public-private key pair")
 
 		pprofAddr := flag.String("d", "", "debug use: ip:port to be listened by pprof profiler")
 		verbosity := flag.String("verbosity", "info", "verbosity level")
@@ -96,13 +99,23 @@ func main() {
 			flag.Usage()
 			return
 		}
-		if *genUID {
-			fmt.Println(generateUID())
+		if *genUIDScript || *genUIDHuman {
+			uid := generateUID()
+			if *genUIDScript {
+				fmt.Println(uid)
+			} else {
+				fmt.Printf("\x1B[35mYour UID is:\u001B[0m %s\n", uid)
+			}
 			return
 		}
-		if *genKeyPair {
+		if *genKeyPairScript || *genKeyPairHuman {
 			pub, pv := generateKeyPair()
-			fmt.Printf("%v,%v", pub, pv)
+			if *genKeyPairScript {
+				fmt.Printf("%v,%v\n", pub, pv)
+			} else {
+				fmt.Printf("\x1B[36mYour PUBLIC key is:\x1B[0m %65s\n", pub)
+				fmt.Printf("\x1B[33mYour PRIVATE key is (keep it secret):\x1B[0m %47s\n", pv)
+			}
 			return
 		}
 
