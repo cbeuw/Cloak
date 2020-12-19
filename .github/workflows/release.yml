@@ -11,7 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build
-        run: v=${{ github.ref }} ./release.sh
+        run: |
+          export PATH=${PATH}:`go env GOPATH`/bin
+          v=${{ github.ref }} ./release.sh
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
