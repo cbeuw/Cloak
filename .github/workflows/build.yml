@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '^1.15' # The Go version to download (if necessary) and use.
-      - run: go test -race -coverprofile=coverage.txt -coverpkg=./... -covermode=atomic ./...
+      - run: go test -race -coverprofile coverage.txt -coverpkg ./... -covermode atomic ./...
       - uses: codecov/codecov-action@v1
         with:
           file: coverage.txt
