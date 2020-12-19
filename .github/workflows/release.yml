@@ -17,6 +17,7 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          files: release/*
+          fail_on_unmatched_files: true
+          files: release/*.*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
