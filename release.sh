@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 go get github.com/mitchellh/gox
 
 mkdir -p release
@@ -21,9 +23,11 @@ CGO_ENABLED=0 gox -ldflags "-X main.version=${v}" -os="$os" -arch="$arch" -osarc
 CGO_ENABLED=0 GOOS="linux" GOARCH="mips" GOMIPS="softfloat" go build -ldflags "-X main.version=${v}" -o ck-client-linux-mips_softfloat-"${v}"
 CGO_ENABLED=0 GOOS="linux" GOARCH="mipsle" GOMIPS="softfloat" go build -ldflags "-X main.version=${v}" -o ck-client-linux-mipsle_softfloat-"${v}"
 mv ck-client-* ../../release
+popd
 
 os="linux"
 arch="amd64 386 arm arm64"
-pushd ../ck-server || exit 1
+pushd cmd/ck-server || exit 1
 CGO_ENABLED=0 gox -ldflags "-X main.version=${v}" -os="$os" -arch="$arch" -osarch="$osarch" -output="$output"
 mv ck-server-* ../../release
+popd
