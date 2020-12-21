@@ -143,9 +143,14 @@ func InitState(preParse RawConfig, worldState common.WorldState) (sta *State, er
 		err = errors.New("command & control mode not implemented")
 		return
 	} else {
-		manager, err := usermanager.MakeLocalManager(preParse.DatabasePath, worldState)
-		if err != nil {
-			return sta, err
+		var manager usermanager.UserManager
+		if len(preParse.AdminUID) == 0 || preParse.DatabasePath == "" {
+			manager = &usermanager.Voidmanager{}
+		} else {
+			manager, err = usermanager.MakeLocalManager(preParse.DatabasePath, worldState)
+			if err != nil {
+				return sta, err
+			}
 		}
 		sta.Panel = MakeUserPanel(manager)
 	}

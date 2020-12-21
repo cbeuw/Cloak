@@ -40,6 +40,7 @@ const (
 
 var ErrUserNotFound = errors.New("UID does not correspond to a user")
 var ErrSessionsCapReached = errors.New("Sessions cap has reached")
+var ErrMangerIsVoid = errors.New("cannot perform operation with user manager as database path is not specified")
 
 var ErrNoUpCredit = errors.New("No upload credit left")
 var ErrNoDownCredit = errors.New("No download credit left")

@@ -103,15 +103,13 @@ Example:
 
 `PrivateKey` is the static curve25519 Diffie-Hellman private key encoded in base64.
 
-`AdminUID` is the UID of the admin user in base64.
-
 `BypassUID` is a list of UIDs that are authorised without any bandwidth or credit limit restrictions
 
-`DatabasePath` is the path to `userinfo.db`. If `userinfo.db` doesn't exist in this directory, Cloak will create one
-automatically. **If Cloak is started as a Shadowsocks plugin and Shadowsocks is started with its working directory as
-/ (e.g. starting ss-server with systemctl), you need to set this field as an absolute path to a desired folder. If you
-leave it as default then Cloak will attempt to create userinfo.db under /, which it doesn't have the permission to do so
-and will raise an error. See Issue #13.**
+`AdminUID` is the UID of the admin user in base64. You can leave this empty if you only ever add users to `BypassUID`.
+
+`DatabasePath` is the path to `userinfo.db`, which is used to store user usage information and restrictions. Cloak will
+create the file automatically if it doesn't exist. You can leave this empty if you only ever add users to `BypassUID`.
+This field also has no effect if `AdminUID` isn't a valid UID or is empty.
 
 `KeepAlive` is the number of seconds to tell the OS to wait after no activity before sending TCP KeepAlive probes to the
 upstream proxy server. Zero or negative value disables it. Default is 0 (disabled).
@@ -184,6 +182,8 @@ Run `ck-server -uid` and add the UID into the `BypassUID` field in `ckserver.jso
 
 ##### Users subject to bandwidth and credit controls
 
+0. First make sure you have `AdminUID` generated and set in `ckserver.json`, along with a path to `userinfo.db`
+   in `DatabasePath` (Cloak will create this file for you if it didn't already exist).
 1. On your client, run `ck-client -s <IP of the server> -l <A local port> -a <AdminUID> -c <path-to-ckclient.json>` to
    enter admin mode
 2. Visit https://cbeuw.github.io/Cloak-panel (Note: this is a pure-js static site, there is no backend and all data

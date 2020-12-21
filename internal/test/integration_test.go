@@ -12,10 +12,8 @@ import (
 	"github.com/cbeuw/connutil"
 	"github.com/stretchr/testify/assert"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -24,8 +22,6 @@ import (
 )
 
 const numConns = 200 // -race option limits the number of goroutines to 8192
-const delayBeforeTestingConnClose = 500 * time.Millisecond
-const connCloseRetries = 3
 
 func serveTCPEcho(l net.Listener) {
 	for {
@@ -137,17 +133,15 @@ func generateClientConfigs(rawConfig client.RawConfig, state common.WorldState) 
 	return lcl, rmt, auth
 }
 
-func basicServerState(ws common.WorldState, db *os.File) *server.State {
+func basicServerState(ws common.WorldState) *server.State {
 	var serverConfig = server.RawConfig{
-		ProxyBook:    map[string][]string{"shadowsocks": {"tcp", "fake.com:9999"}, "openvpn": {"udp", "fake.com:9999"}},
-		BindAddr:     []string{"fake.com:9999"},
-		BypassUID:    [][]byte{bypassUID[:]},
-		RedirAddr:    "fake.com:9999",
-		PrivateKey:   privateKey,
-		AdminUID:     nil,
-		DatabasePath: db.Name(),
-		KeepAlive:    15,
-		CncMode:      false,
+		ProxyBook:  map[string][]string{"shadowsocks": {"tcp", "fake.com:9999"}, "openvpn": {"udp", "fake.com:9999"}},
+		BindAddr:   []string{"fake.com:9999"},
+		BypassUID:  [][]byte{bypassUID[:]},
+		RedirAddr:  "fake.com:9999",
+		PrivateKey: privateKey,
+		KeepAlive:  15,
+		CncMode:    false,
 	}
 	state, err := server.InitState(serverConfig, ws)
 	if err != nil {
@@ -258,13 +252,11 @@ func runEchoTest(t *testing.T, conns []net.Conn, maxMsgLen int) {
 }
 
 func TestUDP(t *testing.T) {
-	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
-	defer os.Remove(tmpDB.Name())
 	log.SetLevel(log.ErrorLevel)
 
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 	lcc, rcc, ai := generateClientConfigs(basicUDPConfig, worldState)
-	sta := basicServerState(worldState, tmpDB)
+	sta := basicServerState(worldState)
 
 	proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(lcc, rcc, ai, sta)
 	if err != nil {
@@ -319,9 +311,7 @@ func TestTCPSingleplex(t *testing.T) {
 	log.SetLevel(log.ErrorLevel)
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 	lcc, rcc, ai := generateClientConfigs(singleplexTCPConfig, worldState)
-	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
-	defer os.Remove(tmpDB.Name())
-	sta := basicServerState(worldState, tmpDB)
+	sta := basicServerState(worldState)
 	proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(lcc, rcc, ai, sta)
 	if err != nil {
 		t.Fatal(err)
@@ -381,9 +371,7 @@ func TestTCPMultiplex(t *testing.T) {
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 
 	lcc, rcc, ai := generateClientConfigs(basicTCPConfig, worldState)
-	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
-	defer os.Remove(tmpDB.Name())
-	sta := basicServerState(worldState, tmpDB)
+	sta := basicServerState(worldState)
 
 	proxyToCkClientD, proxyFromCkServerL, netToCkServerD, redirFromCkServerL, err := establishSession(lcc, rcc, ai, sta)
 	if err != nil {
@@ -456,11 +444,8 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 		clientConfig := clientConfig
 		clientConfigName := clientConfigName
 		t.Run(clientConfigName, func(t *testing.T) {
-			var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
-			defer os.Remove(tmpDB.Name())
-
 			lcc, rcc, ai := generateClientConfigs(clientConfig, worldState)
-			sta := basicServerState(worldState, tmpDB)
+			sta := basicServerState(worldState)
 			proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(lcc, rcc, ai, sta)
 			if err != nil {
 				t.Fatal(err)
@@ -519,12 +504,10 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 }
 
 func BenchmarkThroughput(b *testing.B) {
-	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
-	defer os.Remove(tmpDB.Name())
 	log.SetLevel(log.ErrorLevel)
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 	lcc, rcc, ai := generateClientConfigs(basicTCPConfig, worldState)
-	sta := basicServerState(worldState, tmpDB)
+	sta := basicServerState(worldState)
 	const bufSize = 16 * 1024
 
 	encryptionMethods := map[string]byte{

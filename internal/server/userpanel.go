@@ -185,6 +185,9 @@ func (panel *userPanel) commitUpdate() error {
 	panel.usageUpdateQueue = make(map[[16]byte]*usagePair)
 	panel.usageUpdateQueueM.Unlock()
 
+	if len(statuses) == 0 {
+		return nil
+	}
 	responses, err := panel.Manager.UploadStatus(statuses)
 	if err != nil {
 		return err
