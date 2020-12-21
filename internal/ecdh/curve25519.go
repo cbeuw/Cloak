@@ -68,13 +68,11 @@ func Unmarshal(data []byte) (crypto.PublicKey, bool) {
 	return &pub, true
 }
 
-func GenerateSharedSecret(privKey crypto.PrivateKey, pubKey crypto.PublicKey) []byte {
-	var priv, pub, secret *[32]byte
+func GenerateSharedSecret(privKey crypto.PrivateKey, pubKey crypto.PublicKey) ([]byte, error) {
+	var priv, pub *[32]byte
 
 	priv = privKey.(*[32]byte)
 	pub = pubKey.(*[32]byte)
-	secret = new([32]byte)
 
-	curve25519.ScalarMult(secret, priv, pub)
-	return secret[:]
+	return curve25519.X25519(priv[:], pub[:])
 }

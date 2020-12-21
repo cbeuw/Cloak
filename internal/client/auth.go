@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/ecdh"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -26,7 +27,10 @@ func makeAuthenticationPayload(authInfo AuthInfo) (ret authenticationPayload, sh
 		| 16 bytes | 12 bytes       | 1 byte              | 8 bytes     | 4 bytes      | 1 byte | 6 bytes    |
 		+----------+----------------+---------------------+-------------+--------------+--------+------------+
 	*/
-	ephPv, ephPub, _ := ecdh.GenerateKey(authInfo.WorldState.Rand)
+	ephPv, ephPub, err := ecdh.GenerateKey(authInfo.WorldState.Rand)
+	if err != nil {
+		log.Panicf("failed to generate ephemeral key pair: %v", err)
+	}
 	copy(ret.randPubKey[:], ecdh.Marshal(ephPub))
 
 	plaintext := make([]byte, 48)
@@ -40,7 +44,11 @@ func makeAuthenticationPayload(authInfo AuthInfo) (ret authenticationPayload, sh
 		plaintext[41] |= UNORDERED_FLAG
 	}
 
-	copy(sharedSecret[:], ecdh.GenerateSharedSecret(ephPv, authInfo.ServerPubKey))
+	secret, err := ecdh.GenerateSharedSecret(ephPv, authInfo.ServerPubKey)
+	if err != nil {
+		log.Panicf("error in generating shared secret: %v", err)
+	}
+	copy(sharedSecret[:], secret)
 	ciphertextWithTag, _ := common.AESGCMEncrypt(ret.randPubKey[:12], sharedSecret[:], plaintext)
 	copy(ret.ciphertextWithTag[:], ciphertextWithTag[:])
 	return

@@ -79,7 +79,13 @@ func (TLS) unmarshalClientHello(ch *ClientHello, staticPv crypto.PrivateKey) (fr
 		return
 	}
 
-	copy(fragments.sharedSecret[:], ecdh.GenerateSharedSecret(staticPv, ephPub))
+	var sharedSecret []byte
+	sharedSecret, err = ecdh.GenerateSharedSecret(staticPv, ephPub)
+	if err != nil {
+		return
+	}
+
+	copy(fragments.sharedSecret[:], sharedSecret)
 	var keyShare []byte
 	keyShare, err = parseKeyShare(ch.extensions[[2]byte{0x00, 0x33}])
 	if err != nil {

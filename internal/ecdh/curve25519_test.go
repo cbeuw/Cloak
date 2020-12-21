@@ -90,11 +90,11 @@ func testECDH(t testing.TB) {
 		t.Fatalf("Unmarshal does not work")
 	}
 
-	secret1 = GenerateSharedSecret(privKey1, pubKey2)
+	secret1, err = GenerateSharedSecret(privKey1, pubKey2)
 	if err != nil {
 		t.Error(err)
 	}
-	secret2 = GenerateSharedSecret(privKey2, pubKey1)
+	secret2, err = GenerateSharedSecret(privKey2, pubKey1)
 	if err != nil {
 		t.Error(err)
 	}

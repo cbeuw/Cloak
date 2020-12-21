@@ -84,7 +84,13 @@ func (WebSocket) unmarshalHidden(hidden []byte, staticPv crypto.PrivateKey) (fra
 		return
 	}
 
-	copy(fragments.sharedSecret[:], ecdh.GenerateSharedSecret(staticPv, ephPub))
+	var sharedSecret []byte
+	sharedSecret, err = ecdh.GenerateSharedSecret(staticPv, ephPub)
+	if err != nil {
+		return
+	}
+
+	copy(fragments.sharedSecret[:], sharedSecret)
 
 	if len(hidden[32:]) != 64 {
 		err = fmt.Errorf("%v: %v", ErrCiphertextLength, len(hidden[32:]))
