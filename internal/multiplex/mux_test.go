@@ -10,7 +10,6 @@ import (
 	"net"
 	"sync"
 	"testing"
-	"time"
 )
 
 func serveEcho(l net.Listener) {
@@ -64,21 +63,20 @@ func makeSessionPair(numConn int) (*Session, *Session, []*connPair) {
 	return clientSession, serverSession, paris
 }
 
-func runEchoTest(t *testing.T, conns []net.Conn, maxMsgLen int) {
+func runEchoTest(t *testing.T, conns []net.Conn, msgLen int) {
 	var wg sync.WaitGroup
 	for _, conn := range conns {
 		wg.Add(1)
 		go func(conn net.Conn) {
-			testDataLen := rand.Intn(maxMsgLen)
-			testData := make([]byte, testDataLen)
+			testData := make([]byte, msgLen)
 			rand.Read(testData)
 
 			n, err := conn.Write(testData)
-			if n != testDataLen {
+			if n != msgLen {
 				t.Fatalf("written only %v, err %v", n, err)
 			}
 
-			recvBuf := make([]byte, testDataLen)
+			recvBuf := make([]byte, msgLen)
 			_, err = io.ReadFull(conn, recvBuf)
 			if err != nil {
 				t.Fatalf("failed to read back: %v", err)
@@ -96,7 +94,7 @@ func runEchoTest(t *testing.T, conns []net.Conn, maxMsgLen int) {
 func TestMultiplex(t *testing.T) {
 	const numStreams = 2000 // -race option limits the number of goroutines to 8192
 	const numConns = 4
-	const maxMsgLen = 16384
+	const msgLen = 16384
 
 	clientSession, serverSession, _ := makeSessionPair(numConns)
 	go serveEcho(serverSession)
@@ -111,15 +109,10 @@ func TestMultiplex(t *testing.T) {
 	}
 
 	//test echo
-	runEchoTest(t, streams, maxMsgLen)
+	runEchoTest(t, streams, msgLen)
 
-	assert.Eventuallyf(t, func() bool {
-		return clientSession.streamCount() == numStreams
-	}, time.Second, 10*time.Millisecond, "client stream count is wrong: %v", clientSession.streamCount())
-
-	assert.Eventuallyf(t, func() bool {
-		return serverSession.streamCount() == numStreams
-	}, time.Second, 10*time.Millisecond, "server stream count is wrong: %v", serverSession.streamCount())
+	assert.EqualValues(t, numStreams, clientSession.streamCount(), "client stream count is wrong")
+	assert.EqualValues(t, numStreams, serverSession.streamCount(), "server stream count is wrong")
 
 	// close one stream
 	closing, streams := streams[0], streams[1:]
