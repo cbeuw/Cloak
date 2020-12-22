@@ -413,7 +413,6 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 		0,
 		testPayload,
 	}
-	obfsBuf := make([]byte, obfsBufLen)
 
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
@@ -424,18 +423,27 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 		"chacha20poly1305": EncryptionMethodChaha20Poly1305,
 	}
 
+	const maxIter = 100_000 // run with -benchtime 100000x to avoid index out of bounds panic
 	for name, ep := range table {
-		seshConfig := seshConfigs["ordered"]
-		obfuscator, _ := MakeObfuscator(ep, sessionKey)
-		seshConfig.Obfuscator = obfuscator
-		sesh := MakeSession(0, seshConfig)
-		n, _ := sesh.Obfs(f, obfsBuf, 0)
-
+		ep := ep
 		b.Run(name, func(b *testing.B) {
+			seshConfig := seshConfigs["ordered"]
+			obfuscator, _ := MakeObfuscator(ep, sessionKey)
+			seshConfig.Obfuscator = obfuscator
+			sesh := MakeSession(0, seshConfig)
+
+			binaryFrames := [maxIter][]byte{}
+			for i := 0; i < maxIter; i++ {
+				obfsBuf := make([]byte, obfsBufLen)
+				n, _ := sesh.Obfs(f, obfsBuf, 0)
+				binaryFrames[i] = obfsBuf[:n]
+				f.Seq++
+			}
+
 			b.SetBytes(int64(len(f.Payload)))
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				sesh.recvDataFromRemote(obfsBuf[:n])
+				sesh.recvDataFromRemote(binaryFrames[i])
 			}
 		})
 	}
