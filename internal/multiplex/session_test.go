@@ -112,7 +112,9 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("receiving normal frame for stream 1: %v", err)
 	}
-	_, ok := sesh.streams.Load(f1.StreamID)
+	sesh.streamsM.Lock()
+	_, ok := sesh.streams[f1.StreamID]
+	sesh.streamsM.Unlock()
 	if !ok {
 		t.Fatal("failed to fetch stream 1 after receiving it")
 	}
@@ -132,8 +134,10 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("receiving normal frame for stream 2: %v", err)
 	}
-	s2I, ok := sesh.streams.Load(f2.StreamID)
-	if s2I == nil || !ok {
+	sesh.streamsM.Lock()
+	s2M, ok := sesh.streams[f2.StreamID]
+	sesh.streamsM.Unlock()
+	if s2M == nil || !ok {
 		t.Fatal("failed to fetch stream 2 after receiving it")
 	}
 	if sesh.streamCount() != 2 {
@@ -152,8 +156,10 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("receiving stream closing frame for stream 1: %v", err)
 	}
-	s1I, _ := sesh.streams.Load(f1.StreamID)
-	if s1I != nil {
+	sesh.streamsM.Lock()
+	s1M, _ := sesh.streams[f1.StreamID]
+	sesh.streamsM.Unlock()
+	if s1M != nil {
 		t.Fatal("stream 1 still exist after receiving stream close")
 	}
 	s1, _ := sesh.Accept()
@@ -179,8 +185,10 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("receiving stream closing frame for stream 1 %v", err)
 	}
-	s1I, _ = sesh.streams.Load(f1.StreamID)
-	if s1I != nil {
+	sesh.streamsM.Lock()
+	s1M, _ = sesh.streams[f1.StreamID]
+	sesh.streamsM.Unlock()
+	if s1M != nil {
 		t.Error("stream 1 exists after receiving stream close for the second time")
 	}
 	streamCount := sesh.streamCount()
@@ -243,7 +251,9 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("receiving out of order stream closing frame for stream 1: %v", err)
 	}
-	_, ok := sesh.streams.Load(f1CloseStream.StreamID)
+	sesh.streamsM.Lock()
+	_, ok := sesh.streams[f1CloseStream.StreamID]
+	sesh.streamsM.Unlock()
 	if !ok {
 		t.Fatal("stream 1 doesn't exist")
 	}
@@ -334,12 +344,13 @@ func TestParallelStreams(t *testing.T) {
 			wg.Wait()
 			sc := int(sesh.streamCount())
 			var count int
-			sesh.streams.Range(func(_, s interface{}) bool {
+			sesh.streamsM.Lock()
+			for _, s := range sesh.streams {
 				if s != nil {
 					count++
 				}
-				return true
-			})
+			}
+			sesh.streamsM.Unlock()
 			if sc != count {
 				t.Errorf("broken referential integrety: actual %v, reference count: %v", count, sc)
 			}

@@ -63,7 +63,9 @@ type Session struct {
 
 	// atomic
 	activeStreamCount uint32
-	streams           sync.Map
+
+	streamsM sync.Mutex
+	streams  map[uint32]*Stream
 
 	// a pool of heap allocated frame objects so we don't have to allocate a new one each time we receive a frame
 	recvFramePool sync.Pool
@@ -93,6 +95,7 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 		nextStreamID:  1,
 		acceptCh:      make(chan *Stream, acceptBacklog),
 		recvFramePool: sync.Pool{New: func() interface{} { return &Frame{} }},
+		streams:       map[uint32]*Stream{},
 	}
 	sesh.addrs.Store([]net.Addr{nil, nil})
 
@@ -149,7 +152,9 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 		return nil, errNoMultiplex
 	}
 	stream := makeStream(sesh, id)
-	sesh.streams.Store(id, stream)
+	sesh.streamsM.Lock()
+	sesh.streams[id] = stream
+	sesh.streamsM.Unlock()
 	sesh.streamCountIncr()
 	log.Tracef("stream %v of session %v opened", id, sesh.id)
 	return stream, nil
@@ -200,7 +205,9 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 	// We set it as nil to signify that the stream id had existed before.
 	// If we Delete(s.id) straight away, later on in recvDataFromRemote, it will not be able to tell
 	// if the frame it received was from a new stream or a dying stream whose frame arrived late
-	sesh.streams.Store(s.id, nil)
+	sesh.streamsM.Lock()
+	sesh.streams[s.id] = nil
+	sesh.streamsM.Unlock()
 	if sesh.streamCountDecr() == 0 {
 		if sesh.Singleplex {
 			return sesh.Close()
@@ -229,15 +236,19 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 		return sesh.passiveClose()
 	}
 
-	newStream := makeStream(sesh, frame.StreamID)
-	existingStreamI, existing := sesh.streams.LoadOrStore(frame.StreamID, newStream)
+	sesh.streamsM.Lock()
+	existingStream, existing := sesh.streams[frame.StreamID]
 	if existing {
-		if existingStreamI == nil {
+		sesh.streamsM.Unlock()
+		if existingStream == nil {
 			// this is when the stream existed before but has since been closed. We do nothing
 			return nil
 		}
-		return existingStreamI.(*Stream).recvFrame(frame)
+		return existingStream.recvFrame(frame)
 	} else {
+		newStream := makeStream(sesh, frame.StreamID)
+		sesh.streams[frame.StreamID] = newStream
+		sesh.streamsM.Unlock()
 		// new stream
 		sesh.streamCountIncr()
 		sesh.acceptCh <- newStream
@@ -265,17 +276,17 @@ func (sesh *Session) closeSession(closeSwitchboard bool) error {
 	}
 	sesh.acceptCh <- nil
 
-	sesh.streams.Range(func(key, streamI interface{}) bool {
-		if streamI == nil {
-			return true
+	sesh.streamsM.Lock()
+	for id, stream := range sesh.streams {
+		if stream == nil {
+			continue
 		}
-		stream := streamI.(*Stream)
 		atomic.StoreUint32(&stream.closed, 1)
 		_ = stream.getRecvBuf().Close() // will not block
-		sesh.streams.Delete(key)
+		delete(sesh.streams, id)
 		sesh.streamCountDecr()
-		return true
-	})
+	}
+	sesh.streamsM.Unlock()
 
 	if closeSwitchboard {
 		sesh.sb.closeAll()
