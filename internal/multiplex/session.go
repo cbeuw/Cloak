@@ -264,7 +264,7 @@ func (sesh *Session) closeSession(closeSwitchboard bool) error {
 		}
 		stream := streamI.(*Stream)
 		atomic.StoreUint32(&stream.closed, 1)
-		_ = stream.recvBuf.Close() // will not block
+		_ = stream.getRecvBuf().Close() // will not block
 		sesh.streams.Delete(key)
 		sesh.streamCountDecr()
 		return true
