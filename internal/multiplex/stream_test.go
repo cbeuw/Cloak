@@ -151,6 +151,16 @@ func TestStream_Close(t *testing.T) {
 			t.Error("failed to accept stream", err)
 			return
 		}
+
+		// we read something to wait for the test frame to reach our recvBuffer.
+		// if it's empty by the point we call stream.Close(), the incoming
+		// frame will be dropped
+		readBuf := make([]byte, len(testPayload))
+		_, err = io.ReadFull(stream, readBuf[:1])
+		if err != nil {
+			t.Errorf("can't read any data before active closing")
+		}
+
 		err = stream.Close()
 		if err != nil {
 			t.Error("failed to actively close stream", err)
@@ -162,8 +172,7 @@ func TestStream_Close(t *testing.T) {
 			return
 		}
 
-		readBuf := make([]byte, len(testPayload))
-		_, err = io.ReadFull(stream, readBuf)
+		_, err = io.ReadFull(stream, readBuf[1:])
 		if err != nil {
 			t.Errorf("can't read residual data %v", err)
 		}
