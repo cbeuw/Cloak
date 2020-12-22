@@ -236,12 +236,12 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 			// this is when the stream existed before but has since been closed. We do nothing
 			return nil
 		}
-		return existingStreamI.(*Stream).recvFrame(*frame)
+		return existingStreamI.(*Stream).recvFrame(frame)
 	} else {
 		// new stream
 		sesh.streamCountIncr()
 		sesh.acceptCh <- newStream
-		return newStream.recvFrame(*frame)
+		return newStream.recvFrame(frame)
 	}
 }
 

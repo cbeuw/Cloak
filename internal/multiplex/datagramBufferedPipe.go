@@ -112,7 +112,7 @@ func (d *datagramBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 	}
 }
 
-func (d *datagramBufferedPipe) Write(f Frame) (toBeClosed bool, err error) {
+func (d *datagramBufferedPipe) Write(f *Frame) (toBeClosed bool, err error) {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
 	if d.buf == nil {

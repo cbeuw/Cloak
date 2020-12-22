@@ -78,7 +78,7 @@ func (s *Stream) getRecvBuf() recvBuffer {
 }
 
 // receive a readily deobfuscated Frame so its payload can later be Read
-func (s *Stream) recvFrame(frame Frame) error {
+func (s *Stream) recvFrame(frame *Frame) error {
 	toBeClosed, err := s.getRecvBuf().Write(frame)
 	if toBeClosed {
 		err = s.passiveClose()

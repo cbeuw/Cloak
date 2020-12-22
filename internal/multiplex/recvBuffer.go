@@ -15,7 +15,7 @@ type recvBuffer interface {
 	// when the buffer is empty.
 	io.ReadCloser
 	io.WriterTo
-	Write(Frame) (toBeClosed bool, err error)
+	Write(*Frame) (toBeClosed bool, err error)
 	SetReadDeadline(time time.Time)
 	// SetWriteToTimeout sets the duration a recvBuffer waits in a WriteTo call when nothing
 	// has been written for a while. After that duration it should return ErrTimeout

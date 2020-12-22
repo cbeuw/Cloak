@@ -63,7 +63,7 @@ func NewStreamBuffer() *streamBuffer {
 	return sb
 }
 
-func (sb *streamBuffer) Write(f Frame) (toBeClosed bool, err error) {
+func (sb *streamBuffer) Write(f *Frame) (toBeClosed bool, err error) {
 	sb.recvM.Lock()
 	defer sb.recvM.Unlock()
 	// when there'fs no ooo packages in heap and we receive the next package in order
@@ -81,10 +81,11 @@ func (sb *streamBuffer) Write(f Frame) (toBeClosed bool, err error) {
 		return false, fmt.Errorf("seq %v is smaller than nextRecvSeq %v", f.Seq, sb.nextRecvSeq)
 	}
 
-	heap.Push(&sb.sh, &f)
+	saved := *f
+	heap.Push(&sb.sh, &saved)
 	// Keep popping from the heap until empty or to the point that the wanted seq was not received
 	for len(sb.sh) > 0 && sb.sh[0].Seq == sb.nextRecvSeq {
-		f = *heap.Pop(&sb.sh).(*Frame)
+		f = heap.Pop(&sb.sh).(*Frame)
 		if f.Closing != closingNothing {
 			return true, nil
 		} else {

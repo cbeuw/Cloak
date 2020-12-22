@@ -20,11 +20,10 @@ func TestRecvNewFrame(t *testing.T) {
 		for _, n := range set {
 			bu64 := make([]byte, 8)
 			binary.BigEndian.PutUint64(bu64, n)
-			frame := Frame{
+			sb.Write(&Frame{
 				Seq:     n,
 				Payload: bu64,
-			}
-			sb.Write(frame)
+			})
 		}
 
 		var sortedResult []uint64
@@ -80,7 +79,7 @@ func TestStreamBuffer_RecvThenClose(t *testing.T) {
 		Closing:  0,
 		Payload:  testData,
 	}
-	sb.Write(testFrame)
+	sb.Write(&testFrame)
 	sb.Close()
 
 	readBuf := make([]byte, testDataLen)
