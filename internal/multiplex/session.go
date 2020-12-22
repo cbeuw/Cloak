@@ -165,6 +165,7 @@ func (sesh *Session) Accept() (net.Conn, error) {
 }
 
 func (sesh *Session) closeStream(s *Stream, active bool) error {
+	// must be holding s.wirtingM on entry
 	if atomic.SwapUint32(&s.closed, 1) == 1 {
 		return fmt.Errorf("closing stream %v: %w", s.id, errRepeatStreamClosing)
 	}
@@ -173,16 +174,13 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 	if active {
 		// Notify remote that this stream is closed
 		padding := genRandomPadding()
-		f := &Frame{
-			StreamID: s.id,
-			Seq:      s.nextSendSeq,
-			Closing:  closingStream,
-			Payload:  padding,
-		}
-		s.nextSendSeq++
+		s.writingFrame.Closing = closingStream
+		s.writingFrame.Payload = padding
 
 		obfsBuf := make([]byte, len(padding)+frameHeaderLength+sesh.Obfuscator.maxOverhead)
-		i, err := sesh.Obfs(f, obfsBuf, 0)
+
+		i, err := sesh.Obfs(&s.writingFrame, obfsBuf, 0)
+		s.writingFrame.Seq++
 		if err != nil {
 			return err
 		}
@@ -190,7 +188,7 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 		if err != nil {
 			return err
 		}
-		log.Tracef("stream %v actively closed. seq %v", s.id, f.Seq)
+		log.Tracef("stream %v actively closed.", s.id)
 	} else {
 		log.Tracef("stream %v passively closed", s.id)
 	}

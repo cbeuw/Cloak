@@ -27,8 +27,8 @@ type Stream struct {
 	// been read by the consumer through Read or WriteTo
 	recvBuf recvBuffer
 
-	writingM    sync.Mutex
-	nextSendSeq uint64
+	writingM     sync.Mutex
+	writingFrame Frame // we do the allocation here to save repeated allocations in Write and ReadFrom
 
 	// atomic
 	closed uint32
@@ -63,6 +63,11 @@ func makeStream(sesh *Session, id uint32) *Stream {
 		id:      id,
 		session: sesh,
 		recvBuf: recvBuf,
+		writingFrame: Frame{
+			StreamID: id,
+			Seq:      0,
+			Closing:  closingNothing,
+		},
 	}
 
 	return stream
@@ -110,15 +115,14 @@ func (s *Stream) WriteTo(w io.Writer) (int64, error) {
 	return n, nil
 }
 
-func (s *Stream) obfuscateAndSend(f *Frame, payloadOffsetInObfsBuf int) error {
+func (s *Stream) obfuscateAndSend(payloadOffsetInObfsBuf int) error {
 	var cipherTextLen int
-	cipherTextLen, err := s.session.Obfs(f, s.obfsBuf, payloadOffsetInObfsBuf)
+	cipherTextLen, err := s.session.Obfs(&s.writingFrame, s.obfsBuf, payloadOffsetInObfsBuf)
 	if err != nil {
 		return err
 	}
 
 	_, err = s.session.sb.send(s.obfsBuf[:cipherTextLen], &s.assignedConnId)
-	log.Tracef("%v sent to remote through stream %v with err %v. seq: %v", len(f.Payload), s.id, err, f.Seq)
 	if err != nil {
 		if err == errBrokenSwitchboard {
 			s.session.SetTerminalMsg(err.Error())
@@ -154,14 +158,9 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 			}
 			framePayload = in[n : s.session.maxStreamUnitWrite+n]
 		}
-		f := &Frame{
-			StreamID: s.id,
-			Seq:      s.nextSendSeq,
-			Closing:  closingNothing,
-			Payload:  framePayload,
-		}
-		s.nextSendSeq++
-		err = s.obfuscateAndSend(f, 0)
+		s.writingFrame.Payload = framePayload
+		err = s.obfuscateAndSend(0)
+		s.writingFrame.Seq++
 		if err != nil {
 			return
 		}
@@ -193,14 +192,9 @@ func (s *Stream) ReadFrom(r io.Reader) (n int64, err error) {
 		}
 
 		s.writingM.Lock()
-		f := &Frame{
-			StreamID: s.id,
-			Seq:      s.nextSendSeq,
-			Closing:  closingNothing,
-			Payload:  s.obfsBuf[frameHeaderLength : frameHeaderLength+read],
-		}
-		s.nextSendSeq++
-		err = s.obfuscateAndSend(f, frameHeaderLength)
+		s.writingFrame.Payload = s.obfsBuf[frameHeaderLength : frameHeaderLength+read]
+		err = s.obfuscateAndSend(frameHeaderLength)
+		s.writingFrame.Seq++
 		s.writingM.Unlock()
 
 		if err != nil {
