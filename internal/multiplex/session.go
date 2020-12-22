@@ -169,7 +169,7 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 	if atomic.SwapUint32(&s.closed, 1) == 1 {
 		return fmt.Errorf("closing stream %v: %w", s.id, errRepeatStreamClosing)
 	}
-	_ = s.recvBuf.Close() // recvBuf.Close should not return error
+	_ = s.getRecvBuf().Close() // recvBuf.Close should not return error
 
 	if active {
 		// Notify remote that this stream is closed
