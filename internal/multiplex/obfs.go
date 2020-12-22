@@ -12,7 +12,7 @@ import (
 )
 
 type Obfser func(*Frame, []byte, int) (int, error)
-type Deobfser func([]byte) (*Frame, error)
+type Deobfser func(*Frame, []byte) error
 
 var u32 = binary.BigEndian.Uint32
 var u64 = binary.BigEndian.Uint64
@@ -135,9 +135,9 @@ func MakeObfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Obfser {
 func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 	// frame header length + minimum data size (i.e. nonce size of salsa20)
 	const minInputLen = frameHeaderLength + salsa20NonceSize
-	deobfs := func(in []byte) (*Frame, error) {
+	deobfs := func(f *Frame, in []byte) error {
 		if len(in) < minInputLen {
-			return nil, fmt.Errorf("input size %v, but it cannot be shorter than %v bytes", len(in), minInputLen)
+			return fmt.Errorf("input size %v, but it cannot be shorter than %v bytes", len(in), minInputLen)
 		}
 
 		header := in[:frameHeaderLength]
@@ -153,7 +153,7 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 
 		usefulPayloadLen := len(pldWithOverHead) - int(extraLen)
 		if usefulPayloadLen < 0 || usefulPayloadLen > len(pldWithOverHead) {
-			return nil, errors.New("extra length is negative or extra length is greater than total pldWithOverHead length")
+			return errors.New("extra length is negative or extra length is greater than total pldWithOverHead length")
 		}
 
 		var outputPayload []byte
@@ -167,18 +167,16 @@ func MakeDeobfs(salsaKey [32]byte, payloadCipher cipher.AEAD) Deobfser {
 		} else {
 			_, err := payloadCipher.Open(pldWithOverHead[:0], header[:payloadCipher.NonceSize()], pldWithOverHead, nil)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			outputPayload = pldWithOverHead[:usefulPayloadLen]
 		}
 
-		ret := &Frame{
-			StreamID: streamID,
-			Seq:      seq,
-			Closing:  closing,
-			Payload:  outputPayload,
-		}
-		return ret, nil
+		f.StreamID = streamID
+		f.Seq = seq
+		f.Closing = closing
+		f.Payload = outputPayload
+		return nil
 	}
 	return deobfs
 }

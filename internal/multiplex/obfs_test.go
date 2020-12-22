@@ -17,8 +17,7 @@ func TestGenerateObfs(t *testing.T) {
 
 	run := func(obfuscator Obfuscator, ct *testing.T) {
 		obfsBuf := make([]byte, 512)
-		f := &Frame{}
-		_testFrame, _ := quick.Value(reflect.TypeOf(f), rand.New(rand.NewSource(42)))
+		_testFrame, _ := quick.Value(reflect.TypeOf(&Frame{}), rand.New(rand.NewSource(42)))
 		testFrame := _testFrame.Interface().(*Frame)
 		i, err := obfuscator.Obfs(testFrame, obfsBuf, 0)
 		if err != nil {
@@ -26,7 +25,8 @@ func TestGenerateObfs(t *testing.T) {
 			return
 		}
 
-		resultFrame, err := obfuscator.Deobfs(obfsBuf[:i])
+		var resultFrame Frame
+		err = obfuscator.Deobfs(&resultFrame, obfsBuf[:i])
 		if err != nil {
 			ct.Error("failed to deobfs ", err)
 			return
@@ -148,10 +148,11 @@ func BenchmarkDeobfs(b *testing.B) {
 		n, _ := obfs(testFrame, obfsBuf, 0)
 		deobfs := MakeDeobfs(key, payloadCipher)
 
+		frame := new(Frame)
 		b.SetBytes(int64(n))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			deobfs(obfsBuf[:n])
+			deobfs(frame, obfsBuf[:n])
 		}
 	})
 	b.Run("AES128GCM", func(b *testing.B) {
@@ -162,10 +163,11 @@ func BenchmarkDeobfs(b *testing.B) {
 		n, _ := obfs(testFrame, obfsBuf, 0)
 		deobfs := MakeDeobfs(key, payloadCipher)
 
+		frame := new(Frame)
 		b.ResetTimer()
 		b.SetBytes(int64(n))
 		for i := 0; i < b.N; i++ {
-			deobfs(obfsBuf[:n])
+			deobfs(frame, obfsBuf[:n])
 		}
 	})
 	b.Run("plain", func(b *testing.B) {
@@ -173,10 +175,11 @@ func BenchmarkDeobfs(b *testing.B) {
 		n, _ := obfs(testFrame, obfsBuf, 0)
 		deobfs := MakeDeobfs(key, nil)
 
+		frame := new(Frame)
 		b.ResetTimer()
 		b.SetBytes(int64(n))
 		for i := 0; i < b.N; i++ {
-			deobfs(obfsBuf[:n])
+			deobfs(frame, obfsBuf[:n])
 		}
 	})
 	b.Run("chacha20Poly1305", func(b *testing.B) {
@@ -186,10 +189,11 @@ func BenchmarkDeobfs(b *testing.B) {
 		n, _ := obfs(testFrame, obfsBuf, 0)
 		deobfs := MakeDeobfs(key, payloadCipher)
 
+		frame := new(Frame)
 		b.ResetTimer()
 		b.SetBytes(int64(n))
 		for i := 0; i < b.N; i++ {
-			deobfs(obfsBuf[:n])
+			deobfs(frame, obfsBuf[:n])
 		}
 	})
 }

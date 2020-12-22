@@ -65,6 +65,9 @@ type Session struct {
 	activeStreamCount uint32
 	streams           sync.Map
 
+	// a pool of heap allocated frame objects so we don't have to allocate a new one each time we receive a frame
+	recvFramePool sync.Pool
+
 	// Switchboard manages all connections to remote
 	sb *switchboard
 
@@ -89,6 +92,7 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 		SessionConfig: config,
 		nextStreamID:  1,
 		acceptCh:      make(chan *Stream, acceptBacklog),
+		recvFramePool: sync.Pool{New: func() interface{} { return &Frame{} }},
 	}
 	sesh.addrs.Store([]net.Addr{nil, nil})
 
@@ -212,7 +216,10 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 // to the stream buffer, otherwise it fetches the desired stream instance, or creates and stores one if it's a new
 // stream and then writes to the stream buffer
 func (sesh *Session) recvDataFromRemote(data []byte) error {
-	frame, err := sesh.Deobfs(data)
+	frame := sesh.recvFramePool.Get().(*Frame)
+	defer sesh.recvFramePool.Put(frame)
+
+	err := sesh.Deobfs(frame, data)
 	if err != nil {
 		return fmt.Errorf("Failed to decrypt a frame for session %v: %v", sesh.id, err)
 	}
