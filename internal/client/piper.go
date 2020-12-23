@@ -46,12 +46,13 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 					sesh.Close()
 				}
 				log.Errorf("Failed to open stream: %v", err)
+				streamsMutex.Unlock()
 				continue
 			}
-			_ = stream.SetReadDeadline(time.Now().Add(streamTimeout))
-
 			streams[addr.String()] = stream
 			streamsMutex.Unlock()
+
+			_ = stream.SetReadDeadline(time.Now().Add(streamTimeout))
 
 			proxyAddr := addr
 			go func(stream *mux.Stream, localConn *net.UDPConn) {
@@ -60,24 +61,21 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 					n, err := stream.Read(buf)
 					if err != nil {
 						log.Tracef("copying stream to proxy client: %v", err)
-						streamsMutex.Lock()
-						delete(streams, addr.String())
-						streamsMutex.Unlock()
-						stream.Close()
-						return
+						break
 					}
 					_ = stream.SetReadDeadline(time.Now().Add(streamTimeout))
 
 					_, err = localConn.WriteTo(buf[:n], proxyAddr)
 					if err != nil {
 						log.Tracef("copying stream to proxy client: %v", err)
-						streamsMutex.Lock()
-						delete(streams, addr.String())
-						streamsMutex.Unlock()
-						stream.Close()
-						return
+						break
 					}
 				}
+				streamsMutex.Lock()
+				delete(streams, addr.String())
+				streamsMutex.Unlock()
+				stream.Close()
+				return
 			}(stream, localConn)
 		} else {
 			streamsMutex.Unlock()
