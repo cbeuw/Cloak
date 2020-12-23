@@ -10,6 +10,7 @@ import (
 	"net"
 	"sync"
 	"testing"
+	"time"
 )
 
 func serveEcho(l net.Listener) {
@@ -19,13 +20,13 @@ func serveEcho(l net.Listener) {
 			// TODO: pass the error back
 			return
 		}
-		go func() {
+		go func(conn net.Conn) {
 			_, err := io.Copy(conn, conn)
 			if err != nil {
 				// TODO: pass the error back
 				return
 			}
-		}()
+		}(conn)
 	}
 }
 
@@ -65,18 +66,19 @@ func makeSessionPair(numConn int) (*Session, *Session, []*connPair) {
 
 func runEchoTest(t *testing.T, conns []net.Conn, msgLen int) {
 	var wg sync.WaitGroup
+	testData := make([]byte, msgLen)
+	rand.Read(testData)
+
 	for _, conn := range conns {
 		wg.Add(1)
 		go func(conn net.Conn) {
-			testData := make([]byte, msgLen)
-			rand.Read(testData)
-
 			n, err := conn.Write(testData)
 			if n != msgLen {
 				t.Fatalf("written only %v, err %v", n, err)
 			}
 
 			recvBuf := make([]byte, msgLen)
+			conn.SetReadDeadline(time.Now().Add(time.Second))
 			_, err = io.ReadFull(conn, recvBuf)
 			if err != nil {
 				t.Fatalf("failed to read back: %v", err)

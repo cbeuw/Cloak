@@ -30,15 +30,14 @@ func serveTCPEcho(l net.Listener) {
 			log.Error(err)
 			return
 		}
-		go func() {
-			conn := conn
+		go func(conn net.Conn) {
 			_, err := io.Copy(conn, conn)
 			if err != nil {
 				conn.Close()
 				log.Error(err)
 				return
 			}
-		}()
+		}(conn)
 	}
 }
 
@@ -50,8 +49,7 @@ func serveUDPEcho(listener *connutil.PipeListener) {
 			return
 		}
 		const bufSize = 32 * 1024
-		go func() {
-			conn := conn
+		go func(conn net.PacketConn) {
 			defer conn.Close()
 			buf := make([]byte, bufSize)
 			for {
@@ -70,7 +68,7 @@ func serveUDPEcho(listener *connutil.PipeListener) {
 					return
 				}
 			}
-		}()
+		}(conn)
 	}
 }
 
