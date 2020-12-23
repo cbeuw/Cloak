@@ -152,15 +152,6 @@ func TestStream_Close(t *testing.T) {
 			return
 		}
 
-		// we read something to wait for the test frame to reach our recvBuffer.
-		// if it's empty by the point we call stream.Close(), the incoming
-		// frame will be dropped
-		readBuf := make([]byte, len(testPayload))
-		_, err = io.ReadFull(stream, readBuf[:1])
-		if err != nil {
-			t.Errorf("can't read any data before active closing")
-		}
-
 		err = stream.Close()
 		if err != nil {
 			t.Error("failed to actively close stream", err)
@@ -175,10 +166,11 @@ func TestStream_Close(t *testing.T) {
 		}
 		sesh.streamsM.Unlock()
 
-		_, err = io.ReadFull(stream, readBuf[1:])
-		if err != nil {
-			t.Errorf("can't read residual data %v", err)
-		}
+		readBuf := make([]byte, len(testPayload))
+		assert.Eventually(t, func() bool {
+			_, err = io.ReadFull(stream, readBuf)
+			return err == nil
+		}, time.Second, 10*time.Millisecond, "can't read residual data", err)
 		if !bytes.Equal(readBuf, testPayload) {
 			t.Errorf("read wrong data")
 		}
@@ -324,10 +316,12 @@ func TestStream_Read(t *testing.T) {
 				writingEnd.Write(obfsBuf[:i])
 				stream, _ := sesh.Accept()
 				stream.Close()
-				i, err := stream.Read(buf)
-				if err != nil {
-					t.Error("failed to read", err)
-				}
+
+				var err error
+				assert.Eventually(t, func() bool {
+					i, err = stream.Read(buf)
+					return err == nil
+				}, time.Second, 10*time.Millisecond, "failed to read", err)
 				if i != smallPayloadLen {
 					t.Errorf("expected read %v, got %v", smallPayloadLen, i)
 				}
@@ -348,10 +342,11 @@ func TestStream_Read(t *testing.T) {
 				writingEnd.Write(obfsBuf[:i])
 				stream, _ := sesh.Accept()
 				sesh.Close()
-				i, err := stream.Read(buf)
-				if err != nil {
-					t.Error("failed to read", err)
-				}
+				var err error
+				assert.Eventually(t, func() bool {
+					i, err = stream.Read(buf)
+					return err == nil
+				}, time.Second, 10*time.Millisecond, "failed to read", err)
 				if i != smallPayloadLen {
 					t.Errorf("expected read %v, got %v", smallPayloadLen, i)
 				}
