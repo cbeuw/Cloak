@@ -10,7 +10,6 @@ import (
 	"net"
 	"sync"
 	"testing"
-	"time"
 )
 
 func serveEcho(l net.Listener) {
@@ -72,22 +71,26 @@ func runEchoTest(t *testing.T, conns []net.Conn, msgLen int) {
 	for _, conn := range conns {
 		wg.Add(1)
 		go func(conn net.Conn) {
+			defer wg.Done()
+
+			// we cannot call t.Fatalf in concurrent contexts
 			n, err := conn.Write(testData)
 			if n != msgLen {
-				t.Fatalf("written only %v, err %v", n, err)
+				t.Errorf("written only %v, err %v", n, err)
+				return
 			}
 
 			recvBuf := make([]byte, msgLen)
-			conn.SetReadDeadline(time.Now().Add(time.Second))
 			_, err = io.ReadFull(conn, recvBuf)
 			if err != nil {
-				t.Fatalf("failed to read back: %v", err)
+				t.Errorf("failed to read back: %v", err)
+				return
 			}
 
 			if !bytes.Equal(testData, recvBuf) {
-				t.Fatalf("echoed data not correct")
+				t.Errorf("echoed data not correct")
+				return
 			}
-			wg.Done()
 		}(conn)
 	}
 	wg.Wait()

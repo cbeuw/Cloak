@@ -220,30 +220,34 @@ func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, a
 	return proxyToCkClientD, proxyFromCkServerL, netToCkServerD, redirFromCkServerL, nil
 }
 
-func runEchoTest(t *testing.T, conns []net.Conn, maxMsgLen int) {
+func runEchoTest(t *testing.T, conns []net.Conn, msgLen int) {
 	var wg sync.WaitGroup
+	testData := make([]byte, msgLen)
+	rand.Read(testData)
+
 	for _, conn := range conns {
 		wg.Add(1)
 		go func(conn net.Conn) {
-			testDataLen := rand.Intn(maxMsgLen)
-			testData := make([]byte, testDataLen)
-			rand.Read(testData)
+			defer wg.Done()
 
+			// we cannot call t.Fatalf in concurrent contexts
 			n, err := conn.Write(testData)
-			if n != testDataLen {
-				t.Fatalf("written only %v, err %v", n, err)
+			if n != msgLen {
+				t.Errorf("written only %v, err %v", n, err)
+				return
 			}
 
-			recvBuf := make([]byte, testDataLen)
+			recvBuf := make([]byte, msgLen)
 			_, err = io.ReadFull(conn, recvBuf)
 			if err != nil {
-				t.Fatalf("failed to read back: %v", err)
+				t.Errorf("failed to read back: %v", err)
+				return
 			}
 
 			if !bytes.Equal(testData, recvBuf) {
-				t.Fatalf("echoed data not correct")
+				t.Errorf("echoed data not correct")
+				return
 			}
-			wg.Done()
 		}(conn)
 	}
 	wg.Wait()
