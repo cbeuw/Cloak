@@ -180,21 +180,25 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 	_ = s.getRecvBuf().Close() // recvBuf.Close should not return error
 
 	if active {
-		// must be holding s.wirtingM on entry
-		if len(s.obfsBuf) < 256+frameHeaderLength+sesh.Obfuscator.maxOverhead {
-			s.obfsBuf = make([]byte, 256+frameHeaderLength+sesh.Obfuscator.maxOverhead)
-		}
+		tmpBuf := make([]byte, 256+frameHeaderLength+sesh.Obfuscator.maxOverhead)
 
 		// Notify remote that this stream is closed
-		common.CryptoRandRead(s.obfsBuf[:1])
-		padLen := int(s.obfsBuf[0]) + 1
-		payload := s.obfsBuf[frameHeaderLength : padLen+frameHeaderLength]
+		common.CryptoRandRead(tmpBuf[:1])
+		padLen := int(tmpBuf[0]) + 1
+		payload := tmpBuf[frameHeaderLength : padLen+frameHeaderLength]
 		common.CryptoRandRead(payload)
 
+		// must be holding s.wirtingM on entry
 		s.writingFrame.Closing = closingStream
 		s.writingFrame.Payload = payload
 
-		err := s.obfuscateAndSend(frameHeaderLength)
+		cipherTextLen, err := sesh.Obfs(&s.writingFrame, tmpBuf, frameHeaderLength)
+		s.writingFrame.Seq++
+		if err != nil {
+			return err
+		}
+
+		_, err = sesh.sb.send(tmpBuf[:cipherTextLen], &s.assignedConnId)
 		if err != nil {
 			return err
 		}

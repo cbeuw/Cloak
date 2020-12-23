@@ -118,7 +118,6 @@ func (s *Stream) WriteTo(w io.Writer) (int64, error) {
 }
 
 func (s *Stream) obfuscateAndSend(payloadOffsetInObfsBuf int) error {
-	var cipherTextLen int
 	cipherTextLen, err := s.session.Obfs(&s.writingFrame, s.obfsBuf, payloadOffsetInObfsBuf)
 	if err != nil {
 		return err
@@ -174,11 +173,9 @@ func (s *Stream) Write(in []byte) (n int, err error) {
 // ReadFrom continuously read data from r and send it off, until either r returns error or nothing has been read
 // for readFromTimeout amount of time
 func (s *Stream) ReadFrom(r io.Reader) (n int64, err error) {
-	s.writingM.Lock()
 	if s.obfsBuf == nil {
 		s.obfsBuf = make([]byte, s.session.StreamSendBufferSize)
 	}
-	s.writingM.Unlock()
 	for {
 		if s.readFromTimeout != 0 {
 			if rder, ok := r.(net.Conn); !ok {
@@ -191,6 +188,9 @@ func (s *Stream) ReadFrom(r io.Reader) (n int64, err error) {
 		if er != nil {
 			return n, er
 		}
+
+		// the above read may have been unblocked by another goroutine calling stream.Close(), so we need
+		// to check that here
 		if s.isClosed() {
 			return n, ErrBrokenStream
 		}
