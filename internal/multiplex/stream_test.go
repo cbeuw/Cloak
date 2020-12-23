@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
-	"sync"
 	"testing"
 	"time"
 
@@ -152,7 +151,7 @@ func TestStream_Close(t *testing.T) {
 			t.Error("failed to accept stream", err)
 			return
 		}
-
+		time.Sleep(500 * time.Millisecond)
 		err = stream.Close()
 		if err != nil {
 			t.Error("failed to actively close stream", err)
@@ -168,18 +167,11 @@ func TestStream_Close(t *testing.T) {
 		sesh.streamsM.Unlock()
 
 		readBuf := make([]byte, len(testPayload))
-		var wg sync.WaitGroup
-		wg.Add(1)
-		assert.Eventually(t, func() bool {
-			_, err = io.ReadFull(stream, readBuf)
-			if err == nil {
-				wg.Done()
-				return true
-			} else {
-				return false
-			}
-		}, time.Second, 10*time.Millisecond, "can't read residual data", err)
-		wg.Wait()
+		_, err = io.ReadFull(stream, readBuf)
+		if err != nil {
+			t.Errorf("cannot read resiual data: %v", err)
+		}
+
 		if !bytes.Equal(readBuf, testPayload) {
 			t.Errorf("read wrong data")
 		}
@@ -323,27 +315,18 @@ func TestStream_Read(t *testing.T) {
 				streamID++
 				writingEnd.Write(obfsBuf[:i])
 				stream, _ := sesh.Accept()
+
+				time.Sleep(500 * time.Millisecond)
+
 				stream.Close()
 
-				var err error
-				var wg sync.WaitGroup
-				wg.Add(1)
-				assert.Eventually(t, func() bool {
-					i, err = stream.Read(buf)
-					if err == nil {
-						wg.Done()
-						return true
-					} else {
-						return false
-					}
-				}, time.Second, 10*time.Millisecond, "failed to read", err)
-				wg.Wait()
-				if i != smallPayloadLen {
-					t.Errorf("expected read %v, got %v", smallPayloadLen, i)
+				_, err := io.ReadFull(stream, buf[:smallPayloadLen])
+				if err != nil {
+					t.Errorf("cannot read residual data: %v", err)
 				}
-				if !bytes.Equal(buf[:i], testPayload) {
+				if !bytes.Equal(buf[:smallPayloadLen], testPayload) {
 					t.Error("expected", testPayload,
-						"got", buf[:i])
+						"got", buf[:smallPayloadLen])
 				}
 				_, err = stream.Read(buf)
 				if err == nil {
@@ -357,26 +340,17 @@ func TestStream_Read(t *testing.T) {
 				streamID++
 				writingEnd.Write(obfsBuf[:i])
 				stream, _ := sesh.Accept()
+
+				time.Sleep(500 * time.Millisecond)
+
 				sesh.Close()
-				var err error
-				var wg sync.WaitGroup
-				wg.Add(1)
-				assert.Eventually(t, func() bool {
-					i, err = stream.Read(buf)
-					if err == nil {
-						wg.Done()
-						return true
-					} else {
-						return false
-					}
-				}, time.Second, 10*time.Millisecond, "failed to read", err)
-				wg.Wait()
-				if i != smallPayloadLen {
-					t.Errorf("expected read %v, got %v", smallPayloadLen, i)
+				_, err := io.ReadFull(stream, buf[:smallPayloadLen])
+				if err != nil {
+					t.Errorf("cannot read resiual data: %v", err)
 				}
-				if !bytes.Equal(buf[:i], testPayload) {
+				if !bytes.Equal(buf[:smallPayloadLen], testPayload) {
 					t.Error("expected", testPayload,
-						"got", buf[:i])
+						"got", buf[:smallPayloadLen])
 				}
 				_, err = stream.Read(buf)
 				if err == nil {
