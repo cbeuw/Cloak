@@ -296,6 +296,7 @@ func TestUDP(t *testing.T) {
 		}
 	})
 
+	const echoMsgLen = 1024
 	t.Run("user echo", func(t *testing.T) {
 		go serveUDPEcho(proxyFromCkServerL)
 		var conn [1]net.Conn
@@ -304,7 +305,7 @@ func TestUDP(t *testing.T) {
 			t.Error(err)
 		}
 
-		runEchoTest(t, conn[:], 1024)
+		runEchoTest(t, conn[:], echoMsgLen)
 	})
 
 }
@@ -319,13 +320,14 @@ func TestTCPSingleplex(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	const echoMsgLen = 16384
 	go serveTCPEcho(proxyFromCkServerL)
 
 	proxyConn1, err := proxyToCkClientD.Dial("", "")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	runEchoTest(t, []net.Conn{proxyConn1}, 65536)
+	runEchoTest(t, []net.Conn{proxyConn1}, echoMsgLen)
 	user, err := sta.Panel.GetUser(ai.UID[:])
 	if err != nil {
 		t.Fatalf("failed to fetch user: %v", err)
@@ -337,15 +339,15 @@ func TestTCPSingleplex(t *testing.T) {
 
 	proxyConn2, err := proxyToCkClientD.Dial("", "")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	runEchoTest(t, []net.Conn{proxyConn2}, 65536)
+	runEchoTest(t, []net.Conn{proxyConn2}, echoMsgLen)
 	if user.NumSession() != 2 {
 		t.Error("no extra session were made on second connection establishment")
 	}
 
 	// Both conns should work
-	runEchoTest(t, []net.Conn{proxyConn1, proxyConn2}, 65536)
+	runEchoTest(t, []net.Conn{proxyConn1, proxyConn2}, echoMsgLen)
 
 	proxyConn1.Close()
 
@@ -354,17 +356,17 @@ func TestTCPSingleplex(t *testing.T) {
 	}, time.Second, 10*time.Millisecond, "first session was not closed on connection close")
 
 	// conn2 should still work
-	runEchoTest(t, []net.Conn{proxyConn2}, 65536)
+	runEchoTest(t, []net.Conn{proxyConn2}, echoMsgLen)
 
 	var conns [numConns]net.Conn
 	for i := 0; i < numConns; i++ {
 		conns[i], err = proxyToCkClientD.Dial("", "")
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 	}
 
-	runEchoTest(t, conns[:], 65536)
+	runEchoTest(t, conns[:], echoMsgLen)
 
 }
 
@@ -412,6 +414,7 @@ func TestTCPMultiplex(t *testing.T) {
 		}
 	})
 
+	const echoMsgLen = 16384
 	t.Run("user echo", func(t *testing.T) {
 		go serveTCPEcho(proxyFromCkServerL)
 		var conns [numConns]net.Conn
@@ -422,7 +425,7 @@ func TestTCPMultiplex(t *testing.T) {
 			}
 		}
 
-		runEchoTest(t, conns[:], 65536)
+		runEchoTest(t, conns[:], echoMsgLen)
 	})
 
 	t.Run("redir echo", func(t *testing.T) {
@@ -434,7 +437,7 @@ func TestTCPMultiplex(t *testing.T) {
 				t.Error(err)
 			}
 		}
-		runEchoTest(t, conns[:], 65536)
+		runEchoTest(t, conns[:], echoMsgLen)
 	})
 }
 
