@@ -1,7 +1,6 @@
 package common
 
 import (
-	"bytes"
 	"encoding/binary"
 	"io"
 	"net"
@@ -44,7 +43,9 @@ func NewTLSConn(conn net.Conn) *TLSConn {
 	return &TLSConn{
 		Conn: conn,
 		writeBufPool: sync.Pool{New: func() interface{} {
-			return new(bytes.Buffer)
+			b := make([]byte, 0, initialWriteBufSize)
+			b = append(b, ApplicationData, byte(VersionTLS13>>8), byte(VersionTLS13&0xFF))
+			return &b
 		}},
 	}
 }
@@ -93,16 +94,13 @@ func (tls *TLSConn) Read(buffer []byte) (n int, err error) {
 
 func (tls *TLSConn) Write(in []byte) (n int, err error) {
 	msgLen := len(in)
-	writeBuf := tls.writeBufPool.Get().(*bytes.Buffer)
-	writeBuf.WriteByte(ApplicationData)
-	writeBuf.WriteByte(byte(VersionTLS13 >> 8))
-	writeBuf.WriteByte(byte(VersionTLS13 & 0xFF))
-	writeBuf.WriteByte(byte(msgLen >> 8))
-	writeBuf.WriteByte(byte(msgLen & 0xFF))
-	writeBuf.Write(in)
-	i, err := writeBuf.WriteTo(tls.Conn)
+	writeBuf := tls.writeBufPool.Get().(*[]byte)
+	*writeBuf = append(*writeBuf, byte(msgLen>>8), byte(msgLen&0xFF))
+	*writeBuf = append(*writeBuf, in...)
+	n, err = tls.Conn.Write(*writeBuf)
+	*writeBuf = (*writeBuf)[:3]
 	tls.writeBufPool.Put(writeBuf)
-	return int(i - recordLayerLength), err
+	return n - recordLayerLength, err
 }
 
 func (tls *TLSConn) Close() error {
