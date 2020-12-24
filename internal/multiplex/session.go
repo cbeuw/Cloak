@@ -70,6 +70,8 @@ type Session struct {
 	// a pool of heap allocated frame objects so we don't have to allocate a new one each time we receive a frame
 	recvFramePool sync.Pool
 
+	streamObfsBufPool sync.Pool
+
 	// Switchboard manages all connections to remote
 	sb *switchboard
 
@@ -116,6 +118,11 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	}
 	// todo: validation. this must be smaller than StreamSendBufferSize
 	sesh.maxStreamUnitWrite = sesh.MsgOnWireSizeLimit - frameHeaderLength - sesh.Obfuscator.maxOverhead
+
+	sesh.streamObfsBufPool = sync.Pool{New: func() interface{} {
+		b := make([]byte, sesh.StreamSendBufferSize)
+		return &b
+	}}
 
 	sesh.sb = makeSwitchboard(sesh)
 	time.AfterFunc(sesh.InactivityTimeout, sesh.checkTimeout)
@@ -180,25 +187,20 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 	_ = s.getRecvBuf().Close() // recvBuf.Close should not return error
 
 	if active {
-		tmpBuf := make([]byte, 256+frameHeaderLength+sesh.Obfuscator.maxOverhead)
+		tmpBuf := sesh.streamObfsBufPool.Get().(*[]byte)
 
 		// Notify remote that this stream is closed
-		common.CryptoRandRead(tmpBuf[:1])
-		padLen := int(tmpBuf[0]) + 1
-		payload := tmpBuf[frameHeaderLength : padLen+frameHeaderLength]
+		common.CryptoRandRead((*tmpBuf)[:1])
+		padLen := int((*tmpBuf)[0]) + 1
+		payload := (*tmpBuf)[frameHeaderLength : padLen+frameHeaderLength]
 		common.CryptoRandRead(payload)
 
 		// must be holding s.wirtingM on entry
 		s.writingFrame.Closing = closingStream
 		s.writingFrame.Payload = payload
 
-		cipherTextLen, err := sesh.Obfs(&s.writingFrame, tmpBuf, frameHeaderLength)
-		s.writingFrame.Seq++
-		if err != nil {
-			return err
-		}
-
-		_, err = sesh.sb.send(tmpBuf[:cipherTextLen], &s.assignedConnId)
+		err := s.obfuscateAndSend(*tmpBuf, frameHeaderLength)
+		sesh.streamObfsBufPool.Put(tmpBuf)
 		if err != nil {
 			return err
 		}
