@@ -319,10 +319,10 @@ func (sesh *Session) Close() error {
 	}
 	// we send a notice frame telling remote to close the session
 
-	padBuf := make([]byte, 256+frameHeaderLength+sesh.Obfuscator.maxOverhead)
-	common.CryptoRandRead(padBuf[:1])
-	padLen := int(padBuf[0]) + 1
-	payload := padBuf[frameHeaderLength : padLen+frameHeaderLength]
+	buf := sesh.streamObfsBufPool.Get().(*[]byte)
+	common.CryptoRandRead((*buf)[:1])
+	padLen := int((*buf)[0]) + 1
+	payload := (*buf)[frameHeaderLength : padLen+frameHeaderLength]
 	common.CryptoRandRead(payload)
 
 	f := &Frame{
@@ -331,11 +331,11 @@ func (sesh *Session) Close() error {
 		Closing:  closingSession,
 		Payload:  payload,
 	}
-	i, err := sesh.Obfs(f, padBuf, frameHeaderLength)
+	i, err := sesh.Obfs(f, *buf, frameHeaderLength)
 	if err != nil {
 		return err
 	}
-	_, err = sesh.sb.send(padBuf[:i], new(uint32))
+	_, err = sesh.sb.send((*buf)[:i], new(uint32))
 	if err != nil {
 		return err
 	}
