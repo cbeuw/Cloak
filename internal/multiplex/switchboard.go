@@ -71,7 +71,8 @@ func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
 		n, err = conn.Write(d)
 		if err != nil {
 			sb.conns.Delete(*connId)
-			sb.close("failed to write to remote " + err.Error())
+			sb.session.SetTerminalMsg("failed to write to remote " + err.Error())
+			sb.session.passiveClose()
 			return n, err
 		}
 		sb.valve.AddTx(int64(n))
@@ -138,16 +139,11 @@ func (sb *switchboard) pickRandConn() (uint32, net.Conn, error) {
 	return id, conn, nil
 }
 
-func (sb *switchboard) close(terminalMsg string) {
-	atomic.StoreUint32(&sb.broken, 1)
-	if !sb.session.IsClosed() {
-		sb.session.SetTerminalMsg(terminalMsg)
-		sb.session.passiveClose()
-	}
-}
-
 // actively triggered by session.Close()
 func (sb *switchboard) closeAll() {
+	if !atomic.CompareAndSwapUint32(&sb.broken, 0, 1) {
+		return
+	}
 	sb.conns.Range(func(key, connI interface{}) bool {
 		conn := connI.(net.Conn)
 		conn.Close()
@@ -168,7 +164,8 @@ func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 			log.Debugf("a connection for session %v has closed: %v", sb.session.id, err)
 			sb.conns.Delete(connId)
 			atomic.AddUint32(&sb.numConns, ^uint32(0))
-			sb.close("a connection has dropped unexpectedly")
+			sb.session.SetTerminalMsg("a connection has dropped unexpectedly")
+			sb.session.passiveClose()
 			return
 		}
 
