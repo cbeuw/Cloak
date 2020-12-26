@@ -11,7 +11,6 @@ import (
 
 // The point of a streamBufferedPipe is that Read() will block until data is available
 type streamBufferedPipe struct {
-	// only alloc when on first Read or Write
 	buf *bytes.Buffer
 
 	closed    bool
@@ -25,6 +24,7 @@ type streamBufferedPipe struct {
 func NewStreamBufferedPipe() *streamBufferedPipe {
 	p := &streamBufferedPipe{
 		rwCond: sync.NewCond(&sync.Mutex{}),
+		buf:    new(bytes.Buffer),
 	}
 	return p
 }
@@ -32,9 +32,6 @@ func NewStreamBufferedPipe() *streamBufferedPipe {
 func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
-	if p.buf == nil {
-		p.buf = new(bytes.Buffer)
-	}
 	for {
 		if p.closed && p.buf.Len() == 0 {
 			return 0, io.EOF
@@ -64,9 +61,6 @@ func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
-	if p.buf == nil {
-		p.buf = new(bytes.Buffer)
-	}
 	for {
 		if p.closed && p.buf.Len() == 0 {
 			return 0, io.EOF
@@ -104,9 +98,6 @@ func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 func (p *streamBufferedPipe) Write(input []byte) (int, error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
-	if p.buf == nil {
-		p.buf = new(bytes.Buffer)
-	}
 	for {
 		if p.closed {
 			return 0, io.ErrClosedPipe

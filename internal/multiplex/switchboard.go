@@ -72,46 +72,43 @@ func (sb *switchboard) addConn(conn net.Conn) {
 
 // a pointer to connId is passed here so that the switchboard can reassign it if that connId isn't usable
 func (sb *switchboard) send(data []byte, connId *uint32) (n int, err error) {
-	writeAndRegUsage := func(conn net.Conn, d []byte) (int, error) {
-		n, err = conn.Write(d)
-		if err != nil {
-			sb.conns.Delete(*connId)
-			sb.session.SetTerminalMsg("failed to write to remote " + err.Error())
-			sb.session.passiveClose()
-			return n, err
-		}
-		sb.valve.AddTx(int64(n))
-		return n, nil
-	}
-
 	sb.valve.txWait(len(data))
 	if atomic.LoadUint32(&sb.broken) == 1 || sb.connsCount() == 0 {
 		return 0, errBrokenSwitchboard
 	}
 
+	var conn net.Conn
 	switch sb.strategy {
 	case UNIFORM_SPREAD:
-		_, conn, err := sb.pickRandConn()
+		_, conn, err = sb.pickRandConn()
 		if err != nil {
 			return 0, errBrokenSwitchboard
 		}
-		return writeAndRegUsage(conn, data)
 	case FIXED_CONN_MAPPING:
 		connI, ok := sb.conns.Load(*connId)
 		if ok {
-			conn := connI.(net.Conn)
-			return writeAndRegUsage(conn, data)
+			conn = connI.(net.Conn)
 		} else {
-			newConnId, conn, err := sb.pickRandConn()
+			var newConnId uint32
+			newConnId, conn, err = sb.pickRandConn()
 			if err != nil {
 				return 0, errBrokenSwitchboard
 			}
 			*connId = newConnId
-			return writeAndRegUsage(conn, data)
 		}
 	default:
 		return 0, errors.New("unsupported traffic distribution strategy")
 	}
+
+	n, err = conn.Write(data)
+	if err != nil {
+		sb.conns.Delete(*connId)
+		sb.session.SetTerminalMsg("failed to write to remote " + err.Error())
+		sb.session.passiveClose()
+		return n, err
+	}
+	sb.valve.AddTx(int64(n))
+	return n, nil
 }
 
 // returns a random connId

@@ -13,8 +13,7 @@ import (
 // instead of byte-oriented. The integrity of datagrams written into this buffer is preserved.
 // it won't get chopped up into individual bytes
 type datagramBufferedPipe struct {
-	pLens []int
-	// lazily allocated
+	pLens     []int
 	buf       *bytes.Buffer
 	closed    bool
 	rwCond    *sync.Cond
@@ -27,6 +26,7 @@ type datagramBufferedPipe struct {
 func NewDatagramBufferedPipe() *datagramBufferedPipe {
 	d := &datagramBufferedPipe{
 		rwCond: sync.NewCond(&sync.Mutex{}),
+		buf:    new(bytes.Buffer),
 	}
 	return d
 }
@@ -34,9 +34,6 @@ func NewDatagramBufferedPipe() *datagramBufferedPipe {
 func (d *datagramBufferedPipe) Read(target []byte) (int, error) {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
-	if d.buf == nil {
-		d.buf = new(bytes.Buffer)
-	}
 	for {
 		if d.closed && len(d.pLens) == 0 {
 			return 0, io.EOF
@@ -72,9 +69,6 @@ func (d *datagramBufferedPipe) Read(target []byte) (int, error) {
 func (d *datagramBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
-	if d.buf == nil {
-		d.buf = new(bytes.Buffer)
-	}
 	for {
 		if d.closed && len(d.pLens) == 0 {
 			return 0, io.EOF
@@ -115,9 +109,6 @@ func (d *datagramBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
 func (d *datagramBufferedPipe) Write(f *Frame) (toBeClosed bool, err error) {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
-	if d.buf == nil {
-		d.buf = new(bytes.Buffer)
-	}
 	for {
 		if d.closed {
 			return true, io.ErrClosedPipe
