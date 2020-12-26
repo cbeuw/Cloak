@@ -56,7 +56,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 				t.Run(method, func(t *testing.T) {
 					seshConfig.Obfuscator = obfuscator
 					sesh := MakeSession(0, seshConfig)
-					n, err := sesh.Obfs(f, obfsBuf, 0)
+					n, err := sesh.obfuscate(f, obfsBuf, 0)
 					if err != nil {
 						t.Error(err)
 						return
@@ -107,7 +107,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 		testPayload,
 	}
 	// create stream 1
-	n, _ := sesh.Obfs(f1, obfsBuf, 0)
+	n, _ := sesh.obfuscate(f1, obfsBuf, 0)
 	err := sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving normal frame for stream 1: %v", err)
@@ -129,7 +129,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 		closingNothing,
 		testPayload,
 	}
-	n, _ = sesh.Obfs(f2, obfsBuf, 0)
+	n, _ = sesh.obfuscate(f2, obfsBuf, 0)
 	err = sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving normal frame for stream 2: %v", err)
@@ -151,7 +151,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 		closingStream,
 		testPayload,
 	}
-	n, _ = sesh.Obfs(f1CloseStream, obfsBuf, 0)
+	n, _ = sesh.obfuscate(f1CloseStream, obfsBuf, 0)
 	err = sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving stream closing frame for stream 1: %v", err)
@@ -180,7 +180,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 	}
 
 	// close stream 1 again
-	n, _ = sesh.Obfs(f1CloseStream, obfsBuf, 0)
+	n, _ = sesh.obfuscate(f1CloseStream, obfsBuf, 0)
 	err = sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving stream closing frame for stream 1 %v", err)
@@ -203,7 +203,7 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 		Closing:  closingSession,
 		Payload:  testPayload,
 	}
-	n, _ = sesh.Obfs(fCloseSession, obfsBuf, 0)
+	n, _ = sesh.obfuscate(fCloseSession, obfsBuf, 0)
 	err = sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving session closing frame: %v", err)
@@ -246,7 +246,7 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 		closingStream,
 		testPayload,
 	}
-	n, _ := sesh.Obfs(f1CloseStream, obfsBuf, 0)
+	n, _ := sesh.obfuscate(f1CloseStream, obfsBuf, 0)
 	err := sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving out of order stream closing frame for stream 1: %v", err)
@@ -268,7 +268,7 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 		closingNothing,
 		testPayload,
 	}
-	n, _ = sesh.Obfs(f1, obfsBuf, 0)
+	n, _ = sesh.obfuscate(f1, obfsBuf, 0)
 	err = sesh.recvDataFromRemote(obfsBuf[:n])
 	if err != nil {
 		t.Fatalf("receiving normal frame for stream 1: %v", err)
@@ -330,7 +330,7 @@ func TestParallelStreams(t *testing.T) {
 				wg.Add(1)
 				go func(frame *Frame) {
 					obfsBuf := make([]byte, obfsBufLen)
-					n, _ := sesh.Obfs(frame, obfsBuf, 0)
+					n, _ := sesh.obfuscate(frame, obfsBuf, 0)
 					obfsBuf = obfsBuf[0:n]
 
 					err := sesh.recvDataFromRemote(obfsBuf)
@@ -446,7 +446,7 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 			binaryFrames := [maxIter][]byte{}
 			for i := 0; i < maxIter; i++ {
 				obfsBuf := make([]byte, obfsBufLen)
-				n, _ := sesh.Obfs(f, obfsBuf, 0)
+				n, _ := sesh.obfuscate(f, obfsBuf, 0)
 				binaryFrames[i] = obfsBuf[:n]
 				f.Seq++
 			}
