@@ -508,7 +508,7 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 	}
 }
 
-func BenchmarkThroughput(b *testing.B) {
+func BenchmarkIntegration(b *testing.B) {
 	log.SetLevel(log.ErrorLevel)
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 	lcc, rcc, ai := generateClientConfigs(basicTCPConfig, worldState)
@@ -529,7 +529,7 @@ func BenchmarkThroughput(b *testing.B) {
 				b.Fatal(err)
 			}
 
-			b.Run("single stream", func(b *testing.B) {
+			b.Run("single stream bandwidth", func(b *testing.B) {
 				more := make(chan int, 10)
 				go func() {
 					// sender
@@ -550,6 +550,19 @@ func BenchmarkThroughput(b *testing.B) {
 					io.ReadFull(clientConn, readBuf)
 					// ask for more
 					more <- 0
+				}
+			})
+
+			b.Run("single stream latency", func(b *testing.B) {
+				clientConn, _ := proxyToCkClientD.Dial("", "")
+				buf := []byte{1}
+				clientConn.Write(buf)
+				serverConn, _ := proxyFromCkServerL.Accept()
+				serverConn.Read(buf)
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					clientConn.Write(buf)
+					serverConn.Read(buf)
 				}
 			})
 
