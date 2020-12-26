@@ -7,6 +7,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -31,6 +32,7 @@ type switchboard struct {
 	conns      sync.Map
 	numConns   uint32
 	nextConnId uint32
+	randPool   sync.Pool
 
 	broken uint32
 }
@@ -48,6 +50,9 @@ func makeSwitchboard(sesh *Session) *switchboard {
 		strategy:   strategy,
 		valve:      sesh.Valve,
 		nextConnId: 1,
+		randPool: sync.Pool{New: func() interface{} {
+			return rand.New(rand.NewSource(int64(time.Now().Nanosecond())))
+		}},
 	}
 	return sb
 }
@@ -121,7 +126,9 @@ func (sb *switchboard) pickRandConn() (uint32, net.Conn, error) {
 	// so if the r > len(sb.conns) at the point of range call, the last visited element is picked
 	var id uint32
 	var conn net.Conn
-	r := rand.Intn(connCount)
+	randReader := sb.randPool.Get().(*rand.Rand)
+	r := randReader.Intn(connCount)
+	sb.randPool.Put(randReader)
 	var c int
 	sb.conns.Range(func(connIdI, connI interface{}) bool {
 		if r == c {
