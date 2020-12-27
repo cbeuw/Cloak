@@ -73,6 +73,9 @@ func main() {
 		log.Info("Starting standalone mode")
 	}
 
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
 	lvl, err := log.ParseLevel(*verbosity)
 	if err != nil {
 		log.Fatal(err)
