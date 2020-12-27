@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"github.com/cbeuw/connutil"
 	"github.com/stretchr/testify/assert"
+	"io"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -16,6 +18,12 @@ import (
 var seshConfigs = map[string]SessionConfig{
 	"ordered":   {},
 	"unordered": {Unordered: true},
+}
+var encryptionMethods = map[string]byte{
+	"plain":            EncryptionMethodPlain,
+	"aes-256-gcm":      EncryptionMethodAES256GCM,
+	"aes-128-gcm":      EncryptionMethodAES128GCM,
+	"chacha20poly1305": EncryptionMethodChaha20Poly1305,
 }
 
 const testPayloadLen = 1024
@@ -35,27 +43,17 @@ func TestRecvDataFromRemote(t *testing.T) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
 
-	MakeObfuscatorUnwrap := func(method byte, sessionKey [32]byte) Obfuscator {
-		ret, err := MakeObfuscator(method, sessionKey)
-		if err != nil {
-			t.Fatalf("failed to make an obfuscator: %v", err)
-		}
-		return ret
-	}
-
-	encryptionMethods := map[string]Obfuscator{
-		"plain":             MakeObfuscatorUnwrap(EncryptionMethodPlain, sessionKey),
-		"aes-gcm":           MakeObfuscatorUnwrap(EncryptionMethodAES256GCM, sessionKey),
-		"chacha20-poly1305": MakeObfuscatorUnwrap(EncryptionMethodChaha20Poly1305, sessionKey),
-	}
-
 	for seshType, seshConfig := range seshConfigs {
 		seshConfig := seshConfig
 		t.Run(seshType, func(t *testing.T) {
-			for method, obfuscator := range encryptionMethods {
-				obfuscator := obfuscator
-				t.Run(method, func(t *testing.T) {
-					seshConfig.Obfuscator = obfuscator
+			for methodName, method := range encryptionMethods {
+				method := method
+				t.Run(methodName, func(t *testing.T) {
+					var err error
+					seshConfig.Obfuscator, err = MakeObfuscator(method, sessionKey)
+					if err != nil {
+						t.Fatalf("failed to make obfuscator: %v", err)
+					}
 					sesh := MakeSession(0, seshConfig)
 					n, err := sesh.obfuscate(f, obfsBuf, 0)
 					if err != nil {
@@ -95,10 +93,9 @@ func TestRecvDataFromRemote_Closing_InOrder(t *testing.T) {
 
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	obfuscator, _ := MakeObfuscator(EncryptionMethodPlain, sessionKey)
 
 	seshConfig := seshConfigs["ordered"]
-	seshConfig.Obfuscator = obfuscator
+	seshConfig.Obfuscator, _ = MakeObfuscator(EncryptionMethodPlain, sessionKey)
 	sesh := MakeSession(0, seshConfig)
 
 	f1 := &Frame{
@@ -234,10 +231,9 @@ func TestRecvDataFromRemote_Closing_OutOfOrder(t *testing.T) {
 
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	obfuscator, _ := MakeObfuscator(EncryptionMethodPlain, sessionKey)
 
 	seshConfig := seshConfigs["ordered"]
-	seshConfig.Obfuscator = obfuscator
+	seshConfig.Obfuscator, _ = MakeObfuscator(EncryptionMethodPlain, sessionKey)
 	sesh := MakeSession(0, seshConfig)
 
 	// receive stream 1 closing first
@@ -429,21 +425,13 @@ func BenchmarkRecvDataFromRemote(b *testing.B) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
 
-	table := map[string]byte{
-		"plain":            EncryptionMethodPlain,
-		"aes-256-gcm":      EncryptionMethodAES256GCM,
-		"aes-128-gcm":      EncryptionMethodAES128GCM,
-		"chacha20poly1305": EncryptionMethodChaha20Poly1305,
-	}
-
 	const maxIter = 100_000 // run with -benchtime 100000x to avoid index out of bounds panic
-	for name, ep := range table {
+	for name, ep := range encryptionMethods {
 		ep := ep
 		b.Run(name, func(b *testing.B) {
 			for seshType, seshConfig := range seshConfigs {
 				b.Run(seshType, func(b *testing.B) {
-					obfuscator, _ := MakeObfuscator(ep, sessionKey)
-					seshConfig.Obfuscator = obfuscator
+					seshConfig.Obfuscator, _ = MakeObfuscator(ep, sessionKey)
 					sesh := MakeSession(0, seshConfig)
 
 					go func() {
@@ -474,22 +462,13 @@ func BenchmarkMultiStreamWrite(b *testing.B) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
 
-	table := map[string]byte{
-		"plain":            EncryptionMethodPlain,
-		"aes-256-gcm":      EncryptionMethodAES256GCM,
-		"aes-128-gcm":      EncryptionMethodAES128GCM,
-		"chacha20poly1305": EncryptionMethodChaha20Poly1305,
-	}
-
 	testPayload := make([]byte, testPayloadLen)
 
-	for name, ep := range table {
+	for name, ep := range encryptionMethods {
 		b.Run(name, func(b *testing.B) {
 			for seshType, seshConfig := range seshConfigs {
-				seshConfig := seshConfig
 				b.Run(seshType, func(b *testing.B) {
-					obfuscator, _ := MakeObfuscator(ep, sessionKey)
-					seshConfig.Obfuscator = obfuscator
+					seshConfig.Obfuscator, _ = MakeObfuscator(ep, sessionKey)
 					sesh := MakeSession(0, seshConfig)
 					sesh.AddConnection(connutil.Discard())
 					b.ResetTimer()
@@ -500,6 +479,39 @@ func BenchmarkMultiStreamWrite(b *testing.B) {
 							stream.Write(testPayload)
 						}
 					})
+				})
+			}
+		})
+	}
+}
+
+func BenchmarkLatency(b *testing.B) {
+	var sessionKey [32]byte
+	rand.Read(sessionKey[:])
+
+	for name, ep := range encryptionMethods {
+		b.Run(name, func(b *testing.B) {
+			for seshType, seshConfig := range seshConfigs {
+				b.Run(seshType, func(b *testing.B) {
+					seshConfig.Obfuscator, _ = MakeObfuscator(ep, sessionKey)
+					clientSesh := MakeSession(0, seshConfig)
+					serverSesh := MakeSession(0, seshConfig)
+
+					c, s := net.Pipe()
+					clientSesh.AddConnection(c)
+					serverSesh.AddConnection(s)
+
+					buf := make([]byte, 64)
+					clientStream, _ := clientSesh.OpenStream()
+					clientStream.Write(buf)
+					serverStream, _ := serverSesh.Accept()
+					io.ReadFull(serverStream, buf)
+
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						clientStream.Write(buf)
+						io.ReadFull(serverStream, buf)
+					}
 				})
 			}
 		})
