@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/cbeuw/connutil"
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -415,7 +416,7 @@ func TestSession_timeoutAfter(t *testing.T) {
 	}
 }
 
-func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
+func BenchmarkRecvDataFromRemote(b *testing.B) {
 	testPayload := make([]byte, testPayloadLen)
 	rand.Read(testPayload)
 	f := &Frame{
@@ -439,23 +440,31 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 	for name, ep := range table {
 		ep := ep
 		b.Run(name, func(b *testing.B) {
-			seshConfig := seshConfigs["ordered"]
-			obfuscator, _ := MakeObfuscator(ep, sessionKey)
-			seshConfig.Obfuscator = obfuscator
-			sesh := MakeSession(0, seshConfig)
+			for seshType, seshConfig := range seshConfigs {
+				b.Run(seshType, func(b *testing.B) {
+					obfuscator, _ := MakeObfuscator(ep, sessionKey)
+					seshConfig.Obfuscator = obfuscator
+					sesh := MakeSession(0, seshConfig)
 
-			binaryFrames := [maxIter][]byte{}
-			for i := 0; i < maxIter; i++ {
-				obfsBuf := make([]byte, obfsBufLen)
-				n, _ := sesh.obfuscate(f, obfsBuf, 0)
-				binaryFrames[i] = obfsBuf[:n]
-				f.Seq++
-			}
+					go func() {
+						stream, _ := sesh.Accept()
+						stream.(*Stream).WriteTo(ioutil.Discard)
+					}()
 
-			b.SetBytes(int64(len(f.Payload)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				sesh.recvDataFromRemote(binaryFrames[i])
+					binaryFrames := [maxIter][]byte{}
+					for i := 0; i < maxIter; i++ {
+						obfsBuf := make([]byte, obfsBufLen)
+						n, _ := sesh.obfuscate(f, obfsBuf, 0)
+						binaryFrames[i] = obfsBuf[:n]
+						f.Seq++
+					}
+
+					b.SetBytes(int64(len(f.Payload)))
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						sesh.recvDataFromRemote(binaryFrames[i])
+					}
+				})
 			}
 		})
 	}
