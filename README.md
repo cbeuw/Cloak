@@ -126,11 +126,11 @@ instead a CDN is used, use `CDN`.
 `ProxyMethod` is the name of the proxy method you are using. This must match one of the entries in the
 server's `ProxyBook` exactly.
 
-`EncryptionMethod` is the name of the encryption algorithm you want Cloak to use. Options are `plain`, `aes-gcm`
-and `chacha20-poly1305`. Note: Cloak isn't intended to provide transport security. The point of encryption is to hide
-fingerprints of proxy protocols and render the payload statistically random-like. **You may only leave it as `plain` if
-you are certain that your underlying proxy tool already provides BOTH encryption and authentication (via AEAD or similar
-techniques).**
+`EncryptionMethod` is the name of the encryption algorithm you want Cloak to use. Options are `plain`, `aes-256-gcm` (
+synonymous to `aes-gcm`), `aes-128-gcm`, and `chacha20-poly1305`. Note: Cloak isn't intended to provide transport
+security. The point of encryption is to hide fingerprints of proxy protocols and render the payload statistically
+random-like. **You may only leave it as `plain` if you are certain that your underlying proxy tool already provides BOTH
+encryption and authentication (via AEAD or similar techniques).**
 
 `ServerName` is the domain you want to make your ISP or firewall _think_ you are visiting. Ideally it should
 match `RedirAddr` in the server's configuration, a major site the censor allows, but it doesn't have to.

@@ -46,8 +46,16 @@ func TestGenerateObfs(t *testing.T) {
 			run(obfuscator, t)
 		}
 	})
-	t.Run("aes-gcm", func(t *testing.T) {
-		obfuscator, err := MakeObfuscator(EncryptionMethodAESGCM, sessionKey)
+	t.Run("aes-256-gcm", func(t *testing.T) {
+		obfuscator, err := MakeObfuscator(EncryptionMethodAES256GCM, sessionKey)
+		if err != nil {
+			t.Errorf("failed to generate obfuscator %v", err)
+		} else {
+			run(obfuscator, t)
+		}
+	})
+	t.Run("aes-128-gcm", func(t *testing.T) {
+		obfuscator, err := MakeObfuscator(EncryptionMethodAES128GCM, sessionKey)
 		if err != nil {
 			t.Errorf("failed to generate obfuscator %v", err)
 		} else {

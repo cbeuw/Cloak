@@ -164,7 +164,10 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 	case "plain":
 		auth.EncryptionMethod = mux.EncryptionMethodPlain
 	case "aes-gcm":
-		auth.EncryptionMethod = mux.EncryptionMethodAESGCM
+	case "aes-256-gcm":
+		auth.EncryptionMethod = mux.EncryptionMethodAES256GCM
+	case "aes-128-gcm":
+		auth.EncryptionMethod = mux.EncryptionMethodAES128GCM
 	case "chacha20-poly1305":
 		auth.EncryptionMethod = mux.EncryptionMethodChaha20Poly1305
 	default:

@@ -39,7 +39,8 @@ func BenchmarkStream_Write_Ordered(b *testing.B) {
 	eMethods := map[string]byte{
 		"plain":             EncryptionMethodPlain,
 		"chacha20-poly1305": EncryptionMethodChaha20Poly1305,
-		"aes-gcm":           EncryptionMethodAESGCM,
+		"aes-256-gcm":       EncryptionMethodAES256GCM,
+		"aes-128-gcm":       EncryptionMethodAES128GCM,
 	}
 
 	for name, method := range eMethods {

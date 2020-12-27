@@ -21,8 +21,9 @@ const salsa20NonceSize = 8
 
 const (
 	EncryptionMethodPlain = iota
-	EncryptionMethodAESGCM
+	EncryptionMethodAES256GCM
 	EncryptionMethodChaha20Poly1305
+	EncryptionMethodAES128GCM
 )
 
 // Obfuscator is responsible for serialisation, obfuscation, and optional encryption of data frames.
@@ -171,9 +172,20 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator Obfu
 	case EncryptionMethodPlain:
 		payloadCipher = nil
 		obfuscator.maxOverhead = salsa20NonceSize
-	case EncryptionMethodAESGCM:
+	case EncryptionMethodAES256GCM:
 		var c cipher.Block
 		c, err = aes.NewCipher(sessionKey[:])
+		if err != nil {
+			return
+		}
+		payloadCipher, err = cipher.NewGCM(c)
+		if err != nil {
+			return
+		}
+		obfuscator.maxOverhead = payloadCipher.Overhead()
+	case EncryptionMethodAES128GCM:
+		var c cipher.Block
+		c, err = aes.NewCipher(sessionKey[:16])
 		if err != nil {
 			return
 		}
@@ -189,7 +201,7 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator Obfu
 		}
 		obfuscator.maxOverhead = payloadCipher.Overhead()
 	default:
-		return obfuscator, errors.New("Unknown encryption method")
+		return obfuscator, fmt.Errorf("unknown encryption method valued %v", encryptionMethod)
 	}
 
 	if payloadCipher != nil {

@@ -175,7 +175,13 @@ func dispatchConnection(conn net.Conn, sta *State) {
 	common.RandRead(sta.WorldState.Rand, sessionKey[:])
 	obfuscator, err := mux.MakeObfuscator(ci.EncryptionMethod, sessionKey)
 	if err != nil {
-		log.Error(err)
+		log.WithFields(log.Fields{
+			"remoteAddr":       conn.RemoteAddr(),
+			"UID":              b64(ci.UID),
+			"sessionId":        ci.SessionId,
+			"proxyMethod":      ci.ProxyMethod,
+			"encryptionMethod": ci.EncryptionMethod,
+		}).Error(err)
 		goWeb()
 		return
 	}

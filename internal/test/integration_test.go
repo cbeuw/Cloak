@@ -518,7 +518,8 @@ func BenchmarkIntegration(b *testing.B) {
 	encryptionMethods := map[string]byte{
 		"plain":             mux.EncryptionMethodPlain,
 		"chacha20-poly1305": mux.EncryptionMethodChaha20Poly1305,
-		"aes-gcm":           mux.EncryptionMethodAESGCM,
+		"aes-256-gcm":       mux.EncryptionMethodAES256GCM,
+		"aes-128-gcm":       mux.EncryptionMethodAES128GCM,
 	}
 
 	for name, method := range encryptionMethods {

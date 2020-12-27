@@ -44,7 +44,7 @@ func TestRecvDataFromRemote(t *testing.T) {
 
 	encryptionMethods := map[string]Obfuscator{
 		"plain":             MakeObfuscatorUnwrap(EncryptionMethodPlain, sessionKey),
-		"aes-gcm":           MakeObfuscatorUnwrap(EncryptionMethodAESGCM, sessionKey),
+		"aes-gcm":           MakeObfuscatorUnwrap(EncryptionMethodAES256GCM, sessionKey),
 		"chacha20-poly1305": MakeObfuscatorUnwrap(EncryptionMethodChaha20Poly1305, sessionKey),
 	}
 
@@ -430,7 +430,8 @@ func BenchmarkRecvDataFromRemote_Ordered(b *testing.B) {
 
 	table := map[string]byte{
 		"plain":            EncryptionMethodPlain,
-		"aes-gcm":          EncryptionMethodAESGCM,
+		"aes-256-gcm":      EncryptionMethodAES256GCM,
+		"aes-128-gcm":      EncryptionMethodAES128GCM,
 		"chacha20poly1305": EncryptionMethodChaha20Poly1305,
 	}
 
@@ -466,7 +467,8 @@ func BenchmarkMultiStreamWrite(b *testing.B) {
 
 	table := map[string]byte{
 		"plain":            EncryptionMethodPlain,
-		"aes-gcm":          EncryptionMethodAESGCM,
+		"aes-256-gcm":      EncryptionMethodAES256GCM,
+		"aes-128-gcm":      EncryptionMethodAES128GCM,
 		"chacha20poly1305": EncryptionMethodChaha20Poly1305,
 	}
 
