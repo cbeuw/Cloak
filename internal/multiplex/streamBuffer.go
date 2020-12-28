@@ -82,6 +82,8 @@ func (sb *streamBuffer) Write(f *Frame) (toBeClosed bool, err error) {
 	}
 
 	saved := *f
+	saved.Payload = make([]byte, len(f.Payload))
+	copy(saved.Payload, f.Payload)
 	heap.Push(&sb.sh, &saved)
 	// Keep popping from the heap until empty or to the point that the wanted seq was not received
 	for len(sb.sh) > 0 && sb.sh[0].Seq == sb.nextRecvSeq {
