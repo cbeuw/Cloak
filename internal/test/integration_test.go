@@ -222,13 +222,14 @@ func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, a
 
 func runEchoTest(t *testing.T, conns []net.Conn, msgLen int) {
 	var wg sync.WaitGroup
-	testData := make([]byte, msgLen)
-	rand.Read(testData)
 
 	for _, conn := range conns {
 		wg.Add(1)
 		go func(conn net.Conn) {
 			defer wg.Done()
+
+			testData := make([]byte, msgLen)
+			rand.Read(testData)
 
 			// we cannot call t.Fatalf in concurrent contexts
 			n, err := conn.Write(testData)
