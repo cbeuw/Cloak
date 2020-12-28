@@ -232,7 +232,7 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 	frame := sesh.recvFramePool.Get().(*Frame)
 	defer sesh.recvFramePool.Put(frame)
 
-	err := sesh.deobfuscate(frame, data)
+	err := sesh.Deobfs(frame, data)
 	if err != nil {
 		return fmt.Errorf("Failed to decrypt a frame for session %v: %v", sesh.id, err)
 	}
@@ -331,7 +331,7 @@ func (sesh *Session) Close() error {
 		Closing:  closingSession,
 		Payload:  payload,
 	}
-	i, err := sesh.obfuscate(f, *buf, frameHeaderLength)
+	i, err := sesh.Obfs(f, *buf, frameHeaderLength)
 	if err != nil {
 		return err
 	}

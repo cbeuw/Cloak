@@ -142,7 +142,7 @@ func TestStream_Close(t *testing.T) {
 		writingEnd := common.NewTLSConn(rawWritingEnd)
 
 		obfsBuf := make([]byte, 512)
-		i, _ := sesh.obfuscate(dataFrame, obfsBuf, 0)
+		i, _ := sesh.Obfs(dataFrame, obfsBuf, 0)
 		_, err := writingEnd.Write(obfsBuf[:i])
 		if err != nil {
 			t.Error("failed to write from remote end")
@@ -185,7 +185,7 @@ func TestStream_Close(t *testing.T) {
 		writingEnd := common.NewTLSConn(rawWritingEnd)
 
 		obfsBuf := make([]byte, 512)
-		i, err := sesh.obfuscate(dataFrame, obfsBuf, 0)
+		i, err := sesh.Obfs(dataFrame, obfsBuf, 0)
 		if err != nil {
 			t.Errorf("failed to obfuscate frame %v", err)
 		}
@@ -207,7 +207,7 @@ func TestStream_Close(t *testing.T) {
 			testPayload,
 		}
 
-		i, err = sesh.obfuscate(closingFrame, obfsBuf, 0)
+		i, err = sesh.Obfs(closingFrame, obfsBuf, 0)
 		if err != nil {
 			t.Errorf("failed to obfuscate frame %v", err)
 		}
@@ -223,7 +223,7 @@ func TestStream_Close(t *testing.T) {
 			testPayload,
 		}
 
-		i, err = sesh.obfuscate(closingFrameDup, obfsBuf, 0)
+		i, err = sesh.Obfs(closingFrameDup, obfsBuf, 0)
 		if err != nil {
 			t.Errorf("failed to obfuscate frame %v", err)
 		}
@@ -275,7 +275,7 @@ func TestStream_Read(t *testing.T) {
 			obfsBuf := make([]byte, 512)
 			t.Run("Plain read", func(t *testing.T) {
 				f.StreamID = streamID
-				i, _ := sesh.obfuscate(f, obfsBuf, 0)
+				i, _ := sesh.Obfs(f, obfsBuf, 0)
 				streamID++
 				writingEnd.Write(obfsBuf[:i])
 				stream, err := sesh.Accept()
@@ -300,7 +300,7 @@ func TestStream_Read(t *testing.T) {
 			})
 			t.Run("Nil buf", func(t *testing.T) {
 				f.StreamID = streamID
-				i, _ := sesh.obfuscate(f, obfsBuf, 0)
+				i, _ := sesh.Obfs(f, obfsBuf, 0)
 				streamID++
 				writingEnd.Write(obfsBuf[:i])
 				stream, _ := sesh.Accept()
@@ -312,7 +312,7 @@ func TestStream_Read(t *testing.T) {
 			})
 			t.Run("Read after stream close", func(t *testing.T) {
 				f.StreamID = streamID
-				i, _ := sesh.obfuscate(f, obfsBuf, 0)
+				i, _ := sesh.Obfs(f, obfsBuf, 0)
 				streamID++
 				writingEnd.Write(obfsBuf[:i])
 				stream, _ := sesh.Accept()
@@ -337,7 +337,7 @@ func TestStream_Read(t *testing.T) {
 			})
 			t.Run("Read after session close", func(t *testing.T) {
 				f.StreamID = streamID
-				i, _ := sesh.obfuscate(f, obfsBuf, 0)
+				i, _ := sesh.Obfs(f, obfsBuf, 0)
 				streamID++
 				writingEnd.Write(obfsBuf[:i])
 				stream, _ := sesh.Accept()

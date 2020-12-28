@@ -113,7 +113,7 @@ func (s *Stream) WriteTo(w io.Writer) (int64, error) {
 }
 
 func (s *Stream) obfuscateAndSend(buf []byte, payloadOffsetInBuf int) error {
-	cipherTextLen, err := s.session.obfuscate(&s.writingFrame, buf, payloadOffsetInBuf)
+	cipherTextLen, err := s.session.Obfs(&s.writingFrame, buf, payloadOffsetInBuf)
 	s.writingFrame.Seq++
 	if err != nil {
 		return err
