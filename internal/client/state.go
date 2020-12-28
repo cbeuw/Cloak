@@ -163,8 +163,7 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 	switch strings.ToLower(raw.EncryptionMethod) {
 	case "plain":
 		auth.EncryptionMethod = mux.EncryptionMethodPlain
-	case "aes-gcm":
-	case "aes-256-gcm":
+	case "aes-gcm", "aes-256-gcm":
 		auth.EncryptionMethod = mux.EncryptionMethodAES256GCM
 	case "aes-128-gcm":
 		auth.EncryptionMethod = mux.EncryptionMethodAES128GCM
