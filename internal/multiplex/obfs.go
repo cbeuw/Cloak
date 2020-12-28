@@ -11,11 +11,6 @@ import (
 	"golang.org/x/crypto/salsa20"
 )
 
-var u32 = binary.BigEndian.Uint32
-var u64 = binary.BigEndian.Uint64
-var putU32 = binary.BigEndian.PutUint32
-var putU64 = binary.BigEndian.PutUint64
-
 const frameHeaderLength = 14
 const salsa20NonceSize = 8
 
@@ -98,8 +93,8 @@ func (o *Obfuscator) obfuscate(f *Frame, buf []byte, payloadOffsetInBuf int) (in
 	}
 
 	header := buf[:frameHeaderLength]
-	putU32(header[0:4], f.StreamID)
-	putU64(header[4:12], f.Seq)
+	binary.BigEndian.PutUint32(header[0:4], f.StreamID)
+	binary.BigEndian.PutUint64(header[4:12], f.Seq)
 	header[12] = f.Closing
 	header[13] = byte(extraLen)
 
@@ -130,8 +125,8 @@ func (o *Obfuscator) deobfuscate(f *Frame, in []byte) error {
 	nonce := in[len(in)-salsa20NonceSize:]
 	salsa20.XORKeyStream(header, header, nonce, &o.SessionKey)
 
-	streamID := u32(header[0:4])
-	seq := u64(header[4:12])
+	streamID := binary.BigEndian.Uint32(header[0:4])
+	seq := binary.BigEndian.Uint64(header[4:12])
 	closing := header[12]
 	extraLen := header[13]
 
