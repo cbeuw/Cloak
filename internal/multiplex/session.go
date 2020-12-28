@@ -286,13 +286,11 @@ func (sesh *Session) closeSession() error {
 	sesh.streamsM.Lock()
 	close(sesh.acceptCh)
 	for id, stream := range sesh.streams {
-		if stream == nil {
-			continue
+		if stream != nil && atomic.CompareAndSwapUint32(&stream.closed, 0, 1) {
+			_ = stream.getRecvBuf().Close() // will not block
+			delete(sesh.streams, id)
+			sesh.streamCountDecr()
 		}
-		atomic.StoreUint32(&stream.closed, 1)
-		_ = stream.getRecvBuf().Close() // will not block
-		delete(sesh.streams, id)
-		sesh.streamCountDecr()
 	}
 	sesh.streamsM.Unlock()
 	return nil
@@ -333,7 +331,7 @@ func (sesh *Session) Close() error {
 	if err != nil {
 		return err
 	}
-	_, err = sesh.sb.send((*buf)[:i], new(uint32))
+	_, err = sesh.sb.send((*buf)[:i], new(net.Conn))
 	if err != nil {
 		return err
 	}

@@ -14,14 +14,14 @@ func TestSwitchboard_Send(t *testing.T) {
 		sesh := MakeSession(0, seshConfig)
 		hole0 := connutil.Discard()
 		sesh.sb.addConn(hole0)
-		connId, _, err := sesh.sb.pickRandConn()
+		conn, err := sesh.sb.pickRandConn()
 		if err != nil {
 			t.Error("failed to get a random conn", err)
 			return
 		}
 		data := make([]byte, 1000)
 		rand.Read(data)
-		_, err = sesh.sb.send(data, &connId)
+		_, err = sesh.sb.send(data, &conn)
 		if err != nil {
 			t.Error(err)
 			return
@@ -29,23 +29,23 @@ func TestSwitchboard_Send(t *testing.T) {
 
 		hole1 := connutil.Discard()
 		sesh.sb.addConn(hole1)
-		connId, _, err = sesh.sb.pickRandConn()
+		conn, err = sesh.sb.pickRandConn()
 		if err != nil {
 			t.Error("failed to get a random conn", err)
 			return
 		}
-		_, err = sesh.sb.send(data, &connId)
+		_, err = sesh.sb.send(data, &conn)
 		if err != nil {
 			t.Error(err)
 			return
 		}
 
-		connId, _, err = sesh.sb.pickRandConn()
+		conn, err = sesh.sb.pickRandConn()
 		if err != nil {
 			t.Error("failed to get a random conn", err)
 			return
 		}
-		_, err = sesh.sb.send(data, &connId)
+		_, err = sesh.sb.send(data, &conn)
 		if err != nil {
 			t.Error(err)
 			return
@@ -71,7 +71,7 @@ func BenchmarkSwitchboard_Send(b *testing.B) {
 	seshConfig := SessionConfig{}
 	sesh := MakeSession(0, seshConfig)
 	sesh.sb.addConn(hole)
-	connId, _, err := sesh.sb.pickRandConn()
+	conn, err := sesh.sb.pickRandConn()
 	if err != nil {
 		b.Error("failed to get a random conn", err)
 		return
@@ -81,7 +81,7 @@ func BenchmarkSwitchboard_Send(b *testing.B) {
 	b.SetBytes(int64(len(data)))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sesh.sb.send(data, &connId)
+		sesh.sb.send(data, &conn)
 	}
 }
 
@@ -92,7 +92,7 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 	sesh := MakeSession(0, seshConfig)
 	hole := connutil.Discard()
 	sesh.sb.addConn(hole)
-	connId, _, err := sesh.sb.pickRandConn()
+	conn, err := sesh.sb.pickRandConn()
 	if err != nil {
 		t.Error("failed to get a random conn", err)
 		return
@@ -103,7 +103,7 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 	t.Run("FIXED CONN MAPPING", func(t *testing.T) {
 		*sesh.sb.valve.(*LimitedValve).tx = 0
 		sesh.sb.strategy = FIXED_CONN_MAPPING
-		n, err := sesh.sb.send(data[:10], &connId)
+		n, err := sesh.sb.send(data[:10], &conn)
 		if err != nil {
 			t.Error(err)
 			return
@@ -119,7 +119,7 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 	t.Run("UNIFORM", func(t *testing.T) {
 		*sesh.sb.valve.(*LimitedValve).tx = 0
 		sesh.sb.strategy = UNIFORM_SPREAD
-		n, err := sesh.sb.send(data[:10], &connId)
+		n, err := sesh.sb.send(data[:10], &conn)
 		if err != nil {
 			t.Error(err)
 			return
@@ -173,13 +173,17 @@ func TestSwitchboard_ConnsCount(t *testing.T) {
 	}
 	wg.Wait()
 
-	if sesh.sb.connsCount() != 1000 {
+	sesh.sb.connsM.RLock()
+	if len(sesh.sb.conns) != 1000 {
 		t.Error("connsCount incorrect")
 	}
+	sesh.sb.connsM.RUnlock()
 
 	sesh.sb.closeAll()
 
 	assert.Eventuallyf(t, func() bool {
-		return sesh.sb.connsCount() == 0
-	}, time.Second, 10*time.Millisecond, "connsCount incorrect: %v", sesh.sb.connsCount())
+		sesh.sb.connsM.RLock()
+		defer sesh.sb.connsM.RUnlock()
+		return len(sesh.sb.conns) == 0
+	}, time.Second, 10*time.Millisecond, "connsCount incorrect")
 }

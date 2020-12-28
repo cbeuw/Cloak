@@ -40,7 +40,7 @@ type Stream struct {
 	// recvBuffer (implemented by streamBuffer under ordered mode) will not receive out-of-order packets
 	// so it won't have to use its priority queue to sort it.
 	// This is not used in unordered connection mode
-	assignedConnId uint32
+	assignedConn net.Conn
 
 	readFromTimeout time.Duration
 }
@@ -119,7 +119,7 @@ func (s *Stream) obfuscateAndSend(buf []byte, payloadOffsetInBuf int) error {
 		return err
 	}
 
-	_, err = s.session.sb.send(buf[:cipherTextLen], &s.assignedConnId)
+	_, err = s.session.sb.send(buf[:cipherTextLen], &s.assignedConn)
 	if err != nil {
 		if err == errBrokenSwitchboard {
 			s.session.SetTerminalMsg(err.Error())
