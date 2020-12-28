@@ -158,50 +158,49 @@ func (o *Obfuscator) deobfuscate(f *Frame, in []byte) error {
 	return nil
 }
 
-func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (obfuscator Obfuscator, err error) {
-	obfuscator = Obfuscator{
+func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (o Obfuscator, err error) {
+	o = Obfuscator{
 		SessionKey: sessionKey,
 	}
-	var payloadCipher cipher.AEAD
 	switch encryptionMethod {
 	case EncryptionMethodPlain:
-		payloadCipher = nil
-		obfuscator.maxOverhead = salsa20NonceSize
+		o.payloadCipher = nil
+		o.maxOverhead = salsa20NonceSize
 	case EncryptionMethodAES256GCM:
 		var c cipher.Block
 		c, err = aes.NewCipher(sessionKey[:])
 		if err != nil {
 			return
 		}
-		payloadCipher, err = cipher.NewGCM(c)
+		o.payloadCipher, err = cipher.NewGCM(c)
 		if err != nil {
 			return
 		}
-		obfuscator.maxOverhead = payloadCipher.Overhead()
+		o.maxOverhead = o.payloadCipher.Overhead()
 	case EncryptionMethodAES128GCM:
 		var c cipher.Block
 		c, err = aes.NewCipher(sessionKey[:16])
 		if err != nil {
 			return
 		}
-		payloadCipher, err = cipher.NewGCM(c)
+		o.payloadCipher, err = cipher.NewGCM(c)
 		if err != nil {
 			return
 		}
-		obfuscator.maxOverhead = payloadCipher.Overhead()
+		o.maxOverhead = o.payloadCipher.Overhead()
 	case EncryptionMethodChaha20Poly1305:
-		payloadCipher, err = chacha20poly1305.New(sessionKey[:])
+		o.payloadCipher, err = chacha20poly1305.New(sessionKey[:])
 		if err != nil {
 			return
 		}
-		obfuscator.maxOverhead = payloadCipher.Overhead()
+		o.maxOverhead = o.payloadCipher.Overhead()
 	default:
-		return obfuscator, fmt.Errorf("unknown encryption method valued %v", encryptionMethod)
+		return o, fmt.Errorf("unknown encryption method valued %v", encryptionMethod)
 	}
 
-	if payloadCipher != nil {
-		if payloadCipher.NonceSize() > frameHeaderLength {
-			return obfuscator, errors.New("payload AEAD's nonce size cannot be greater than size of frame header")
+	if o.payloadCipher != nil {
+		if o.payloadCipher.NonceSize() > frameHeaderLength {
+			return o, errors.New("payload AEAD's nonce size cannot be greater than size of frame header")
 		}
 	}
 
