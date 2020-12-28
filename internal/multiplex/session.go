@@ -128,6 +128,10 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	return sesh
 }
 
+func (sesh *Session) GetSessionKey() [32]byte {
+	return sesh.sessionKey
+}
+
 func (sesh *Session) streamCountIncr() uint32 {
 	return atomic.AddUint32(&sesh.activeStreamCount, 1)
 }

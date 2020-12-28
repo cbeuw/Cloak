@@ -25,7 +25,7 @@ const (
 type Obfuscator struct {
 	payloadCipher cipher.AEAD
 
-	SessionKey [32]byte
+	sessionKey [32]byte
 
 	maxOverhead int
 }
@@ -35,7 +35,7 @@ func (o *Obfuscator) obfuscate(f *Frame, buf []byte, payloadOffsetInBuf int) (in
 	// The method here is to use the first payloadCipher.NonceSize() bytes of the serialised frame header
 	// as iv/nonce for the AEAD cipher to encrypt the frame payload. Then we use
 	// the authentication tag produced appended to the end of the ciphertext (of size payloadCipher.Overhead())
-	// as nonce for Salsa20 to encrypt the frame header. Both with SessionKey as keys.
+	// as nonce for Salsa20 to encrypt the frame header. Both with sessionKey as keys.
 	//
 	// Several cryptographic guarantees we have made here: that payloadCipher, as an AEAD, is given a unique
 	// iv/nonce each time, relative to its key; that the frame header encryptor Salsa20 is given a unique
@@ -108,7 +108,7 @@ func (o *Obfuscator) obfuscate(f *Frame, buf []byte, payloadOffsetInBuf int) (in
 	}
 
 	nonce := buf[usefulLen-salsa20NonceSize : usefulLen]
-	salsa20.XORKeyStream(header, header, nonce, &o.SessionKey)
+	salsa20.XORKeyStream(header, header, nonce, &o.sessionKey)
 
 	return usefulLen, nil
 }
@@ -123,7 +123,7 @@ func (o *Obfuscator) deobfuscate(f *Frame, in []byte) error {
 	pldWithOverHead := in[frameHeaderLength:] // payload + potential overhead
 
 	nonce := in[len(in)-salsa20NonceSize:]
-	salsa20.XORKeyStream(header, header, nonce, &o.SessionKey)
+	salsa20.XORKeyStream(header, header, nonce, &o.sessionKey)
 
 	streamID := binary.BigEndian.Uint32(header[0:4])
 	seq := binary.BigEndian.Uint64(header[4:12])
@@ -160,7 +160,7 @@ func (o *Obfuscator) deobfuscate(f *Frame, in []byte) error {
 
 func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (o Obfuscator, err error) {
 	o = Obfuscator{
-		SessionKey: sessionKey,
+		sessionKey: sessionKey,
 	}
 	switch encryptionMethod {
 	case EncryptionMethodPlain:

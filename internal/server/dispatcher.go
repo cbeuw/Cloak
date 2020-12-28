@@ -236,7 +236,7 @@ func dispatchConnection(conn net.Conn, sta *State) {
 		return
 	}
 
-	preparedConn, err := finishHandshake(conn, sesh.SessionKey, sta.WorldState.Rand)
+	preparedConn, err := finishHandshake(conn, sesh.GetSessionKey(), sta.WorldState.Rand)
 	if err != nil {
 		log.Error(err)
 		return
