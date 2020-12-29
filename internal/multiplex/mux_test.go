@@ -108,9 +108,7 @@ func TestMultiplex(t *testing.T) {
 	streams := make([]net.Conn, numStreams)
 	for i := 0; i < numStreams; i++ {
 		stream, err := clientSession.OpenStream()
-		if err != nil {
-			t.Fatalf("failed to open stream: %v", err)
-		}
+		assert.NoError(t, err)
 		streams[i] = stream
 	}
 
@@ -123,18 +121,11 @@ func TestMultiplex(t *testing.T) {
 	// close one stream
 	closing, streams := streams[0], streams[1:]
 	err := closing.Close()
-	if err != nil {
-		t.Errorf("couldn't close a stream")
-	}
+	assert.NoError(t, err, "couldn't close a stream")
 	_, err = closing.Write([]byte{0})
-	if err != ErrBrokenStream {
-		t.Errorf("expecting error %v, got %v", ErrBrokenStream, err)
-	}
+	assert.Equal(t, ErrBrokenStream, err)
 	_, err = closing.Read(make([]byte, 1))
-	if err != ErrBrokenStream {
-		t.Errorf("expecting error %v, got %v", ErrBrokenStream, err)
-	}
-
+	assert.Equal(t, ErrBrokenStream, err)
 }
 
 func TestMux_StreamClosing(t *testing.T) {
@@ -146,20 +137,13 @@ func TestMux_StreamClosing(t *testing.T) {
 	recvBuf := make([]byte, 128)
 	toBeClosed, _ := clientSession.OpenStream()
 	_, err := toBeClosed.Write(testData) // should be echoed back
-	if err != nil {
-		t.Errorf("can't write to stream: %v", err)
-	}
+	assert.NoError(t, err, "couldn't write to a stream")
 
 	_, err = io.ReadFull(toBeClosed, recvBuf[:1])
-	if err != nil {
-		t.Errorf("can't read anything before stream closed: %v", err)
-	}
+	assert.NoError(t, err, "can't read anything before stream closed")
+
 	_ = toBeClosed.Close()
 	_, err = io.ReadFull(toBeClosed, recvBuf[1:])
-	if err != nil {
-		t.Errorf("can't read residual data on stream: %v", err)
-	}
-	if !bytes.Equal(testData, recvBuf) {
-		t.Errorf("incorrect data read back")
-	}
+	assert.NoError(t, err, "can't read residual data on stream")
+	assert.Equal(t, testData, recvBuf, "incorrect data read back")
 }

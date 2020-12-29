@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/multiplex"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
@@ -64,12 +65,8 @@ func TestMakeAuthenticationPayload(t *testing.T) {
 	for _, tc := range tests {
 		func() {
 			payload, sharedSecret := makeAuthenticationPayload(tc.authInfo)
-			if payload != tc.expPayload {
-				t.Errorf("payload doesn't match:\nexp %v\ngot %v", tc.expPayload, payload)
-			}
-			if sharedSecret != tc.expSecret {
-				t.Errorf("secret doesn't match:\nexp %x\ngot %x", tc.expPayload, payload)
-			}
+			assert.Equal(t, tc.expPayload, payload, "payload doesn't match")
+			assert.Equal(t, tc.expSecret, sharedSecret, "shared secret doesn't match")
 		}()
 	}
 }

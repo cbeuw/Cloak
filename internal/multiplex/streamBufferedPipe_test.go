@@ -1,7 +1,7 @@
 package multiplex
 
 import (
-	"bytes"
+	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"testing"
 	"time"
@@ -13,49 +13,15 @@ func TestPipeRW(t *testing.T) {
 	pipe := NewStreamBufferedPipe()
 	b := []byte{0x01, 0x02, 0x03}
 	n, err := pipe.Write(b)
-	if n != len(b) {
-		t.Error(
-			"For", "number of bytes written",
-			"expecting", len(b),
-			"got", n,
-		)
-		return
-	}
-	if err != nil {
-		t.Error(
-			"For", "simple write",
-			"expecting", "nil error",
-			"got", err,
-		)
-		return
-	}
+	assert.NoError(t, err, "simple write")
+	assert.Equal(t, len(b), n, "number of bytes written")
 
 	b2 := make([]byte, len(b))
 	n, err = pipe.Read(b2)
-	if n != len(b) {
-		t.Error(
-			"For", "number of bytes read",
-			"expecting", len(b),
-			"got", n,
-		)
-		return
-	}
-	if err != nil {
-		t.Error(
-			"For", "simple read",
-			"expecting", "nil error",
-			"got", err,
-		)
-		return
-	}
-	if !bytes.Equal(b, b2) {
-		t.Error(
-			"For", "simple read",
-			"expecting", b,
-			"got", b2,
-		)
-	}
+	assert.NoError(t, err, "simple read")
+	assert.Equal(t, len(b), n, "number of bytes read")
 
+	assert.Equal(t, b, b2)
 }
 
 func TestReadBlock(t *testing.T) {
@@ -67,30 +33,10 @@ func TestReadBlock(t *testing.T) {
 	}()
 	b2 := make([]byte, len(b))
 	n, err := pipe.Read(b2)
-	if n != len(b) {
-		t.Error(
-			"For", "number of bytes read after block",
-			"expecting", len(b),
-			"got", n,
-		)
-		return
-	}
-	if err != nil {
-		t.Error(
-			"For", "blocked read",
-			"expecting", "nil error",
-			"got", err,
-		)
-		return
-	}
-	if !bytes.Equal(b, b2) {
-		t.Error(
-			"For", "blocked read",
-			"expecting", b,
-			"got", b2,
-		)
-		return
-	}
+	assert.NoError(t, err, "blocked read")
+	assert.Equal(t, len(b), n, "number of bytes read after block")
+
+	assert.Equal(t, b, b2)
 }
 
 func TestPartialRead(t *testing.T) {
@@ -99,54 +45,17 @@ func TestPartialRead(t *testing.T) {
 	pipe.Write(b)
 	b1 := make([]byte, 1)
 	n, err := pipe.Read(b1)
-	if n != len(b1) {
-		t.Error(
-			"For", "number of bytes in partial read of 1",
-			"expecting", len(b1),
-			"got", n,
-		)
-		return
-	}
-	if err != nil {
-		t.Error(
-			"For", "partial read of 1",
-			"expecting", "nil error",
-			"got", err,
-		)
-		return
-	}
-	if b1[0] != b[0] {
-		t.Error(
-			"For", "partial read of 1",
-			"expecting", b[0],
-			"got", b1[0],
-		)
-	}
+	assert.NoError(t, err, "partial read of 1")
+	assert.Equal(t, len(b1), n, "number of bytes in partial read of 1")
+
+	assert.Equal(t, b[0], b1[0])
+
 	b2 := make([]byte, 2)
 	n, err = pipe.Read(b2)
-	if n != len(b2) {
-		t.Error(
-			"For", "number of bytes in partial read of 2",
-			"expecting", len(b2),
-			"got", n,
-		)
-	}
-	if err != nil {
-		t.Error(
-			"For", "partial read of 2",
-			"expecting", "nil error",
-			"got", err,
-		)
-		return
-	}
-	if !bytes.Equal(b[1:], b2) {
-		t.Error(
-			"For", "partial read of 2",
-			"expecting", b[1:],
-			"got", b2,
-		)
-		return
-	}
+	assert.NoError(t, err, "partial read of 2")
+	assert.Equal(t, len(b2), n, "number of bytes in partial read of 2")
+
+	assert.Equal(t, b[1:], b2)
 }
 
 func TestReadAfterClose(t *testing.T) {
@@ -156,29 +65,10 @@ func TestReadAfterClose(t *testing.T) {
 	b2 := make([]byte, len(b))
 	pipe.Close()
 	n, err := pipe.Read(b2)
-	if n != len(b) {
-		t.Error(
-			"For", "number of bytes read",
-			"expecting", len(b),
-			"got", n,
-		)
-	}
-	if err != nil {
-		t.Error(
-			"For", "simple read",
-			"expecting", "nil error",
-			"got", err,
-		)
-		return
-	}
-	if !bytes.Equal(b, b2) {
-		t.Error(
-			"For", "simple read",
-			"expecting", b,
-			"got", b2,
-		)
-		return
-	}
+	assert.NoError(t, err, "simple read")
+	assert.Equal(t, len(b), n, "number of bytes read")
+
+	assert.Equal(t, b, b2)
 }
 
 func BenchmarkBufferedPipe_RW(b *testing.B) {

@@ -1,7 +1,7 @@
 package multiplex
 
 import (
-	"bytes"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
@@ -11,13 +11,7 @@ func TestDatagramBuffer_RW(t *testing.T) {
 	t.Run("simple write", func(t *testing.T) {
 		pipe := NewDatagramBufferedPipe()
 		_, err := pipe.Write(&Frame{Payload: b})
-		if err != nil {
-			t.Error(
-				"expecting", "nil error",
-				"got", err,
-			)
-			return
-		}
+		assert.NoError(t, err)
 	})
 
 	t.Run("simple read", func(t *testing.T) {
@@ -25,50 +19,18 @@ func TestDatagramBuffer_RW(t *testing.T) {
 		_, _ = pipe.Write(&Frame{Payload: b})
 		b2 := make([]byte, len(b))
 		n, err := pipe.Read(b2)
-		if n != len(b) {
-			t.Error(
-				"For", "number of bytes read",
-				"expecting", len(b),
-				"got", n,
-			)
-			return
-		}
-		if err != nil {
-			t.Error(
-				"expecting", "nil error",
-				"got", err,
-			)
-			return
-		}
-		if !bytes.Equal(b, b2) {
-			t.Error(
-				"expecting", b,
-				"got", b2,
-			)
-		}
-		if pipe.buf.Len() != 0 {
-			t.Error("buf len is not 0 after finished reading")
-			return
-		}
-
+		assert.NoError(t, err)
+		assert.Equal(t, len(b), n)
+		assert.Equal(t, b, b2)
+		assert.Equal(t, 0, pipe.buf.Len(), "buf len is not 0 after finished reading")
 	})
 
 	t.Run("writing closing frame", func(t *testing.T) {
 		pipe := NewDatagramBufferedPipe()
 		toBeClosed, err := pipe.Write(&Frame{Closing: closingStream})
-		if !toBeClosed {
-			t.Error("should be to be closed")
-		}
-		if err != nil {
-			t.Error(
-				"expecting", "nil error",
-				"got", err,
-			)
-			return
-		}
-		if !pipe.closed {
-			t.Error("expecting closed pipe, not closed")
-		}
+		assert.NoError(t, err)
+		assert.True(t, toBeClosed, "should be to be closed")
+		assert.True(t, pipe.closed, "pipe should be closed")
 	})
 }
 
@@ -81,30 +43,9 @@ func TestDatagramBuffer_BlockingRead(t *testing.T) {
 	}()
 	b2 := make([]byte, len(b))
 	n, err := pipe.Read(b2)
-	if n != len(b) {
-		t.Error(
-			"For", "number of bytes read after block",
-			"expecting", len(b),
-			"got", n,
-		)
-		return
-	}
-	if err != nil {
-		t.Error(
-			"For", "blocked read",
-			"expecting", "nil error",
-			"got", err,
-		)
-		return
-	}
-	if !bytes.Equal(b, b2) {
-		t.Error(
-			"For", "blocked read",
-			"expecting", b,
-			"got", b2,
-		)
-		return
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, len(b), n, "number of bytes read after block is wrong")
+	assert.Equal(t, b, b2)
 }
 
 func TestDatagramBuffer_CloseThenRead(t *testing.T) {
@@ -114,27 +55,7 @@ func TestDatagramBuffer_CloseThenRead(t *testing.T) {
 	b2 := make([]byte, len(b))
 	pipe.Close()
 	n, err := pipe.Read(b2)
-	if n != len(b) {
-		t.Error(
-			"For", "number of bytes read",
-			"expecting", len(b),
-			"got", n,
-		)
-	}
-	if err != nil {
-		t.Error(
-			"For", "simple read",
-			"expecting", "nil error",
-			"got", err,
-		)
-		return
-	}
-	if !bytes.Equal(b, b2) {
-		t.Error(
-			"For", "simple read",
-			"expecting", b,
-			"got", b2,
-		)
-		return
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, len(b), n, "number of bytes read after block is wrong")
+	assert.Equal(t, b, b2)
 }

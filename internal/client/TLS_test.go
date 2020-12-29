@@ -1,8 +1,8 @@
 package client
 
 import (
-	"bytes"
 	"encoding/hex"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -33,11 +33,6 @@ func TestMakeServerName(t *testing.T) {
 	}
 
 	for _, p := range pairs {
-		if !bytes.Equal(makeServerName(p.serverName), p.target) {
-			t.Error(
-				"for", p.serverName,
-				"expecting", p.target,
-				"got", makeServerName(p.serverName))
-		}
+		assert.Equal(t, p.target, makeServerName(p.serverName))
 	}
 }
