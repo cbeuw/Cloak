@@ -101,9 +101,9 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 	data := make([]byte, 1000)
 	rand.Read(data)
 
-	t.Run("FIXED CONN MAPPING", func(t *testing.T) {
+	t.Run("fixed conn mapping", func(t *testing.T) {
 		*sesh.sb.valve.(*LimitedValve).tx = 0
-		sesh.sb.strategy = FIXED_CONN_MAPPING
+		sesh.sb.strategy = fixedConnMapping
 		n, err := sesh.sb.send(data[:10], &conn)
 		if err != nil {
 			t.Error(err)
@@ -117,9 +117,9 @@ func TestSwitchboard_TxCredit(t *testing.T) {
 			t.Error("tx credit didn't increase by 10")
 		}
 	})
-	t.Run("UNIFORM", func(t *testing.T) {
+	t.Run("uniform spread", func(t *testing.T) {
 		*sesh.sb.valve.(*LimitedValve).tx = 0
-		sesh.sb.strategy = UNIFORM_SPREAD
+		sesh.sb.strategy = uniformSpread
 		n, err := sesh.sb.send(data[:10], &conn)
 		if err != nil {
 			t.Error(err)
