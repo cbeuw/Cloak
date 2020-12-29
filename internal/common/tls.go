@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"sync"
@@ -94,6 +95,9 @@ func (tls *TLSConn) Read(buffer []byte) (n int, err error) {
 
 func (tls *TLSConn) Write(in []byte) (n int, err error) {
 	msgLen := len(in)
+	if msgLen > 1<<14+256 { // https://tools.ietf.org/html/rfc8446#section-5.2
+		return 0, errors.New("message is too long")
+	}
 	writeBuf := tls.writeBufPool.Get().(*[]byte)
 	*writeBuf = append(*writeBuf, byte(msgLen>>8), byte(msgLen&0xFF))
 	*writeBuf = append(*writeBuf, in...)

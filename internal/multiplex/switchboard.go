@@ -159,7 +159,7 @@ func (sb *switchboard) closeAll() {
 // deplex function costantly reads from a TCP connection
 func (sb *switchboard) deplex(connId uint32, conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, sb.session.ConnReceiveBufferSize)
+	buf := make([]byte, sb.session.connReceiveBufferSize)
 	for {
 		n, err := conn.Read(buf)
 		sb.valve.rxWait(n)

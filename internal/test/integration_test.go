@@ -321,7 +321,7 @@ func TestTCPSingleplex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const echoMsgLen = 16384
+	const echoMsgLen = 1 << 16
 	go serveTCPEcho(proxyFromCkServerL)
 
 	proxyConn1, err := proxyToCkClientD.Dial("", "")

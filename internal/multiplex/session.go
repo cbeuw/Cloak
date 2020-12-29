@@ -13,10 +13,9 @@ import (
 )
 
 const (
-	acceptBacklog = 1024
-	// TODO: will this be a signature?
-	defaultSendRecvBufSize   = 20480
+	acceptBacklog            = 1024
 	defaultInactivityTimeout = 30 * time.Second
+	defaultMaxOnWireSize     = 1<<14 + 256 // https://tools.ietf.org/html/rfc8446#section-5.2
 )
 
 var ErrBrokenSession = errors.New("broken session")
@@ -39,12 +38,6 @@ type SessionConfig struct {
 
 	// maximum size of an obfuscated frame, including headers and overhead
 	MsgOnWireSizeLimit int
-
-	// StreamSendBufferSize sets the buffer size used to send data from a Stream (Stream.obfsBuf)
-	StreamSendBufferSize int
-	// ConnReceiveBufferSize sets the buffer size used to receive data from an underlying Conn (allocated in
-	// switchboard.deplex)
-	ConnReceiveBufferSize int
 
 	// InactivityTimeout sets the duration a Session waits while it has no active streams before it closes itself
 	InactivityTimeout time.Duration
@@ -87,6 +80,11 @@ type Session struct {
 	// the max size passed to Write calls before it splits it into multiple frames
 	// i.e. the max size a piece of data can fit into a Frame.Payload
 	maxStreamUnitWrite int
+	// streamSendBufferSize sets the buffer size used to send data from a Stream (Stream.obfsBuf)
+	streamSendBufferSize int
+	// connReceiveBufferSize sets the buffer size used to receive data from an underlying Conn (allocated in
+	// switchboard.deplex)
+	connReceiveBufferSize int
 }
 
 func MakeSession(id uint32, config SessionConfig) *Session {
@@ -103,23 +101,19 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	if config.Valve == nil {
 		sesh.Valve = UNLIMITED_VALVE
 	}
-	if config.StreamSendBufferSize <= 0 {
-		sesh.StreamSendBufferSize = defaultSendRecvBufSize
-	}
-	if config.ConnReceiveBufferSize <= 0 {
-		sesh.ConnReceiveBufferSize = defaultSendRecvBufSize
-	}
 	if config.MsgOnWireSizeLimit <= 0 {
-		sesh.MsgOnWireSizeLimit = defaultSendRecvBufSize - 1024
+		sesh.MsgOnWireSizeLimit = defaultMaxOnWireSize
 	}
 	if config.InactivityTimeout == 0 {
 		sesh.InactivityTimeout = defaultInactivityTimeout
 	}
-	// todo: validation. this must be smaller than StreamSendBufferSize
-	sesh.maxStreamUnitWrite = sesh.MsgOnWireSizeLimit - frameHeaderLength - sesh.Obfuscator.maxOverhead
+
+	sesh.maxStreamUnitWrite = sesh.MsgOnWireSizeLimit - frameHeaderLength - sesh.maxOverhead
+	sesh.streamSendBufferSize = sesh.MsgOnWireSizeLimit
+	sesh.connReceiveBufferSize = 20480 // for backwards compatibility
 
 	sesh.streamObfsBufPool = sync.Pool{New: func() interface{} {
-		b := make([]byte, sesh.StreamSendBufferSize)
+		b := make([]byte, sesh.streamSendBufferSize)
 		return &b
 	}}
 

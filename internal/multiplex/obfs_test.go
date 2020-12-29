@@ -138,7 +138,7 @@ func BenchmarkObfs(b *testing.B) {
 		testPayload,
 	}
 
-	obfsBuf := make([]byte, defaultSendRecvBufSize)
+	obfsBuf := make([]byte, len(testPayload)*2)
 
 	var key [32]byte
 	rand.Read(key[:])
@@ -211,7 +211,7 @@ func BenchmarkDeobfs(b *testing.B) {
 		testPayload,
 	}
 
-	obfsBuf := make([]byte, defaultSendRecvBufSize)
+	obfsBuf := make([]byte, len(testPayload)*2)
 
 	var key [32]byte
 	rand.Read(key[:])
