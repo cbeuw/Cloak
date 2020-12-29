@@ -23,8 +23,6 @@ var errRepeatSessionClosing = errors.New("trying to close a closed session")
 var errRepeatStreamClosing = errors.New("trying to close a closed stream")
 var errNoMultiplex = errors.New("a singleplexing session can have only one stream")
 
-type switchboardStrategy int
-
 type SessionConfig struct {
 	Obfuscator
 

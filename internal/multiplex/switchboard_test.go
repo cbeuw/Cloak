@@ -5,6 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -173,17 +174,13 @@ func TestSwitchboard_ConnsCount(t *testing.T) {
 	}
 	wg.Wait()
 
-	sesh.sb.connsM.RLock()
-	if len(sesh.sb.conns) != 1000 {
+	if atomic.LoadUint32(&sesh.sb.connsCount) != 1000 {
 		t.Error("connsCount incorrect")
 	}
-	sesh.sb.connsM.RUnlock()
 
 	sesh.sb.closeAll()
 
 	assert.Eventuallyf(t, func() bool {
-		sesh.sb.connsM.RLock()
-		defer sesh.sb.connsM.RUnlock()
-		return len(sesh.sb.conns) == 0
-	}, time.Second, 10*time.Millisecond, "connsCount incorrect")
+		return atomic.LoadUint32(&sesh.sb.connsCount) == 0
+	}, time.Second, 10*time.Millisecond, "connsCount incorrect: %v", atomic.LoadUint32(&sesh.sb.connsCount))
 }
