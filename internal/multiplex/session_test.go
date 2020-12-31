@@ -534,7 +534,7 @@ func TestSession_timeoutAfter(t *testing.T) {
 func BenchmarkRecvDataFromRemote(b *testing.B) {
 	testPayload := make([]byte, testPayloadLen)
 	rand.Read(testPayload)
-	f := &Frame{
+	f := Frame{
 		1,
 		0,
 		0,
@@ -544,12 +544,13 @@ func BenchmarkRecvDataFromRemote(b *testing.B) {
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
 
-	const maxIter = 100_000 // run with -benchtime 100000x to avoid index out of bounds panic
+	const maxIter = 500_000 // run with -benchtime 500000x to avoid index out of bounds panic
 	for name, ep := range encryptionMethods {
 		ep := ep
 		b.Run(name, func(b *testing.B) {
 			for seshType, seshConfig := range seshConfigs {
 				b.Run(seshType, func(b *testing.B) {
+					f := f
 					seshConfig.Obfuscator, _ = MakeObfuscator(ep, sessionKey)
 					sesh := MakeSession(0, seshConfig)
 
@@ -561,7 +562,7 @@ func BenchmarkRecvDataFromRemote(b *testing.B) {
 					binaryFrames := [maxIter][]byte{}
 					for i := 0; i < maxIter; i++ {
 						obfsBuf := make([]byte, obfsBufLen)
-						n, _ := sesh.obfuscate(f, obfsBuf, 0)
+						n, _ := sesh.obfuscate(&f, obfsBuf, 0)
 						binaryFrames[i] = obfsBuf[:n]
 						f.Seq++
 					}
