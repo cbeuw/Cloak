@@ -179,7 +179,7 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 	if !atomic.CompareAndSwapUint32(&s.closed, 0, 1) {
 		return fmt.Errorf("closing stream %v: %w", s.id, errRepeatStreamClosing)
 	}
-	_ = s.getRecvBuf().Close() // recvBuf.Close should not return error
+	_ = s.recvBuf.Close() // recvBuf.Close should not return error
 
 	if active {
 		tmpBuf := sesh.streamObfsBufPool.Get().(*[]byte)
@@ -285,7 +285,7 @@ func (sesh *Session) closeSession() error {
 	close(sesh.acceptCh)
 	for id, stream := range sesh.streams {
 		if stream != nil && atomic.CompareAndSwapUint32(&stream.closed, 0, 1) {
-			_ = stream.getRecvBuf().Close() // will not block
+			_ = stream.recvBuf.Close() // will not block
 			delete(sesh.streams, id)
 			sesh.streamCountDecr()
 		}
