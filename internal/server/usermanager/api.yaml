@@ -2,7 +2,7 @@ swagger: '2.0'
 info:
   description: |
     This is the API of Cloak server
-  version: 1.0.0
+  version: 0.0.2
   title: Cloak Server
   contact:
     email: cbeuw.andy@gmail.com
@@ -12,8 +12,6 @@ info:
 # host: petstore.swagger.io
 # basePath: /v2
 tags:
-  - name: admin
-    description: Endpoints used by the host administrators
   - name: users
     description: Operations related to user controls by admin
 # schemes:
@@ -22,7 +20,6 @@ paths:
   /admin/users:
     get:
       tags:
-        - admin
         - users
       summary: Show all users
       description: Returns an array of all UserInfo
@@ -41,7 +38,6 @@ paths:
   /admin/users/{UID}:
     get:
       tags:
-        - admin
         - users
       summary: Show userinfo by UID
       description: Returns a UserInfo object
@@ -68,7 +64,6 @@ paths:
           description: internal error
     post:
       tags:
-        - admin
         - users
       summary: Updates the userinfo of the specified user, if the user does not exist, then a new user is created
       operationId: writeUserInfo
@@ -100,7 +95,6 @@ paths:
           description: internal error
     delete:
       tags:
-        - admin
         - users
       summary: Deletes a user
       operationId: deleteUser

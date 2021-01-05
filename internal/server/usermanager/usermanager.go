@@ -14,15 +14,22 @@ type StatusUpdate struct {
 	Timestamp int64
 }
 
+type MaybeInt32 *int32
+type MaybeInt64 *int64
+
 type UserInfo struct {
 	UID         []byte
-	SessionsCap int32
-	UpRate      int64
-	DownRate    int64
-	UpCredit    int64
-	DownCredit  int64
-	ExpiryTime  int64
+	SessionsCap MaybeInt32
+	UpRate      MaybeInt64
+	DownRate    MaybeInt64
+	UpCredit    MaybeInt64
+	DownCredit  MaybeInt64
+	ExpiryTime  MaybeInt64
 }
+
+func JustInt32(v int32) MaybeInt32 { return &v }
+
+func JustInt64(v int64) MaybeInt64 { return &v }
 
 type StatusResponse struct {
 	UID     []byte

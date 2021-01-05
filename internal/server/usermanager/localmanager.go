@@ -127,6 +127,7 @@ func (manager *localManager) UploadStatus(uploads []StatusUpdate) ([]StatusRespo
 					"User no longer exists",
 				}
 				responses = append(responses, resp)
+				continue
 			}
 
 			oldUp := int64(u64(bucket.Get([]byte("UpCredit"))))
@@ -179,12 +180,12 @@ func (manager *localManager) ListAllUsers() (infos []UserInfo, err error) {
 		err = tx.ForEach(func(UID []byte, bucket *bolt.Bucket) error {
 			var uinfo UserInfo
 			uinfo.UID = UID
-			uinfo.SessionsCap = int32(u32(bucket.Get([]byte("SessionsCap"))))
-			uinfo.UpRate = int64(u64(bucket.Get([]byte("UpRate"))))
-			uinfo.DownRate = int64(u64(bucket.Get([]byte("DownRate"))))
-			uinfo.UpCredit = int64(u64(bucket.Get([]byte("UpCredit"))))
-			uinfo.DownCredit = int64(u64(bucket.Get([]byte("DownCredit"))))
-			uinfo.ExpiryTime = int64(u64(bucket.Get([]byte("ExpiryTime"))))
+			uinfo.SessionsCap = JustInt32(int32(u32(bucket.Get([]byte("SessionsCap")))))
+			uinfo.UpRate = JustInt64(int64(u64(bucket.Get([]byte("UpRate")))))
+			uinfo.DownRate = JustInt64(int64(u64(bucket.Get([]byte("DownRate")))))
+			uinfo.UpCredit = JustInt64(int64(u64(bucket.Get([]byte("UpCredit")))))
+			uinfo.DownCredit = JustInt64(int64(u64(bucket.Get([]byte("DownCredit")))))
+			uinfo.ExpiryTime = JustInt64(int64(u64(bucket.Get([]byte("ExpiryTime")))))
 			infos = append(infos, uinfo)
 			return nil
 		})
@@ -200,40 +201,52 @@ func (manager *localManager) GetUserInfo(UID []byte) (uinfo UserInfo, err error)
 			return ErrUserNotFound
 		}
 		uinfo.UID = UID
-		uinfo.SessionsCap = int32(u32(bucket.Get([]byte("SessionsCap"))))
-		uinfo.UpRate = int64(u64(bucket.Get([]byte("UpRate"))))
-		uinfo.DownRate = int64(u64(bucket.Get([]byte("DownRate"))))
-		uinfo.UpCredit = int64(u64(bucket.Get([]byte("UpCredit"))))
-		uinfo.DownCredit = int64(u64(bucket.Get([]byte("DownCredit"))))
-		uinfo.ExpiryTime = int64(u64(bucket.Get([]byte("ExpiryTime"))))
+		uinfo.SessionsCap = JustInt32(int32(u32(bucket.Get([]byte("SessionsCap")))))
+		uinfo.UpRate = JustInt64(int64(u64(bucket.Get([]byte("UpRate")))))
+		uinfo.DownRate = JustInt64(int64(u64(bucket.Get([]byte("DownRate")))))
+		uinfo.UpCredit = JustInt64(int64(u64(bucket.Get([]byte("UpCredit")))))
+		uinfo.DownCredit = JustInt64(int64(u64(bucket.Get([]byte("DownCredit")))))
+		uinfo.ExpiryTime = JustInt64(int64(u64(bucket.Get([]byte("ExpiryTime")))))
 		return nil
 	})
 	return
 }
 
-func (manager *localManager) WriteUserInfo(uinfo UserInfo) (err error) {
+func (manager *localManager) WriteUserInfo(u UserInfo) (err error) {
 	err = manager.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(uinfo.UID)
+		bucket, err := tx.CreateBucketIfNotExists(u.UID)
 		if err != nil {
 			return err
 		}
-		if err = bucket.Put([]byte("SessionsCap"), i32ToB(int32(uinfo.SessionsCap))); err != nil {
-			return err
+		if u.SessionsCap != nil {
+			if err = bucket.Put([]byte("SessionsCap"), i32ToB(*u.SessionsCap)); err != nil {
+				return err
+			}
 		}
-		if err = bucket.Put([]byte("UpRate"), i64ToB(uinfo.UpRate)); err != nil {
-			return err
+		if u.UpRate != nil {
+			if err = bucket.Put([]byte("UpRate"), i64ToB(*u.UpRate)); err != nil {
+				return err
+			}
 		}
-		if err = bucket.Put([]byte("DownRate"), i64ToB(uinfo.DownRate)); err != nil {
-			return err
+		if u.DownRate != nil {
+			if err = bucket.Put([]byte("DownRate"), i64ToB(*u.DownRate)); err != nil {
+				return err
+			}
 		}
-		if err = bucket.Put([]byte("UpCredit"), i64ToB(uinfo.UpCredit)); err != nil {
-			return err
+		if u.UpCredit != nil {
+			if err = bucket.Put([]byte("UpCredit"), i64ToB(*u.UpCredit)); err != nil {
+				return err
+			}
 		}
-		if err = bucket.Put([]byte("DownCredit"), i64ToB(uinfo.DownCredit)); err != nil {
-			return err
+		if u.DownCredit != nil {
+			if err = bucket.Put([]byte("DownCredit"), i64ToB(*u.DownCredit)); err != nil {
+				return err
+			}
 		}
-		if err = bucket.Put([]byte("ExpiryTime"), i64ToB(uinfo.ExpiryTime)); err != nil {
-			return err
+		if u.ExpiryTime != nil {
+			if err = bucket.Put([]byte("ExpiryTime"), i64ToB(*u.ExpiryTime)); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

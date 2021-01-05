@@ -3,6 +3,7 @@ package usermanager
 import (
 	"encoding/binary"
 	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -17,12 +18,12 @@ var mockUID = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 var mockWorldState = common.WorldOfTime(time.Unix(1, 0))
 var mockUserInfo = UserInfo{
 	UID:         mockUID,
-	SessionsCap: 0,
-	UpRate:      0,
-	DownRate:    0,
-	UpCredit:    0,
-	DownCredit:  0,
-	ExpiryTime:  100,
+	SessionsCap: JustInt32(10),
+	UpRate:      JustInt64(100),
+	DownRate:    JustInt64(1000),
+	UpCredit:    JustInt64(10000),
+	DownCredit:  JustInt64(100000),
+	ExpiryTime:  JustInt64(1000000),
 }
 
 func makeManager(t *testing.T) (mgr *localManager, cleaner func()) {
@@ -43,6 +44,23 @@ func TestLocalManager_WriteUserInfo(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	got, err := mgr.GetUserInfo(mockUID)
+	assert.NoError(t, err)
+	assert.EqualValues(t, mockUserInfo, got)
+
+	/* Partial update */
+	err = mgr.WriteUserInfo(UserInfo{
+		UID:         mockUID,
+		SessionsCap: JustInt32(*mockUserInfo.SessionsCap + 1),
+	})
+	assert.NoError(t, err)
+
+	expected := mockUserInfo
+	expected.SessionsCap = JustInt32(*mockUserInfo.SessionsCap + 1)
+	got, err = mgr.GetUserInfo(mockUID)
+	assert.NoError(t, err)
+	assert.EqualValues(t, expected, got)
 }
 
 func TestLocalManager_GetUserInfo(t *testing.T) {
@@ -63,7 +81,7 @@ func TestLocalManager_GetUserInfo(t *testing.T) {
 	t.Run("update a field", func(t *testing.T) {
 		_ = mgr.WriteUserInfo(mockUserInfo)
 		updatedUserInfo := mockUserInfo
-		updatedUserInfo.SessionsCap = mockUserInfo.SessionsCap + 1
+		updatedUserInfo.SessionsCap = JustInt32(*mockUserInfo.SessionsCap + 1)
 
 		err := mgr.WriteUserInfo(updatedUserInfo)
 		if err != nil {
@@ -103,15 +121,7 @@ func TestLocalManager_DeleteUser(t *testing.T) {
 	}
 }
 
-var validUserInfo = UserInfo{
-	UID:         mockUID,
-	SessionsCap: 10,
-	UpRate:      100,
-	DownRate:    1000,
-	UpCredit:    10000,
-	DownCredit:  100000,
-	ExpiryTime:  1000000,
-}
+var validUserInfo = mockUserInfo
 
 func TestLocalManager_AuthenticateUser(t *testing.T) {
 	var tmpDB, _ = ioutil.TempFile("", "ck_user_info")
@@ -128,7 +138,7 @@ func TestLocalManager_AuthenticateUser(t *testing.T) {
 			t.Error(err)
 		}
 
-		if upRate != validUserInfo.UpRate || downRate != validUserInfo.DownRate {
+		if upRate != *validUserInfo.UpRate || downRate != *validUserInfo.DownRate {
 			t.Error("wrong up or down rate")
 		}
 	})
@@ -142,7 +152,7 @@ func TestLocalManager_AuthenticateUser(t *testing.T) {
 
 	t.Run("expired user", func(t *testing.T) {
 		expiredUserInfo := validUserInfo
-		expiredUserInfo.ExpiryTime = mockWorldState.Now().Add(-10 * time.Second).Unix()
+		expiredUserInfo.ExpiryTime = JustInt64(mockWorldState.Now().Add(-10 * time.Second).Unix())
 
 		_ = mgr.WriteUserInfo(expiredUserInfo)
 
@@ -154,7 +164,7 @@ func TestLocalManager_AuthenticateUser(t *testing.T) {
 
 	t.Run("no credit", func(t *testing.T) {
 		creditlessUserInfo := validUserInfo
-		creditlessUserInfo.UpCredit, creditlessUserInfo.DownCredit = -1, -1
+		creditlessUserInfo.UpCredit, creditlessUserInfo.DownCredit = JustInt64(-1), JustInt64(-1)
 
 		_ = mgr.WriteUserInfo(creditlessUserInfo)
 
@@ -186,7 +196,7 @@ func TestLocalManager_AuthoriseNewSession(t *testing.T) {
 
 	t.Run("expired user", func(t *testing.T) {
 		expiredUserInfo := validUserInfo
-		expiredUserInfo.ExpiryTime = mockWorldState.Now().Add(-10 * time.Second).Unix()
+		expiredUserInfo.ExpiryTime = JustInt64(mockWorldState.Now().Add(-10 * time.Second).Unix())
 
 		_ = mgr.WriteUserInfo(expiredUserInfo)
 		err := mgr.AuthoriseNewSession(expiredUserInfo.UID, AuthorisationInfo{NumExistingSessions: 0})
@@ -197,7 +207,7 @@ func TestLocalManager_AuthoriseNewSession(t *testing.T) {
 
 	t.Run("too many sessions", func(t *testing.T) {
 		_ = mgr.WriteUserInfo(validUserInfo)
-		err := mgr.AuthoriseNewSession(validUserInfo.UID, AuthorisationInfo{NumExistingSessions: int(validUserInfo.SessionsCap + 1)})
+		err := mgr.AuthoriseNewSession(validUserInfo.UID, AuthorisationInfo{NumExistingSessions: int(*validUserInfo.SessionsCap + 1)})
 		if err != ErrSessionsCapReached {
 			t.Error("session cap not reached")
 		}
@@ -230,10 +240,10 @@ func TestLocalManager_UploadStatus(t *testing.T) {
 			t.Error(err)
 		}
 
-		if updatedUserInfo.UpCredit != validUserInfo.UpCredit-update.UpUsage {
+		if *updatedUserInfo.UpCredit != *validUserInfo.UpCredit-update.UpUsage {
 			t.Error("up usage incorrect")
 		}
-		if updatedUserInfo.DownCredit != validUserInfo.DownCredit-update.DownUsage {
+		if *updatedUserInfo.DownCredit != *validUserInfo.DownCredit-update.DownUsage {
 			t.Error("down usage incorrect")
 		}
 	})
@@ -249,7 +259,7 @@ func TestLocalManager_UploadStatus(t *testing.T) {
 				UID:        validUserInfo.UID,
 				Active:     true,
 				NumSession: 1,
-				UpUsage:    validUserInfo.UpCredit + 100,
+				UpUsage:    *validUserInfo.UpCredit + 100,
 				DownUsage:  0,
 				Timestamp:  mockWorldState.Now().Unix(),
 			},
@@ -261,19 +271,19 @@ func TestLocalManager_UploadStatus(t *testing.T) {
 				Active:     true,
 				NumSession: 1,
 				UpUsage:    0,
-				DownUsage:  validUserInfo.DownCredit + 100,
+				DownUsage:  *validUserInfo.DownCredit + 100,
 				Timestamp:  mockWorldState.Now().Unix(),
 			},
 		},
 		{"expired",
 			UserInfo{
 				UID:         mockUID,
-				SessionsCap: 10,
-				UpRate:      0,
-				DownRate:    0,
-				UpCredit:    0,
-				DownCredit:  0,
-				ExpiryTime:  -1,
+				SessionsCap: JustInt32(10),
+				UpRate:      JustInt64(0),
+				DownRate:    JustInt64(0),
+				UpCredit:    JustInt64(0),
+				DownCredit:  JustInt64(0),
+				ExpiryTime:  JustInt64(-1),
 			},
 			StatusUpdate{
 				UID:        mockUserInfo.UID,
@@ -318,12 +328,12 @@ func TestLocalManager_ListAllUsers(t *testing.T) {
 		rand.Read(randUID)
 		newUser := UserInfo{
 			UID:         randUID,
-			SessionsCap: rand.Int31(),
-			UpRate:      rand.Int63(),
-			DownRate:    rand.Int63(),
-			UpCredit:    rand.Int63(),
-			DownCredit:  rand.Int63(),
-			ExpiryTime:  rand.Int63(),
+			SessionsCap: JustInt32(rand.Int31()),
+			UpRate:      JustInt64(rand.Int63()),
+			DownRate:    JustInt64(rand.Int63()),
+			UpCredit:    JustInt64(rand.Int63()),
+			DownCredit:  JustInt64(rand.Int63()),
+			ExpiryTime:  JustInt64(rand.Int63()),
 		}
 		users = append(users, newUser)
 		wg.Add(1)

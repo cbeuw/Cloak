@@ -66,12 +66,12 @@ var mockUID = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 var mockWorldState = common.WorldOfTime(time.Unix(1, 0))
 var validUserInfo = usermanager.UserInfo{
 	UID:         mockUID,
-	SessionsCap: 10,
-	UpRate:      100,
-	DownRate:    1000,
-	UpCredit:    10000,
-	DownCredit:  100000,
-	ExpiryTime:  1000000,
+	SessionsCap: usermanager.JustInt32(10),
+	UpRate:      usermanager.JustInt64(100),
+	DownRate:    usermanager.JustInt64(1000),
+	UpCredit:    usermanager.JustInt64(10000),
+	DownCredit:  usermanager.JustInt64(100000),
+	ExpiryTime:  usermanager.JustInt64(1000000),
 }
 
 func TestUserPanel_GetUser(t *testing.T) {
@@ -138,10 +138,10 @@ func TestUserPanel_UpdateUsageQueue(t *testing.T) {
 		}
 
 		updatedUinfo, _ := mgr.GetUserInfo(validUserInfo.UID)
-		if updatedUinfo.DownCredit != validUserInfo.DownCredit-1 {
+		if *updatedUinfo.DownCredit != *validUserInfo.DownCredit-1 {
 			t.Error("down credit incorrect update")
 		}
-		if updatedUinfo.UpCredit != validUserInfo.UpCredit-2 {
+		if *updatedUinfo.UpCredit != *validUserInfo.UpCredit-2 {
 			t.Error("up credit incorrect update")
 		}
 
@@ -155,10 +155,10 @@ func TestUserPanel_UpdateUsageQueue(t *testing.T) {
 		}
 
 		updatedUinfo, _ = mgr.GetUserInfo(validUserInfo.UID)
-		if updatedUinfo.DownCredit != validUserInfo.DownCredit-(1+3) {
+		if *updatedUinfo.DownCredit != *validUserInfo.DownCredit-(1+3) {
 			t.Error("down credit incorrect update")
 		}
-		if updatedUinfo.UpCredit != validUserInfo.UpCredit-(2+4) {
+		if *updatedUinfo.UpCredit != *validUserInfo.UpCredit-(2+4) {
 			t.Error("up credit incorrect update")
 		}
 	})
@@ -170,7 +170,7 @@ func TestUserPanel_UpdateUsageQueue(t *testing.T) {
 			t.Error(err)
 		}
 
-		user.valve.AddTx(validUserInfo.DownCredit + 100)
+		user.valve.AddTx(*validUserInfo.DownCredit + 100)
 		panel.updateUsageQueue()
 		err = panel.commitUpdate()
 		if err != nil {
@@ -182,7 +182,7 @@ func TestUserPanel_UpdateUsageQueue(t *testing.T) {
 		}
 
 		updatedUinfo, _ := mgr.GetUserInfo(validUserInfo.UID)
-		if updatedUinfo.DownCredit != -100 {
+		if *updatedUinfo.DownCredit != -100 {
 			t.Error("down credit not updated correctly after the user has been terminated")
 		}
 	})

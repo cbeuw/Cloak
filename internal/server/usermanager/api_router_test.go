@@ -46,6 +46,36 @@ func TestWriteUserInfoHlr(t *testing.T) {
 		assert.Equalf(t, http.StatusCreated, rr.Code, "response body: %v", rr.Body)
 	})
 
+	t.Run("partial update", func(t *testing.T) {
+		req, err := http.NewRequest("POST", "/admin/users/"+mockUIDb64, bytes.NewBuffer(marshalled))
+		assert.NoError(t, err)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusCreated, rr.Code)
+
+		partialUserInfo := UserInfo{
+			UID:         mockUID,
+			SessionsCap: JustInt32(10),
+		}
+		partialMarshalled, _ := json.Marshal(partialUserInfo)
+		req, err = http.NewRequest("POST", "/admin/users/"+mockUIDb64, bytes.NewBuffer(partialMarshalled))
+		assert.NoError(t, err)
+		router.ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusCreated, rr.Code)
+
+		req, err = http.NewRequest("GET", "/admin/users/"+mockUIDb64, nil)
+		assert.NoError(t, err)
+		router.ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusCreated, rr.Code)
+		var got UserInfo
+		err = json.Unmarshal(rr.Body.Bytes(), &got)
+		assert.NoError(t, err)
+
+		expected := mockUserInfo
+		expected.SessionsCap = partialUserInfo.SessionsCap
+		assert.EqualValues(t, expected, got)
+	})
+
 	t.Run("empty parameter", func(t *testing.T) {
 		req, err := http.NewRequest("POST", "/admin/users/", bytes.NewBuffer(marshalled))
 		if err != nil {
