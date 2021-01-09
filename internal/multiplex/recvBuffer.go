@@ -25,4 +25,4 @@ type recvBuffer interface {
 // size we want the amount of unread data in buffer to grow before recvBuffer.Write blocks.
 // If the buffer grows larger than what the system's memory can offer at the time of recvBuffer.Write,
 // a panic will happen.
-const recvBufferSizeLimit = 1 << 31
+const recvBufferSizeLimit = 1<<31 - 1
