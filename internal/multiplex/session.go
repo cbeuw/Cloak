@@ -73,7 +73,8 @@ type Session struct {
 
 	closed uint32
 
-	terminalMsg atomic.Value
+	terminalMsgSetter sync.Once
+	terminalMsg       string
 
 	// the max size passed to Write calls before it splits it into multiple frames
 	// i.e. the max size a piece of data can fit into a Frame.Payload
@@ -263,16 +264,13 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 }
 
 func (sesh *Session) SetTerminalMsg(msg string) {
-	sesh.terminalMsg.Store(msg)
+	sesh.terminalMsgSetter.Do(func() {
+		sesh.terminalMsg = msg
+	})
 }
 
 func (sesh *Session) TerminalMsg() string {
-	msg := sesh.terminalMsg.Load()
-	if msg != nil {
-		return msg.(string)
-	} else {
-		return ""
-	}
+	return sesh.terminalMsg
 }
 
 func (sesh *Session) closeSession() error {
