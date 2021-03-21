@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
+	"math/rand"
 	"net"
 	"os"
 
@@ -175,6 +176,8 @@ func main() {
 			authInfo := authInfo // copy the struct because we are overwriting SessionId
 			// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 			// sessionID is limited to its UID.
+
+			authInfo.MockDomain = authInfo.MockDomainList[rand.Intn(len(authInfo.MockDomainList))]
 			quad := make([]byte, 4)
 			common.RandRead(authInfo.WorldState.Rand, quad)
 			authInfo.SessionId = binary.BigEndian.Uint32(quad)

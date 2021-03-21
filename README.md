@@ -135,6 +135,8 @@ encryption and authentication (via AEAD or similar techniques).**
 `ServerName` is the domain you want to make your ISP or firewall _think_ you are visiting. Ideally it should
 match `RedirAddr` in the server's configuration, a major site the censor allows, but it doesn't have to.
 
+`AlternativeNames` is an array used alongside `ServerName` to shuffle between different ServerNames for every new connection
+
 `CDNOriginHost` is the domain name of the _origin_ server (i.e. the server running Cloak) under `CDN` mode. This only
 has effect when `Transport` is set to `CDN`. If unset, it will default to the remote hostname supplied via the
 commandline argument (in standalone mode), or by Shadowsocks (in plugin mode). After a TLS session is established with
