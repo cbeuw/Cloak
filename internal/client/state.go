@@ -26,11 +26,11 @@ type RawConfig struct {
 	UID              []byte
 	PublicKey        []byte
 	NumConn          int
-	LocalHost        string // jsonOptional
-	LocalPort        string // jsonOptional
-	RemoteHost       string // jsonOptional
-	RemotePort       string // jsonOptional
-
+	LocalHost        string   // jsonOptional
+	LocalPort        string   // jsonOptional
+	RemoteHost       string   // jsonOptional
+	RemotePort       string   // jsonOptional
+	AlternativeNames []string // jsonOptional
 	// defaults set in ProcessRawConfig
 	UDP           bool   // nullable
 	BrowserSig    string // nullable
@@ -49,8 +49,9 @@ type RemoteConnConfig struct {
 }
 
 type LocalConnConfig struct {
-	LocalAddr string
-	Timeout   time.Duration
+	LocalAddr      string
+	Timeout        time.Duration
+	MockDomainList []string
 }
 
 type AuthInfo struct {
@@ -94,6 +95,20 @@ func ssvToJson(ssv string) (ret []byte) {
 		}
 		key := sp[0]
 		value := sp[1]
+		if strings.HasPrefix(key, "AlternativeNames") {
+			switch strings.Contains(value, ",") {
+			case true:
+				domains := strings.Split(value, ",")
+				for index, domain := range domains {
+					domains[index] = `"` + domain + `"`
+				}
+				value = strings.Join(domains, ",")
+				ret = append(ret, []byte(`"`+key+`":[`+value+`],`)...)
+			case false:
+				ret = append(ret, []byte(`"`+key+`":["`+value+`"],`)...)
+			}
+			continue
+		}
 		// JSON doesn't like quotation marks around int and bool
 		// This is extremely ugly but it's still better than writing a tokeniser
 		if elem(key, unquoted) {
@@ -139,6 +154,8 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 		return nullErr("ServerName")
 	}
 	auth.MockDomain = raw.ServerName
+	local.MockDomainList = raw.AlternativeNames
+	local.MockDomainList = append(local.MockDomainList, auth.MockDomain)
 	if raw.ProxyMethod == "" {
 		return nullErr("ServerName")
 	}
