@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
-	"math/rand"
 	"net"
 	"os"
 
@@ -174,10 +173,13 @@ func main() {
 		log.Infof("Listening on %v %v for %v client", network, localConfig.LocalAddr, authInfo.ProxyMethod)
 		seshMaker = func() *mux.Session {
 			authInfo := authInfo // copy the struct because we are overwriting SessionId
+
+			randByte := make([]byte, 1)
+			common.RandRead(authInfo.WorldState.Rand, randByte)
+			authInfo.MockDomain = localConfig.MockDomainList[int(randByte[0])%len(localConfig.MockDomainList)]
+
 			// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 			// sessionID is limited to its UID.
-
-			authInfo.MockDomain = localConfig.MockDomainList[rand.Intn(len(localConfig.MockDomainList))]
 			quad := make([]byte, 4)
 			common.RandRead(authInfo.WorldState.Rand, quad)
 			authInfo.SessionId = binary.BigEndian.Uint32(quad)
