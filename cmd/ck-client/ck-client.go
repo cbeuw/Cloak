@@ -177,7 +177,7 @@ func main() {
 			// sessionID is usergenerated. There shouldn't be a security concern because the scope of
 			// sessionID is limited to its UID.
 
-			authInfo.MockDomain = authInfo.MockDomainList[rand.Intn(len(authInfo.MockDomainList))]
+			authInfo.MockDomain = localConfig.MockDomainList[rand.Intn(len(localConfig.MockDomainList))]
 			quad := make([]byte, 4)
 			common.RandRead(authInfo.WorldState.Rand, quad)
 			authInfo.SessionId = binary.BigEndian.Uint32(quad)

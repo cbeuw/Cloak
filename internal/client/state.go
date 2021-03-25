@@ -49,8 +49,9 @@ type RemoteConnConfig struct {
 }
 
 type LocalConnConfig struct {
-	LocalAddr string
-	Timeout   time.Duration
+	LocalAddr      string
+	Timeout        time.Duration
+	MockDomainList []string
 }
 
 type AuthInfo struct {
@@ -61,7 +62,6 @@ type AuthInfo struct {
 	Unordered        bool
 	ServerPubKey     crypto.PublicKey
 	MockDomain       string
-	MockDomainList   []string
 	WorldState       common.WorldState
 }
 
@@ -154,8 +154,8 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 		return nullErr("ServerName")
 	}
 	auth.MockDomain = raw.ServerName
-	auth.MockDomainList = raw.AlternativeNames
-	auth.MockDomainList = append(auth.MockDomainList, auth.MockDomain)
+	local.MockDomainList = raw.AlternativeNames
+	local.MockDomainList = append(local.MockDomainList, auth.MockDomain)
 	if raw.ProxyMethod == "" {
 		return nullErr("ServerName")
 	}
