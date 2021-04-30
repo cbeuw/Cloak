@@ -1,4 +1,4 @@
-// Fingerprint of Chrome 85
+// Fingerprint of Chrome 90
 
 package client
 
@@ -54,8 +54,8 @@ func (c *Chrome) composeExtensions(sni []byte, keyShare []byte) []byte {
 	ext[4] = addExtRec([]byte{0x00, 0x0a}, makeSupportedGroups()) // supported groups
 	ext[5] = addExtRec([]byte{0x00, 0x0b}, []byte{0x01, 0x00})    // ec point formats
 	ext[6] = addExtRec([]byte{0x00, 0x23}, nil)                   // Session tickets
-	APLN, _ := hex.DecodeString("000c02683208687474702f312e31")
-	ext[7] = addExtRec([]byte{0x00, 0x10}, APLN)                                 // app layer proto negotiation
+	ALPN, _ := hex.DecodeString("000c02683208687474702f312e31")
+	ext[7] = addExtRec([]byte{0x00, 0x10}, ALPN)                                 // app layer proto negotiation
 	ext[8] = addExtRec([]byte{0x00, 0x05}, []byte{0x01, 0x00, 0x00, 0x00, 0x00}) // status request
 	sigAlgo, _ := hex.DecodeString("001004030804040105030805050108060601")
 	ext[9] = addExtRec([]byte{0x00, 0x0d}, sigAlgo)                 // Signature Algorithms
