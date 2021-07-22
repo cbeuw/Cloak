@@ -12,10 +12,10 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mitchellh/gox v1.0.1 // indirect
-	github.com/refraction-networking/utls v0.0.0-20190909200633-43c36d3c1f57
 	github.com/sirupsen/logrus v1.5.0
 	github.com/stephens2424/writerset v1.0.2 // indirect
 	github.com/stretchr/testify v1.6.1
+	gitlab.com/yawning/utls.git v0.0.12-1
 	go.etcd.io/bbolt v1.3.4
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
