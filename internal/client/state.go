@@ -154,6 +154,15 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 		return nullErr("ServerName")
 	}
 	auth.MockDomain = raw.ServerName
+
+	var filteredAlternativeNames []string
+	for _, alternativeName := range raw.AlternativeNames {
+		if len(alternativeName) > 0 {
+			filteredAlternativeNames = append(filteredAlternativeNames, alternativeName)
+		}
+	}
+	raw.AlternativeNames = filteredAlternativeNames
+
 	local.MockDomainList = raw.AlternativeNames
 	local.MockDomainList = append(local.MockDomainList, auth.MockDomain)
 	if raw.ProxyMethod == "" {
