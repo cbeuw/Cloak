@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/gorilla/websocket"
-	utls "github.com/refraction-networking/utls"
+	utls "gitlab.com/yawning/utls.git"
 	"net"
 	"net/http"
 	"net/url"
@@ -23,6 +23,18 @@ func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey 
 		InsecureSkipVerify: true,
 	}
 	uconn := utls.UClient(rawConn, utlsConfig, utls.HelloChrome_Auto)
+	err = uconn.BuildHandshakeState()
+	if err != nil {
+		return
+	}
+	for i, extension := range uconn.Extensions {
+		_, ok := extension.(*utls.ALPNExtension)
+		if ok {
+			uconn.Extensions = append(uconn.Extensions[:i], uconn.Extensions[i+1:]...)
+			break
+		}
+	}
+
 	err = uconn.Handshake()
 	if err != nil {
 		return
