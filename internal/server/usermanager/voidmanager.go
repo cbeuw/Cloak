@@ -15,7 +15,7 @@ func (v *Voidmanager) UploadStatus(updates []StatusUpdate) ([]StatusResponse, er
 }
 
 func (v *Voidmanager) ListAllUsers() ([]UserInfo, error) {
-	return nil, ErrMangerIsVoid
+	return []UserInfo{}, ErrMangerIsVoid
 }
 
 func (v *Voidmanager) GetUserInfo(UID []byte) (UserInfo, error) {

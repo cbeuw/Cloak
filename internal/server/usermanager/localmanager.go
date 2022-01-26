@@ -191,6 +191,9 @@ func (manager *localManager) ListAllUsers() (infos []UserInfo, err error) {
 		})
 		return err
 	})
+	if infos == nil {
+		infos = []UserInfo{}
+	}
 	return
 }
 
