@@ -213,6 +213,18 @@ func dispatchConnection(conn net.Conn, sta *State) {
 		return
 	}
 
+	if _, ok := sta.ProxyBook[ci.ProxyMethod]; !ok {
+		log.WithFields(log.Fields{
+			"remoteAddr":       conn.RemoteAddr(),
+			"UID":              b64(ci.UID),
+			"sessionId":        ci.SessionId,
+			"proxyMethod":      ci.ProxyMethod,
+			"encryptionMethod": ci.EncryptionMethod,
+		}).Error(ErrBadProxyMethod)
+		goWeb()
+		return
+	}
+
 	var user *ActiveUser
 	if sta.IsBypass(ci.UID) {
 		user, err = sta.Panel.GetBypassUser(ci.UID)

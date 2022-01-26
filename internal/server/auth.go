@@ -83,10 +83,6 @@ func AuthFirstPacket(firstPacket []byte, transport Transport, sta *State) (info 
 		err = fmt.Errorf("%w: %v", ErrBadDecryption, err)
 		return
 	}
-	if _, ok := sta.ProxyBook[info.ProxyMethod]; !ok {
-		err = ErrBadProxyMethod
-		return
-	}
 	info.Transport = transport
 	return
 }
