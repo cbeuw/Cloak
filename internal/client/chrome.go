@@ -1,4 +1,4 @@
-// Fingerprint of Chrome 90
+// Fingerprint of Chrome 97
 
 package client
 

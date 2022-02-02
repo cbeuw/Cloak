@@ -1,4 +1,4 @@
-// Fingerprint of Firefox 88
+// Fingerprint of Firefox 96
 
 package client
 
