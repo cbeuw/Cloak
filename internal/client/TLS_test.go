@@ -33,6 +33,6 @@ func TestMakeServerName(t *testing.T) {
 	}
 
 	for _, p := range pairs {
-		assert.Equal(t, p.target, makeServerName(p.serverName))
+		assert.Equal(t, p.target, generateSNI(p.serverName))
 	}
 }

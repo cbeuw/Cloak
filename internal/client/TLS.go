@@ -13,14 +13,14 @@ type clientHelloFields struct {
 	random         []byte
 	sessionId      []byte
 	x25519KeyShare []byte
-	sni            []byte
+	serverName     string
 }
 
 type browser interface {
 	composeClientHello(clientHelloFields) []byte
 }
 
-func makeServerName(serverName string) []byte {
+func generateSNI(serverName string) []byte {
 	serverNameListLength := make([]byte, 2)
 	binary.BigEndian.PutUint16(serverNameListLength, uint16(len(serverName)+3))
 	serverNameType := []byte{0x00} // host_name
@@ -45,16 +45,6 @@ func addExtRec(typ []byte, data []byte) []byte {
 	return ret
 }
 
-func genStegClientHello(ai authenticationPayload, serverName string) (ret clientHelloFields) {
-	// random is marshalled ephemeral pub key 32 bytes
-	// The authentication ciphertext and its tag are then distributed among SessionId and X25519KeyShare
-	ret.random = ai.randPubKey[:]
-	ret.sessionId = ai.ciphertextWithTag[0:32]
-	ret.x25519KeyShare = ai.ciphertextWithTag[32:64]
-	ret.sni = makeServerName(serverName)
-	return
-}
-
 type DirectTLS struct {
 	*common.TLSConn
 	browser browser
@@ -64,7 +54,16 @@ type DirectTLS struct {
 // if the server proceed with Cloak authentication
 func (tls *DirectTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey [32]byte, err error) {
 	payload, sharedSecret := makeAuthenticationPayload(authInfo)
-	chOnly := tls.browser.composeClientHello(genStegClientHello(payload, authInfo.MockDomain))
+
+	// random is marshalled ephemeral pub key 32 bytes
+	// The authentication ciphertext and its tag are then distributed among SessionId and X25519KeyShare
+	fields := clientHelloFields{
+		random:         payload.randPubKey[:],
+		sessionId:      payload.ciphertextWithTag[0:32],
+		x25519KeyShare: payload.ciphertextWithTag[32:64],
+		serverName:     authInfo.MockDomain,
+	}
+	chOnly := tls.browser.composeClientHello(fields)
 	chWithRecordLayer := common.AddRecordLayer(chOnly, common.Handshake, common.VersionTLS11)
 	_, err = rawConn.Write(chWithRecordLayer)
 	if err != nil {

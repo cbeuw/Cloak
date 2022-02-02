@@ -10,7 +10,7 @@ import (
 
 type Firefox struct{}
 
-func (f *Firefox) composeExtensions(SNI []byte, keyShare []byte) []byte {
+func (f *Firefox) composeExtensions(serverName string, keyShare []byte) []byte {
 	composeKeyShare := func(hidden []byte) []byte {
 		ret := make([]byte, 107)
 		ret[0], ret[1] = 0x00, 0x69 // length 105
@@ -24,9 +24,9 @@ func (f *Firefox) composeExtensions(SNI []byte, keyShare []byte) []byte {
 	}
 	// extension length is always 399, and server name length is variable
 	var ext [12][]byte
-	ext[0] = addExtRec([]byte{0x00, 0x00}, SNI)          // server name indication
-	ext[1] = addExtRec([]byte{0x00, 0x17}, nil)          // extended_master_secret
-	ext[2] = addExtRec([]byte{0xff, 0x01}, []byte{0x00}) // renegotiation_info
+	ext[0] = addExtRec([]byte{0x00, 0x00}, generateSNI(serverName)) // server name indication
+	ext[1] = addExtRec([]byte{0x00, 0x17}, nil)                     // extended_master_secret
+	ext[2] = addExtRec([]byte{0xff, 0x01}, []byte{0x00})            // renegotiation_info
 	suppGroup, _ := hex.DecodeString("000c001d00170018001901000101")
 	ext[3] = addExtRec([]byte{0x00, 0x0a}, suppGroup)          // supported groups
 	ext[4] = addExtRec([]byte{0x00, 0x0b}, []byte{0x01, 0x00}) // ec point formats
@@ -63,7 +63,7 @@ func (f *Firefox) composeClientHello(hd clientHelloFields) (ch []byte) {
 	clientHello[8] = []byte{0x01} // compression methods length 1
 	clientHello[9] = []byte{0x00} // compression methods
 
-	clientHello[11] = f.composeExtensions(hd.sni, hd.x25519KeyShare)
+	clientHello[11] = f.composeExtensions(hd.serverName, hd.x25519KeyShare)
 	clientHello[10] = []byte{0x00, 0x00} // extensions length
 	binary.BigEndian.PutUint16(clientHello[10], uint16(len(clientHello[11])))
 
