@@ -3,25 +3,26 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/cbeuw/Cloak)](https://goreportcard.com/report/github.com/cbeuw/Cloak)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=SAUYKGSREP8GL&source=url)
 
-![logo](https://user-images.githubusercontent.com/7034308/96387206-3e214100-1198-11eb-8917-689d7c56e0cd.png)
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/7034308/96387206-3e214100-1198-11eb-8917-689d7c56e0cd.png" />
+  <img src="https://user-images.githubusercontent.com/7034308/155593583-f22bcfe2-ac22-4afb-9288-1a0e8a791a0d.svg" />
+</p>
 
-![diagram](https://user-images.githubusercontent.com/7034308/65385852-7eab5280-dd2b-11e9-8887-db449b250e2a.png)
+Cloak is a [pluggable transport](https://www.ietf.org/proceedings/103/slides/slides-103-pearg-pt-slides-01) that enhances
+traditional proxy tools like OpenVPN to evade [sophisticated censorship](https://en.wikipedia.org/wiki/Deep_packet_inspection) and [data discrimination](https://en.wikipedia.org/wiki/Net_bias).
 
-Cloak is a [pluggable transport](https://www.ietf.org/proceedings/103/slides/slides-103-pearg-pt-slides-01) that works
-alongside traditional proxy tools like OpenVPN to evade deep-packet-inspection based censorship.
-
-Cloak is not a standalone proxy program. Rather, it works by masquerading proxy tool's traffic as normal web browsing
-traffic. In contrast to traditional tools which have very prominent traffic "fingerprints", it's very difficult to
-precisely target Cloak with little false positives. This increases the collateral damage to censorship actions as
+Cloak is not a standalone proxy program. Rather, it works by masquerading proxied traffic as normal web browsing
+activities. In contrast to traditional tools which have very prominent traffic fingerprints and can be blocked by simple filtering rules,
+it's very difficult to precisely target Cloak with little false positives. This increases the collateral damage to censorship actions as
 attempts to block Cloak could also damage services the censor state relies on.
 
-To a third party observer, a host running Cloak server is indistinguishable from an innocent web server. Both while
+To any third party observer, a host running Cloak server is indistinguishable from an innocent web server. Both while
 passively observing traffic flow to and from the server, as well as while actively probing the behaviours of a Cloak
 server. This is achieved through the use a series
 of [cryptographic stegnatography techniques](https://github.com/cbeuw/Cloak/wiki/Steganography-and-encryption).
 
-Since Cloak is transparent, it can be used in conjunction with any proxy software that tunnels traffic through TCP or
-UDP, such as Shadowsocks, OpenVPN and Tor. Multiple proxy servers can be running on the same server host machine and
+Cloak can be used in conjunction with any proxy program that tunnels traffic through TCP or
+UDP, such as Shadowsocks, OpenVPN and Tor. Multiple proxy servers can be running on the same server host and
 Cloak server will act as a reverse proxy, bridging clients with their desired proxy end.
 
 Cloak multiplexes traffic through multiple underlying TCP connections which reduces head-of-line blocking and eliminates
@@ -31,9 +32,8 @@ Cloak provides multi-user support, allowing multiple clients to connect to the p
 default). It also provides traffic management features such as usage credit and bandwidth control. This allows a proxy
 server to serve multiple users even if the underlying proxy software wasn't designed for multiple users
 
-Cloak has two modes of [_Transport_](https://github.com/cbeuw/Cloak/wiki/CDN-mode): `direct` and `CDN`. Clients can
-either connect to the host running Cloak server directly, or it can instead connect to a CDN edge server, which may be
-used by many other websites as well, thus further increases the collateral damage to censorship.
+Cloak also supports tunneling through an intermediary CDN server such as Amazon Cloudfront. Such services are so widely used,
+attempts to disrupt traffic to them can lead to very high collateral damage for the censor.
 
 ## Quick Start
 
