@@ -23,7 +23,7 @@ attempts to block Cloak could also damage services the censor state relies on.
 To any third party observer, a host running Cloak server is indistinguishable from an innocent web server. Both while
 passively observing traffic flow to and from the server, as well as while actively probing the behaviours of a Cloak
 server. This is achieved through the use a series
-of [cryptographic stegnatography techniques](https://github.com/cbeuw/Cloak/wiki/Steganography-and-encryption).
+of [cryptographic steganography techniques](https://github.com/cbeuw/Cloak/wiki/Steganography-and-encryption).
 
 Cloak can be used in conjunction with any proxy program that tunnels traffic through TCP or
 UDP, such as Shadowsocks, OpenVPN and Tor. Multiple proxy servers can be running on the same server host and
