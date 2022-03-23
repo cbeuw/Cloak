@@ -1,4 +1,4 @@
-// Fingerprint of Chrome 97
+// Fingerprint of Chrome 99
 
 package client
 
@@ -46,7 +46,7 @@ func (c *Chrome) composeExtensions(serverName string, keyShare []byte) []byte {
 
 	// extension length is always 403, and server name length is variable
 
-	var ext [17][]byte
+	var ext [18][]byte
 	ext[0] = addExtRec(makeGREASE(), nil)                           // First GREASE
 	ext[1] = addExtRec([]byte{0x00, 0x00}, generateSNI(serverName)) // server name indication
 	ext[2] = addExtRec([]byte{0x00, 0x17}, nil)                     // extended_master_secret
@@ -62,16 +62,18 @@ func (c *Chrome) composeExtensions(serverName string, keyShare []byte) []byte {
 	ext[10] = addExtRec([]byte{0x00, 0x12}, nil)                    // signed cert timestamp
 	ext[11] = addExtRec([]byte{0x00, 0x33}, makeKeyShare(keyShare)) // key share
 	ext[12] = addExtRec([]byte{0x00, 0x2d}, []byte{0x01, 0x01})     // psk key exchange modes
-	suppVersions, _ := hex.DecodeString("0a9A9A0304030303020301")   // 9A9A needs to be a GREASE
+	suppVersions, _ := hex.DecodeString("069A9A03040303")           // 9A9A needs to be a GREASE
 	copy(suppVersions[1:3], makeGREASE())
 	ext[13] = addExtRec([]byte{0x00, 0x2b}, suppVersions)             // supported versions
 	ext[14] = addExtRec([]byte{0x00, 0x1b}, []byte{0x02, 0x00, 0x02}) // compress certificate
-	ext[15] = addExtRec(makeGREASE(), []byte{0x00})                   // Last GREASE
-	// len(ext[1]) + 170 + len(ext[16]) = 403
-	// len(ext[16]) = 233 - len(ext[1])
-	// 2+2+len(padding) = 233 - len(ext[1])
-	// len(padding) = 229 - len(ext[1])
-	ext[16] = addExtRec([]byte{0x00, 0x15}, make([]byte, 229-len(ext[1]))) // padding
+	applicationSettings, _ := hex.DecodeString("0003026832")
+	ext[15] = addExtRec([]byte{0x44, 0x69}, applicationSettings) // application settings
+	ext[16] = addExtRec(makeGREASE(), []byte{0x00})              // Last GREASE
+	// len(ext[1]) + 175 + len(ext[16]) = 403
+	// len(ext[16]) = 228 - len(ext[1])
+	// 2+2+len(padding) = 228 - len(ext[1])
+	// len(padding) = 224 - len(ext[1])
+	ext[17] = addExtRec([]byte{0x00, 0x15}, make([]byte, 224-len(ext[1]))) // padding
 	var ret []byte
 	for _, e := range ext {
 		ret = append(ret, e...)
