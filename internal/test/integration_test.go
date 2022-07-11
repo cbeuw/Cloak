@@ -180,12 +180,12 @@ func establishSession(lcc client.LocalConnConfig, rcc client.RemoteConnConfig, a
 
 	netToCkServerD, ckServerListener := connutil.DialerListener(10 * 1024)
 
-	clientSeshMaker := func() *mux.Session {
+	clientSeshMaker := func() *client.CloakClient {
 		ai := ai
 		quad := make([]byte, 4)
 		common.RandRead(ai.WorldState.Rand, quad)
 		ai.SessionId = binary.BigEndian.Uint32(quad)
-		return client.MakeSession(rcc, ai, netToCkServerD)
+		return client.NewCloakClient(rcc, ai, netToCkServerD)
 	}
 
 	var proxyToCkClientD common.Dialer
@@ -262,12 +262,12 @@ func TestUDP(t *testing.T) {
 	lcc, rcc, ai := generateClientConfigs(basicUDPConfig, worldState)
 	sta := basicServerState(worldState)
 
-	proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(lcc, rcc, ai, sta)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	t.Run("simple send", func(t *testing.T) {
+		proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(lcc, rcc, ai, sta)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		pxyClientConn, err := proxyToCkClientD.Dial("udp", "")
 		if err != nil {
 			t.Error(err)
@@ -300,6 +300,11 @@ func TestUDP(t *testing.T) {
 
 	const echoMsgLen = 1024
 	t.Run("user echo", func(t *testing.T) {
+		proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(lcc, rcc, ai, sta)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		go serveUDPEcho(proxyFromCkServerL)
 		var conn [1]net.Conn
 		conn[0], err = proxyToCkClientD.Dial("udp", "")
@@ -379,17 +384,17 @@ func TestTCPMultiplex(t *testing.T) {
 	lcc, rcc, ai := generateClientConfigs(basicTCPConfig, worldState)
 	sta := basicServerState(worldState)
 
-	proxyToCkClientD, proxyFromCkServerL, netToCkServerD, redirFromCkServerL, err := establishSession(lcc, rcc, ai, sta)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	t.Run("user echo single", func(t *testing.T) {
 		for i := 0; i < 18; i += 2 {
 			dataLen := 1 << i
 			writeData := make([]byte, dataLen)
 			rand.Read(writeData)
 			t.Run(fmt.Sprintf("data length %v", dataLen), func(t *testing.T) {
+				proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(lcc, rcc, ai, sta)
+				if err != nil {
+					t.Fatal(err)
+				}
+
 				go serveTCPEcho(proxyFromCkServerL)
 				conn, err := proxyToCkClientD.Dial("", "")
 				if err != nil {
@@ -418,6 +423,11 @@ func TestTCPMultiplex(t *testing.T) {
 
 	const echoMsgLen = 16384
 	t.Run("user echo", func(t *testing.T) {
+		proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(lcc, rcc, ai, sta)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		go serveTCPEcho(proxyFromCkServerL)
 		var conns [numConns]net.Conn
 		for i := 0; i < numConns; i++ {
@@ -431,6 +441,11 @@ func TestTCPMultiplex(t *testing.T) {
 	})
 
 	t.Run("redir echo", func(t *testing.T) {
+		_, _, netToCkServerD, redirFromCkServerL, err := establishSession(lcc, rcc, ai, sta)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		go serveTCPEcho(redirFromCkServerL)
 		var conns [numConns]net.Conn
 		for i := 0; i < numConns; i++ {

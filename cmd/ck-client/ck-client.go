@@ -14,7 +14,6 @@ import (
 	"github.com/cbeuw/Cloak/internal/common"
 
 	"github.com/cbeuw/Cloak/internal/client"
-	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -152,7 +151,7 @@ func main() {
 		}
 	}
 
-	var seshMaker func() *mux.Session
+	var seshMaker func() *client.CloakClient
 
 	d := &net.Dialer{Control: protector, KeepAlive: remoteConfig.KeepAlive}
 
@@ -162,8 +161,8 @@ func main() {
 		authInfo.SessionId = 0
 		remoteConfig.NumConn = 1
 
-		seshMaker = func() *mux.Session {
-			return client.MakeSession(remoteConfig, authInfo, d)
+		seshMaker = func() *client.CloakClient {
+			return client.NewCloakClient(remoteConfig, authInfo, d)
 		}
 	} else {
 		var network string
@@ -173,7 +172,7 @@ func main() {
 			network = "TCP"
 		}
 		log.Infof("Listening on %v %v for %v client", network, localConfig.LocalAddr, authInfo.ProxyMethod)
-		seshMaker = func() *mux.Session {
+		seshMaker = func() *client.CloakClient {
 			authInfo := authInfo // copy the struct because we are overwriting SessionId
 
 			randByte := make([]byte, 1)
@@ -185,7 +184,7 @@ func main() {
 			quad := make([]byte, 4)
 			common.RandRead(authInfo.WorldState.Rand, quad)
 			authInfo.SessionId = binary.BigEndian.Uint32(quad)
-			return client.MakeSession(remoteConfig, authInfo, d)
+			return client.NewCloakClient(remoteConfig, authInfo, d)
 		}
 	}
 

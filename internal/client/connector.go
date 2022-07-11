@@ -12,8 +12,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// On different invocations to MakeSession, authInfo.SessionId MUST be different
-func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.Dialer) *mux.Session {
+type CloakClient struct {
+	connConfig RemoteConnConfig
+	authInfo   AuthInfo
+	dialer     common.Dialer
+
+	session *mux.Session
+}
+
+// On different invocations to NewCloakClient, authInfo.SessionId MUST be different
+func NewCloakClient(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.Dialer) *CloakClient {
 	log.Info("Attempting to start a new session")
 
 	connsCh := make(chan net.Conn, connConfig.NumConn)
@@ -61,13 +69,31 @@ func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.D
 		Unordered:          authInfo.Unordered,
 		MsgOnWireSizeLimit: appDataMaxLength,
 	}
-	sesh := mux.MakeSession(authInfo.SessionId, seshConfig)
+	session := mux.MakeSession(authInfo.SessionId, seshConfig)
 
 	for i := 0; i < connConfig.NumConn; i++ {
 		conn := <-connsCh
-		sesh.AddConnection(conn)
+		session.AddConnection(conn)
 	}
 
 	log.Infof("Session %v established", authInfo.SessionId)
-	return sesh
+
+	return &CloakClient{
+		connConfig: connConfig,
+		authInfo:   authInfo,
+		dialer:     dialer,
+		session:    session,
+	}
+}
+
+func (client *CloakClient) Dial() (net.Conn, error) {
+	return client.session.OpenStream()
+}
+
+func (client *CloakClient) Close() error {
+	return client.session.Close()
+}
+
+func (client *CloakClient) IsClosed() bool {
+	return client.session.IsClosed()
 }

@@ -8,18 +8,17 @@ import (
 
 	"github.com/cbeuw/Cloak/internal/common"
 
-	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	log "github.com/sirupsen/logrus"
 )
 
-func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration, singleplex bool, newSeshFunc func() *mux.Session) {
-	var sesh *mux.Session
+func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration, singleplex bool, newSeshFunc func() *CloakClient) {
+	var cloakClient *CloakClient
 	localConn, err := bindFunc()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	streams := make(map[string]*mux.Stream)
+	streams := make(map[string]net.Conn)
 	var streamsMutex sync.Mutex
 
 	data := make([]byte, 8192)
@@ -30,21 +29,21 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 			continue
 		}
 
-		if !singleplex && (sesh == nil || sesh.IsClosed()) {
-			sesh = newSeshFunc()
+		if !singleplex && (cloakClient == nil || cloakClient.IsClosed()) {
+			cloakClient = newSeshFunc()
 		}
 
 		streamsMutex.Lock()
 		stream, ok := streams[addr.String()]
 		if !ok {
 			if singleplex {
-				sesh = newSeshFunc()
+				cloakClient = newSeshFunc()
 			}
 
-			stream, err = sesh.OpenStream()
+			stream, err = cloakClient.Dial()
 			if err != nil {
 				if singleplex {
-					sesh.Close()
+					cloakClient.Close()
 				}
 				log.Errorf("Failed to open stream: %v", err)
 				streamsMutex.Unlock()
@@ -56,7 +55,7 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 			_ = stream.SetReadDeadline(time.Now().Add(streamTimeout))
 
 			proxyAddr := addr
-			go func(stream *mux.Stream, localConn *net.UDPConn) {
+			go func(stream net.Conn, localConn *net.UDPConn) {
 				buf := make([]byte, 8192)
 				for {
 					n, err := stream.Read(buf)
@@ -95,18 +94,18 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 	}
 }
 
-func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex bool, newSeshFunc func() *mux.Session) {
-	var sesh *mux.Session
+func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex bool, newSeshFunc func() *CloakClient) {
+	var cloakClient *CloakClient
 	for {
 		localConn, err := listener.Accept()
 		if err != nil {
 			log.Fatal(err)
 			continue
 		}
-		if !singleplex && (sesh == nil || sesh.IsClosed()) {
-			sesh = newSeshFunc()
+		if !singleplex && (cloakClient == nil || cloakClient.IsClosed()) {
+			cloakClient = newSeshFunc()
 		}
-		go func(sesh *mux.Session, localConn net.Conn, timeout time.Duration) {
+		go func(sesh *CloakClient, localConn net.Conn, timeout time.Duration) {
 			if singleplex {
 				sesh = newSeshFunc()
 			}
@@ -122,7 +121,7 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex boo
 			var zeroTime time.Time
 			_ = localConn.SetReadDeadline(zeroTime)
 
-			stream, err := sesh.OpenStream()
+			stream, err := sesh.Dial()
 			if err != nil {
 				log.Errorf("Failed to open stream: %v", err)
 				localConn.Close()
@@ -148,6 +147,6 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex boo
 			if _, err = common.Copy(stream, localConn); err != nil {
 				log.Tracef("copying proxy client to stream: %v", err)
 			}
-		}(sesh, localConn, streamTimeout)
+		}(cloakClient, localConn, streamTimeout)
 	}
 }
