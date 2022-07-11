@@ -20,6 +20,8 @@ type CloakClient struct {
 	session *mux.Session
 }
 
+const appDataMaxLength = 16401
+
 // On different invocations to NewCloakClient, authInfo.SessionId MUST be different
 func NewCloakClient(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.Dialer) *CloakClient {
 	log.Info("Attempting to start a new session")

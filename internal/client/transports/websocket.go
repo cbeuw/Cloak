@@ -1,21 +1,21 @@
-package client
+package transports
 
 import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
-	"net/url"
-
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/gorilla/websocket"
 	utls "github.com/refraction-networking/utls"
+	"net"
+	"net/http"
+	"net/url"
 )
 
 type WSOverTLS struct {
 	*common.WebSocketConn
-	wsUrl string
+	CDNHost string
+	CDNPort string
 }
 
 func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey [32]byte, err error) {
@@ -41,7 +41,7 @@ func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey 
 		return
 	}
 
-	u, err := url.Parse(ws.wsUrl)
+	u, err := url.Parse("ws://" + net.JoinHostPort(ws.CDNHost, ws.CDNPort))
 	if err != nil {
 		return sessionKey, fmt.Errorf("failed to parse ws url: %v", err)
 	}

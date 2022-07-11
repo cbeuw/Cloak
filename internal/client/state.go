@@ -37,7 +37,6 @@ type RawConfig struct {
 	BrowserSig    string // nullable
 	Transport     string // nullable
 	CDNOriginHost string // nullable
-	CDNWsUrlPath  string // nullable
 	StreamTimeout int    // nullable
 	KeepAlive     int    // nullable
 }
@@ -47,7 +46,7 @@ type RemoteConnConfig struct {
 	NumConn        int
 	KeepAlive      time.Duration
 	RemoteAddr     string
-	TransportMaker func() Transport
+	TransportMaker func() transports.Transport
 }
 
 type LocalConnConfig struct {
@@ -56,16 +55,7 @@ type LocalConnConfig struct {
 	MockDomainList []string
 }
 
-type AuthInfo struct {
-	UID              []byte
-	SessionId        uint32
-	ProxyMethod      string
-	EncryptionMethod byte
-	Unordered        bool
-	ServerPubKey     crypto.PublicKey
-	MockDomain       string
-	WorldState       common.WorldState
-}
+type AuthInfo = transports.AuthInfo
 
 // semi-colon separated value. This is for Android plugin options
 func ssvToJson(ssv string) (ret []byte) {
@@ -220,19 +210,18 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 	// Transport and (if TLS mode), browser
 	switch strings.ToLower(raw.Transport) {
 	case "cdn":
-		var cdnDomainPort string
+		cdnPort := raw.RemotePort
+		var cdnHost string
 		if raw.CDNOriginHost == "" {
-			cdnDomainPort = net.JoinHostPort(raw.RemoteHost, raw.RemotePort)
+			cdnHost = raw.RemoteHost
 		} else {
-			cdnDomainPort = net.JoinHostPort(raw.CDNOriginHost, raw.RemotePort)
-		}
-		if raw.CDNWsUrlPath == "" {
-			raw.CDNWsUrlPath = "/"
+			cdnHost = raw.CDNOriginHost
 		}
 
-		remote.TransportMaker = func() Transport {
-			return &WSOverTLS{
-				wsUrl: "ws://" + cdnDomainPort + raw.CDNWsUrlPath,
+		remote.TransportMaker = func() transports.Transport {
+			return &transports.WSOverTLS{
+				CDNHost: cdnHost,
+				CDNPort: cdnPort,
 			}
 		}
 	case "direct":
@@ -249,9 +238,9 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 		default:
 			browser = chrome
 		}
-		remote.TransportMaker = func() Transport {
-			return &DirectTLS{
-				browser: browser,
+		remote.TransportMaker = func() transports.Transport {
+			return &transports.DirectTLS{
+				Browser: browser,
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-package client
+package transports
 
 import (
 	utls "github.com/refraction-networking/utls"
@@ -27,6 +27,7 @@ const (
 
 type DirectTLS struct {
 	*common.TLSConn
+	Browser browsers.Browser
 	browser browser
 }
 
@@ -88,7 +89,6 @@ func (tls *DirectTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey
 		x25519KeyShare: payload.ciphertextWithTag[32:64],
 		serverName:     authInfo.MockDomain,
 	}
-
 	var ch []byte
 	ch, err = buildClientHello(tls.browser, fields)
 	if err != nil {

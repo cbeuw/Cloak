@@ -1,4 +1,4 @@
-package client
+package transports
 
 import (
 	"bytes"
