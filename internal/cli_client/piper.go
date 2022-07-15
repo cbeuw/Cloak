@@ -1,18 +1,18 @@
-package client
+package cli_client
 
 import (
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/Cloak/libcloak/client"
 	"io"
 	"net"
 	"sync"
 	"time"
 
-	"github.com/cbeuw/Cloak/internal/common"
-
 	log "github.com/sirupsen/logrus"
 )
 
-func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration, singleplex bool, newSeshFunc func() *CloakClient) {
-	var cloakClient *CloakClient
+func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration, singleplex bool, newSeshFunc func() *client.CloakClient) {
+	var cloakClient *client.CloakClient
 	localConn, err := bindFunc()
 	if err != nil {
 		log.Fatal(err)
@@ -94,8 +94,8 @@ func RouteUDP(bindFunc func() (*net.UDPConn, error), streamTimeout time.Duration
 	}
 }
 
-func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex bool, newSeshFunc func() *CloakClient) {
-	var cloakClient *CloakClient
+func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex bool, newSeshFunc func() *client.CloakClient) {
+	var cloakClient *client.CloakClient
 	for {
 		localConn, err := listener.Accept()
 		if err != nil {
@@ -105,7 +105,7 @@ func RouteTCP(listener net.Listener, streamTimeout time.Duration, singleplex boo
 		if !singleplex && (cloakClient == nil || cloakClient.IsClosed()) {
 			cloakClient = newSeshFunc()
 		}
-		go func(sesh *CloakClient, localConn net.Conn, timeout time.Duration) {
+		go func(sesh *client.CloakClient, localConn net.Conn, timeout time.Duration) {
 			if singleplex {
 				sesh = newSeshFunc()
 			}

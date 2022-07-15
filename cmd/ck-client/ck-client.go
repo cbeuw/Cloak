@@ -8,12 +8,12 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/cli_client"
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/Cloak/libcloak/client"
 	"net"
 	"os"
 
-	"github.com/cbeuw/Cloak/internal/common"
-
-	"github.com/cbeuw/Cloak/internal/client"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -83,7 +83,7 @@ func main() {
 	}
 	log.SetLevel(lvl)
 
-	rawConfig, err := client.ParseConfig(config)
+	rawConfig, err := cli_client.ParseConfig(config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func main() {
 		}
 	}
 
-	localConfig, remoteConfig, authInfo, err := rawConfig.ProcessRawConfig(common.RealWorldState)
+	localConfig, remoteConfig, authInfo, err := rawConfig.ProcessCLIConfig(common.RealWorldState)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -194,12 +194,12 @@ func main() {
 			return net.ListenUDP("udp", udpAddr)
 		}
 
-		client.RouteUDP(acceptor, localConfig.Timeout, remoteConfig.Singleplex, seshMaker)
+		cli_client.RouteUDP(acceptor, localConfig.Timeout, remoteConfig.Singleplex, seshMaker)
 	} else {
 		listener, err := net.Listen("tcp", localConfig.LocalAddr)
 		if err != nil {
 			log.Fatal(err)
 		}
-		client.RouteTCP(listener, localConfig.Timeout, remoteConfig.Singleplex, seshMaker)
+		cli_client.RouteTCP(listener, localConfig.Timeout, remoteConfig.Singleplex, seshMaker)
 	}
 }

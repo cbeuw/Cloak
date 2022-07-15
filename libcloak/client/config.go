@@ -4,6 +4,9 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/Cloak/libcloak/client/browsers"
+	"github.com/cbeuw/Cloak/libcloak/client/transports"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -65,22 +68,12 @@ type RawConfig struct {
 	// is set to `cdn`
 	// Defaults to RemoteHost
 	CDNOriginHost string
-	// StreamTimeout is the duration, in seconds, for a stream to be automatically closed after the last write.
-	// Defaults to 300
-	StreamTimeout int
 	// KeepAlive is the interval between TCP KeepAlive packets to be sent over the underlying TLS connections
 	// Defaults to -1, which means no TCP KeepAlive is ever sent
 	KeepAlive int
 	// RemotePort is the port Cloak server is listening to
 	// Defaults to 443
 	RemotePort string
-
-	// LocalHost is the hostname or IP address to listen for incoming proxy client connections
-	LocalHost string // jsonOptional
-	// LocalPort is the port to listen for incomig proxy client connections
-	LocalPort string // jsonOptional
-	// AlternativeNames is a list of ServerName Cloak may randomly pick from for different sessions
-	AlternativeNames []string
 }
 
 type RemoteConnConfig struct {
@@ -91,93 +84,10 @@ type RemoteConnConfig struct {
 	TransportMaker func() transports.Transport
 }
 
-type LocalConnConfig struct {
-	LocalAddr      string
-	Timeout        time.Duration
-	MockDomainList []string
-}
-
 type AuthInfo = transports.AuthInfo
 
-// semi-colon separated value. This is for Android plugin options
-func ssvToJson(ssv string) (ret []byte) {
-	elem := func(val string, lst []string) bool {
-		for _, v := range lst {
-			if val == v {
-				return true
-			}
-		}
-		return false
-	}
-	unescape := func(s string) string {
-		r := strings.Replace(s, `\\`, `\`, -1)
-		r = strings.Replace(r, `\=`, `=`, -1)
-		r = strings.Replace(r, `\;`, `;`, -1)
-		return r
-	}
-	unquoted := []string{"NumConn", "StreamTimeout", "KeepAlive", "UDP"}
-	lines := strings.Split(unescape(ssv), ";")
-	ret = []byte("{")
-	for _, ln := range lines {
-		if ln == "" {
-			break
-		}
-		sp := strings.SplitN(ln, "=", 2)
-		if len(sp) < 2 {
-			log.Errorf("Malformed config option: %v", ln)
-			continue
-		}
-		key := sp[0]
-		value := sp[1]
-		if strings.HasPrefix(key, "AlternativeNames") {
-			switch strings.Contains(value, ",") {
-			case true:
-				domains := strings.Split(value, ",")
-				for index, domain := range domains {
-					domains[index] = `"` + domain + `"`
-				}
-				value = strings.Join(domains, ",")
-				ret = append(ret, []byte(`"`+key+`":[`+value+`],`)...)
-			case false:
-				ret = append(ret, []byte(`"`+key+`":["`+value+`"],`)...)
-			}
-			continue
-		}
-		// JSON doesn't like quotation marks around int and bool
-		// This is extremely ugly but it's still better than writing a tokeniser
-		if elem(key, unquoted) {
-			ret = append(ret, []byte(`"`+key+`":`+value+`,`)...)
-		} else {
-			ret = append(ret, []byte(`"`+key+`":"`+value+`",`)...)
-		}
-	}
-	ret = ret[:len(ret)-1] // remove the last comma
-	ret = append(ret, '}')
-	return ret
-}
-
-func ParseConfig(conf string) (raw *RawConfig, err error) {
-	var content []byte
-	// Checking if it's a path to json or a ssv string
-	if strings.Contains(conf, ";") && strings.Contains(conf, "=") {
-		content = ssvToJson(conf)
-	} else {
-		content, err = ioutil.ReadFile(conf)
-		if err != nil {
-			return
-		}
-	}
-
-	raw = new(RawConfig)
-	err = json.Unmarshal(content, &raw)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local LocalConnConfig, remote RemoteConnConfig, auth AuthInfo, err error) {
-	nullErr := func(field string) (local LocalConnConfig, remote RemoteConnConfig, auth AuthInfo, err error) {
+func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (remote RemoteConnConfig, auth AuthInfo, err error) {
+	nullErr := func(field string) (remote RemoteConnConfig, auth AuthInfo, err error) {
 		err = fmt.Errorf("%v cannot be empty", field)
 		return
 	}
@@ -189,18 +99,8 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 	}
 	auth.MockDomain = raw.ServerName
 
-	var filteredAlternativeNames []string
-	for _, alternativeName := range raw.AlternativeNames {
-		if len(alternativeName) > 0 {
-			filteredAlternativeNames = append(filteredAlternativeNames, alternativeName)
-		}
-	}
-	raw.AlternativeNames = filteredAlternativeNames
-
-	local.MockDomainList = raw.AlternativeNames
-	local.MockDomainList = append(local.MockDomainList, auth.MockDomain)
 	if raw.ProxyMethod == "" {
-		return nullErr("ServerName")
+		return nullErr("ProxyMethod")
 	}
 	auth.ProxyMethod = raw.ProxyMethod
 	if len(raw.UID) == 0 {
@@ -300,20 +200,6 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 		remote.KeepAlive = -1
 	} else {
 		remote.KeepAlive = remote.KeepAlive * time.Second
-	}
-
-	if raw.LocalHost == "" {
-		return nullErr("LocalHost")
-	}
-	if raw.LocalPort == "" {
-		return nullErr("LocalPort")
-	}
-	local.LocalAddr = net.JoinHostPort(raw.LocalHost, raw.LocalPort)
-	// stream no write timeout
-	if raw.StreamTimeout == 0 {
-		local.Timeout = 300 * time.Second
-	} else {
-		local.Timeout = time.Duration(raw.StreamTimeout) * time.Second
 	}
 
 	return

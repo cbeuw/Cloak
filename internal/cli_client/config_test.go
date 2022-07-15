@@ -1,4 +1,4 @@
-package client
+package cli_client
 
 import (
 	"io/ioutil"
