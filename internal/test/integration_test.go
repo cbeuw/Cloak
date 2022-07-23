@@ -79,7 +79,7 @@ var privateKey, _ = base64.StdEncoding.DecodeString("SMWeC6VuZF8S/id65VuFQFlfa7h
 var four = 4
 var zero = 0
 
-var basicUDPConfig = client.RawConfig{
+var basicUDPConfig = client.Config{
 	ServerName:       "www.example.com",
 	ProxyMethod:      "openvpn",
 	EncryptionMethod: "plain",
@@ -92,7 +92,7 @@ var basicUDPConfig = client.RawConfig{
 	RemotePort:       "9999",
 }
 
-var basicTCPConfig = client.RawConfig{
+var basicTCPConfig = client.Config{
 	ServerName:       "www.example.com",
 	ProxyMethod:      "shadowsocks",
 	EncryptionMethod: "plain",
@@ -106,7 +106,7 @@ var basicTCPConfig = client.RawConfig{
 	BrowserSig:       "firefox",
 }
 
-var singleplexTCPConfig = client.RawConfig{
+var singleplexTCPConfig = client.Config{
 	ServerName:       "www.example.com",
 	ProxyMethod:      "shadowsocks",
 	EncryptionMethod: "plain",
@@ -120,8 +120,8 @@ var singleplexTCPConfig = client.RawConfig{
 	BrowserSig:       "chrome",
 }
 
-func generateClientConfigs(rawConfig client.RawConfig, state common.WorldState) (client.RemoteConnConfig, client.AuthInfo) {
-	rmt, auth, err := rawConfig.ProcessRawConfig(state)
+func generateClientConfigs(rawConfig client.Config, state common.WorldState) (client.RemoteConnConfig, client.AuthInfo) {
+	rmt, auth, err := rawConfig.Process(state)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -458,7 +458,7 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 	log.SetLevel(log.ErrorLevel)
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 
-	for clientConfigName, clientConfig := range map[string]client.RawConfig{"basic": basicTCPConfig, "singleplex": singleplexTCPConfig} {
+	for clientConfigName, clientConfig := range map[string]client.Config{"basic": basicTCPConfig, "singleplex": singleplexTCPConfig} {
 		clientConfig := clientConfig
 		clientConfigName := clientConfigName
 		t.Run(clientConfigName, func(t *testing.T) {

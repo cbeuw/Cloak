@@ -19,10 +19,8 @@ import (
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 )
 
-// RawConfig represents the fields in the config json file
-// jsonOptional means if the json's empty, its value will be set from environment variables or commandline args
-// but it mustn't be empty when ProcessRawConfig is called
-type RawConfig struct {
+// Config contains the configuration parameter fields for a Cloak client
+type Config struct {
 	// Required fields
 	// ServerName is the domain you appear to be visiting
 	// to your Firewall or ISP
@@ -38,7 +36,7 @@ type RawConfig struct {
 	// PublicKey is the 32-byte public Curve25519 ECDH key of your server
 	PublicKey []byte
 	// RemoteHost is the Cloak server's hostname or IP address
-	RemoteHost string // jsonOptional
+	RemoteHost string
 
 	// Optional Fields
 	// EncryptionMethod is the cryptographic algorithm used to
@@ -86,59 +84,57 @@ type RemoteConnConfig struct {
 
 type AuthInfo = transports.AuthInfo
 
-func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (remote RemoteConnConfig, auth AuthInfo, err error) {
-	nullErr := func(field string) (remote RemoteConnConfig, auth AuthInfo, err error) {
-		err = fmt.Errorf("%v cannot be empty", field)
+func (raw *Config) Process(worldState common.WorldState) (remote RemoteConnConfig, auth AuthInfo, err error) {
+	if raw.ServerName == "" {
+		err = fmt.Errorf("ServerName cannot be empty")
+		return
+	}
+	if raw.ProxyMethod == "" {
+		err = fmt.Errorf("ProxyMethod cannot be empty")
+		return
+	}
+	if len(raw.UID) == 0 {
+		err = fmt.Errorf("UID cannot be empty")
+		return
+	}
+	if len(raw.PublicKey) == 0 {
+		err = fmt.Errorf("PublicKey cannot be empty")
+		return
+	}
+	if raw.RemoteHost == "" {
+		err = fmt.Errorf("RemoteHost cannot be empty")
 		return
 	}
 
 	auth.UID = raw.UID
 	auth.Unordered = raw.UDP
-	if raw.ServerName == "" {
-		return nullErr("ServerName")
-	}
 	auth.MockDomain = raw.ServerName
-
-	if raw.ProxyMethod == "" {
-		return nullErr("ProxyMethod")
-	}
 	auth.ProxyMethod = raw.ProxyMethod
-	if len(raw.UID) == 0 {
-		return nullErr("UID")
-	}
+	auth.WorldState = worldState
 
 	// static public key
-	if len(raw.PublicKey) == 0 {
-		return nullErr("PublicKey")
-	}
 	pub, ok := ecdh.Unmarshal(raw.PublicKey)
 	if !ok {
 		err = fmt.Errorf("failed to unmarshal Public key")
 		return
 	}
 	auth.ServerPubKey = pub
-	auth.WorldState = worldState
 
 	// Encryption method
 	switch strings.ToLower(raw.EncryptionMethod) {
 	case "plain":
 		auth.EncryptionMethod = mux.EncryptionMethodPlain
-	case "aes-gcm", "aes-256-gcm":
+	case "aes-gcm", "aes-256-gcm", "":
 		auth.EncryptionMethod = mux.EncryptionMethodAES256GCM
 	case "aes-128-gcm":
 		auth.EncryptionMethod = mux.EncryptionMethodAES128GCM
 	case "chacha20-poly1305":
 		auth.EncryptionMethod = mux.EncryptionMethodChaha20Poly1305
-	case "":
-		auth.EncryptionMethod = mux.EncryptionMethodAES256GCM
 	default:
 		err = fmt.Errorf("unknown encryption method %v", raw.EncryptionMethod)
 		return
 	}
 
-	if raw.RemoteHost == "" {
-		return nullErr("RemoteHost")
-	}
 	var remotePort string
 	if raw.RemotePort == "" {
 		remotePort = "443"
@@ -175,8 +171,6 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (remote Rem
 			}
 		}
 	case "direct":
-		fallthrough
-	default:
 		var browser browser
 		switch strings.ToLower(raw.BrowserSig) {
 		case "firefox":
@@ -193,6 +187,9 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (remote Rem
 				Browser: browser,
 			}
 		}
+	default:
+		err = fmt.Errorf("unknown transport %v", raw.Transport)
+		return
 	}
 
 	// KeepAlive

@@ -13,7 +13,7 @@ import (
 )
 
 type CLIConfig struct {
-	client.RawConfig
+	client.Config
 
 	// LocalHost is the hostname or IP address to listen for incoming proxy client connections
 	LocalHost string // jsonOptional
@@ -111,7 +111,7 @@ type LocalConnConfig struct {
 }
 
 func (raw *CLIConfig) ProcessCLIConfig(worldState common.WorldState) (local LocalConnConfig, remote client.RemoteConnConfig, auth client.AuthInfo, err error) {
-	remote, auth, err = raw.RawConfig.ProcessRawConfig(worldState)
+	remote, auth, err = raw.Config.Process(worldState)
 	if err != nil {
 		return
 	}
