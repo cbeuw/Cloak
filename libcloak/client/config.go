@@ -72,14 +72,18 @@ type Config struct {
 	// RemotePort is the port Cloak server is listening to
 	// Defaults to 443
 	RemotePort string
+	// InactivityTimeout is the number of seconds the client keeps the underlying connections to the server
+	// after the last proxy connection is disconnected.
+	// Defaults to 30. Always set to 0 under Singleplex mode (NumConn == 0)
+	InactivityTimeout *int
 }
 
 type RemoteConnConfig struct {
-	Singleplex     bool
-	NumConn        int
-	KeepAlive      time.Duration
-	RemoteAddr     string
-	TransportMaker func() transports.Transport
+	NumConn           int
+	KeepAlive         time.Duration
+	RemoteAddr        string
+	TransportMaker    func() transports.Transport
+	InactivityTimeout time.Duration
 }
 
 type AuthInfo = transports.AuthInfo
@@ -142,15 +146,20 @@ func (raw *Config) Process(worldState common.WorldState) (remote RemoteConnConfi
 		remotePort = raw.RemotePort
 	}
 	remote.RemoteAddr = net.JoinHostPort(raw.RemoteHost, remotePort)
+
+	if raw.InactivityTimeout == nil {
+		remote.InactivityTimeout = 30 * time.Second
+	} else {
+		remote.InactivityTimeout = time.Duration(*raw.InactivityTimeout) * time.Second
+	}
+
 	if raw.NumConn == nil {
 		remote.NumConn = 4
-		remote.Singleplex = false
 	} else if *raw.NumConn <= 0 {
 		remote.NumConn = 1
-		remote.Singleplex = true
+		remote.InactivityTimeout = 0
 	} else {
 		remote.NumConn = *raw.NumConn
-		remote.Singleplex = false
 	}
 
 	// Transport and (if TLS mode), browser

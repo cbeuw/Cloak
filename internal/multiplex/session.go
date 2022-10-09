@@ -14,15 +14,13 @@ import (
 )
 
 const (
-	acceptBacklog            = 1024
-	defaultInactivityTimeout = 30 * time.Second
-	defaultMaxOnWireSize     = 1<<14 + 256 // https://tools.ietf.org/html/rfc8446#section-5.2
+	acceptBacklog        = 1024
+	defaultMaxOnWireSize = 1<<14 + 256 // https://tools.ietf.org/html/rfc8446#section-5.2
 )
 
 var ErrBrokenSession = errors.New("broken session")
 var errRepeatSessionClosing = errors.New("trying to close a closed session")
 var errRepeatStreamClosing = errors.New("trying to close a closed stream")
-var errNoMultiplex = errors.New("a singleplexing session can have only one stream")
 
 type SessionConfig struct {
 	Obfuscator
@@ -30,15 +28,15 @@ type SessionConfig struct {
 	// Valve is used to limit transmission rates, and record and limit usage
 	Valve
 
+	// Unordered determines whether stream packets' order is preserved
 	Unordered bool
 
-	// A Singleplexing session always has just one stream
-	Singleplex bool
-
-	// maximum size of an obfuscated frame, including headers and overhead
+	// MsgOnWireSizeLimit is maximum size of an obfuscated frame, including headers and overhead
+	// Optional
 	MsgOnWireSizeLimit int
 
 	// InactivityTimeout sets the duration a Session waits while it has no active streams before it closes itself
+	// Non-optional. 0 means the session closes immediately after the last stream is closed
 	InactivityTimeout time.Duration
 }
 
@@ -104,9 +102,6 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	if config.MsgOnWireSizeLimit <= 0 {
 		sesh.MsgOnWireSizeLimit = defaultMaxOnWireSize
 	}
-	if config.InactivityTimeout == 0 {
-		sesh.InactivityTimeout = defaultInactivityTimeout
-	}
 
 	sesh.maxStreamUnitWrite = sesh.MsgOnWireSizeLimit - frameHeaderLength - sesh.maxOverhead
 	sesh.streamSendBufferSize = sesh.MsgOnWireSizeLimit
@@ -118,7 +113,13 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 	}}
 
 	sesh.sb = makeSwitchboard(sesh)
-	time.AfterFunc(sesh.InactivityTimeout, sesh.checkTimeout)
+	if sesh.InactivityTimeout > 0 {
+		time.AfterFunc(sesh.InactivityTimeout, sesh.checkTimeout)
+	} else {
+		// The user wants session to close immediately after the last stream closes,
+		// but we still give them some time to start a stream first
+		time.AfterFunc(10*time.Second, sesh.checkTimeout)
+	}
 	return sesh
 }
 
@@ -149,12 +150,6 @@ func (sesh *Session) OpenStream() (*Stream, error) {
 		return nil, ErrBrokenSession
 	}
 	id := atomic.AddUint32(&sesh.nextStreamID, 1) - 1
-	// Because atomic.AddUint32 returns the value after incrementation
-	if sesh.Singleplex && id > 1 {
-		// if there are more than one streams, which shouldn't happen if we are
-		// singleplexing
-		return nil, errNoMultiplex
-	}
 	stream := makeStream(sesh, id)
 	sesh.streamsM.Lock()
 	sesh.streams[id] = stream
@@ -213,12 +208,8 @@ func (sesh *Session) closeStream(s *Stream, active bool) error {
 	sesh.streams[s.id] = nil
 	sesh.streamsM.Unlock()
 	if sesh.streamCountDecr() == 0 {
-		if sesh.Singleplex {
-			return sesh.Close()
-		} else {
-			log.Debugf("session %v has no active stream left", sesh.id)
-			time.AfterFunc(sesh.InactivityTimeout, sesh.checkTimeout)
-		}
+		log.Debugf("session %v has no active stream left", sesh.id)
+		time.AfterFunc(sesh.InactivityTimeout, sesh.checkTimeout)
 	}
 	return nil
 }

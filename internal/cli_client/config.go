@@ -20,10 +20,11 @@ type CLIConfig struct {
 	// LocalPort is the port to listen for incomig proxy client connections
 	LocalPort string // jsonOptional
 	// AlternativeNames is a list of ServerName Cloak may randomly pick from for different sessions
+	// Optional
 	AlternativeNames []string
 	// StreamTimeout is the duration, in seconds, for an incoming connection to be automatically closed after the last
 	// piece of incoming data .
-	// Defaults to 300
+	// Optional, Defaults to 300
 	StreamTimeout int
 }
 
@@ -108,6 +109,7 @@ type LocalConnConfig struct {
 	LocalAddr      string
 	Timeout        time.Duration
 	MockDomainList []string
+	Singleplex     bool
 }
 
 func (raw *CLIConfig) ProcessCLIConfig(worldState common.WorldState) (local LocalConnConfig, remote client.RemoteConnConfig, auth client.AuthInfo, err error) {
@@ -116,15 +118,18 @@ func (raw *CLIConfig) ProcessCLIConfig(worldState common.WorldState) (local Loca
 		return
 	}
 
-	var filteredAlternativeNames []string
-	for _, alternativeName := range raw.AlternativeNames {
-		if len(alternativeName) > 0 {
-			filteredAlternativeNames = append(filteredAlternativeNames, alternativeName)
+	if raw.AlternativeNames != nil && len(raw.AlternativeNames) > 0 {
+		var filteredAlternativeNames []string
+		for _, alternativeName := range raw.AlternativeNames {
+			if len(alternativeName) > 0 {
+				filteredAlternativeNames = append(filteredAlternativeNames, alternativeName)
+			}
 		}
+		local.MockDomainList = raw.AlternativeNames
+	} else {
+		local.MockDomainList = []string{}
 	}
-	raw.AlternativeNames = filteredAlternativeNames
 
-	local.MockDomainList = raw.AlternativeNames
 	local.MockDomainList = append(local.MockDomainList, auth.MockDomain)
 
 	if raw.LocalHost == "" {
@@ -142,6 +147,8 @@ func (raw *CLIConfig) ProcessCLIConfig(worldState common.WorldState) (local Loca
 	} else {
 		local.Timeout = time.Duration(raw.StreamTimeout) * time.Second
 	}
+
+	local.Singleplex = raw.NumConn != nil && *raw.NumConn == 0
 
 	return
 }

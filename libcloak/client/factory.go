@@ -65,11 +65,11 @@ func NewCloakClient(connConfig RemoteConnConfig, authInfo AuthInfo, dialer commo
 	}
 
 	seshConfig := mux.SessionConfig{
-		Singleplex:         connConfig.Singleplex,
 		Obfuscator:         obfuscator,
 		Valve:              nil,
 		Unordered:          authInfo.Unordered,
 		MsgOnWireSizeLimit: appDataMaxLength,
+		InactivityTimeout:  connConfig.InactivityTimeout,
 	}
 	session := mux.MakeSession(authInfo.SessionId, seshConfig)
 

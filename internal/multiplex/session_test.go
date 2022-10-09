@@ -17,8 +17,8 @@ import (
 )
 
 var seshConfigs = map[string]SessionConfig{
-	"ordered":   {},
-	"unordered": {Unordered: true},
+	"ordered":   {InactivityTimeout: 30 * time.Second},
+	"unordered": {Unordered: true, InactivityTimeout: 30 * time.Second},
 }
 var encryptionMethods = map[string]byte{
 	"plain":            EncryptionMethodPlain,

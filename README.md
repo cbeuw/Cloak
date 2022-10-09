@@ -123,7 +123,7 @@ upstream proxy server. Zero or negative value disables it. Default is 0 (disable
 `UID` is your UID in base64.
 
 `Transport` can be either `direct` or `CDN`. If the server host wishes you to connect to it directly, use `direct`. If
-instead a CDN is used, use `CDN`.
+instead a CDN is used, use `CDN`. Defaults to `direct`
 
 `PublicKey` is the static curve25519 public key in base64, given by the server admin.
 
@@ -131,7 +131,7 @@ instead a CDN is used, use `CDN`.
 server's `ProxyBook` exactly.
 
 `EncryptionMethod` is the name of the encryption algorithm you want Cloak to use. Options are `plain`, `aes-256-gcm` (
-synonymous to `aes-gcm`), `aes-128-gcm`, and `chacha20-poly1305`. Note: Cloak isn't intended to provide transport
+synonymous to `aes-gcm`), `aes-128-gcm`, and `chacha20-poly1305`. Defaults to `aes-256-gcm` if empty. Note: Cloak isn't intended to provide transport
 security. The point of encryption is to hide fingerprints of proxy protocols and render the payload statistically
 random-like. **You may only leave it as `plain` if you are certain that your underlying proxy tool already provides BOTH
 encryption and authentication (via AEAD or similar techniques).**
@@ -141,7 +141,7 @@ match `RedirAddr` in the server's configuration, a major site the censor allows,
 
 `AlternativeNames` is an array used alongside `ServerName` to shuffle between different ServerNames for every new
 connection. **This may conflict with `CDN` Transport mode** if the CDN provider prohibits domain fronting and rejects
-the alternative domains.
+the alternative domains. Default is empty.
 
 Example:
 
@@ -165,8 +165,8 @@ requests under specific url path are forwarded.
 
 `NumConn` is the amount of underlying TCP connections you want to use. The default of 4 should be appropriate for most
 people. Setting it too high will hinder the performance. Setting it to 0 will disable connection multiplexing and each
-TCP connection will spawn a separate short-lived session that will be closed after it is terminated. This makes it
-behave like GoQuiet. This maybe useful for people with unstable connections.
+TCP connection will spawn a separate short-lived session that will be closed after it is terminated. This maybe useful
+for people with unstable connections.
 
 `BrowserSig` is the browser you want to **appear** to be using. It's not relevant to the browser you are actually using.
 Currently, `chrome`, `firefox` and `safari` are supported.

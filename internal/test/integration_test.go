@@ -157,7 +157,7 @@ func (m *mockUDPDialer) Dial(network, address string) (net.Conn, error) {
 	return net.DialUDP("udp", nil, m.raddr)
 }
 
-func establishSession(rcc client.RemoteConnConfig, ai client.AuthInfo, serverState *server.State) (common.Dialer, *connutil.PipeListener, common.Dialer, net.Listener, error) {
+func establishSession(rcc client.RemoteConnConfig, ai client.AuthInfo, serverState *server.State, singleplex bool) (common.Dialer, *connutil.PipeListener, common.Dialer, net.Listener, error) {
 	//													 redirecting web server
 	//																^
 	//																|
@@ -174,6 +174,9 @@ func establishSession(rcc client.RemoteConnConfig, ai client.AuthInfo, serverSta
 	//															    |
 	//									whatever connection initiator (including a proper ck-client)
 
+	if singleplex && rcc.NumConn != 1 {
+		log.Fatal("NumConn must be 1 under singleplex")
+	}
 	netToCkServerD, ckServerListener := connutil.DialerListener(10 * 1024)
 
 	clientSeshMaker := func() *client.CloakClient {
@@ -198,12 +201,12 @@ func establishSession(rcc client.RemoteConnConfig, ai client.AuthInfo, serverSta
 			addrCh <- conn.LocalAddr().(*net.UDPAddr)
 			return conn, err
 		}
-		go cli_client.RouteUDP(acceptor, 300*time.Second, rcc.Singleplex, clientSeshMaker)
+		go cli_client.RouteUDP(acceptor, 300*time.Second, singleplex, clientSeshMaker)
 		proxyToCkClientD = mDialer
 	} else {
 		var proxyToCkClientL *connutil.PipeListener
 		proxyToCkClientD, proxyToCkClientL = connutil.DialerListener(10 * 1024)
-		go cli_client.RouteTCP(proxyToCkClientL, 300*time.Second, rcc.Singleplex, clientSeshMaker)
+		go cli_client.RouteTCP(proxyToCkClientL, 300*time.Second, singleplex, clientSeshMaker)
 	}
 
 	// set up server
@@ -259,7 +262,7 @@ func TestUDP(t *testing.T) {
 	sta := basicServerState(worldState)
 
 	t.Run("simple send", func(t *testing.T) {
-		proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta)
+		proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -296,7 +299,7 @@ func TestUDP(t *testing.T) {
 
 	const echoMsgLen = 1024
 	t.Run("user echo", func(t *testing.T) {
-		proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta)
+		proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -318,7 +321,7 @@ func TestTCPSingleplex(t *testing.T) {
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 	rcc, ai := generateClientConfigs(singleplexTCPConfig, worldState)
 	sta := basicServerState(worldState)
-	proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta)
+	proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,7 +389,7 @@ func TestTCPMultiplex(t *testing.T) {
 			writeData := make([]byte, dataLen)
 			rand.Read(writeData)
 			t.Run(fmt.Sprintf("data length %v", dataLen), func(t *testing.T) {
-				proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta)
+				proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta, false)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -419,7 +422,7 @@ func TestTCPMultiplex(t *testing.T) {
 
 	const echoMsgLen = 16384
 	t.Run("user echo", func(t *testing.T) {
-		proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta)
+		proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -437,7 +440,7 @@ func TestTCPMultiplex(t *testing.T) {
 	})
 
 	t.Run("redir echo", func(t *testing.T) {
-		_, _, netToCkServerD, redirFromCkServerL, err := establishSession(rcc, ai, sta)
+		_, _, netToCkServerD, redirFromCkServerL, err := establishSession(rcc, ai, sta, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -458,13 +461,13 @@ func TestClosingStreamsFromProxy(t *testing.T) {
 	log.SetLevel(log.ErrorLevel)
 	worldState := common.WorldOfTime(time.Unix(10, 0))
 
-	for clientConfigName, clientConfig := range map[string]client.Config{"basic": basicTCPConfig, "singleplex": singleplexTCPConfig} {
-		clientConfig := clientConfig
+	for clientConfigName, clientConfig := range map[string]client.Config{"multiplex": basicTCPConfig, "singleplex": singleplexTCPConfig} {
 		clientConfigName := clientConfigName
+		clientConfig := clientConfig
 		t.Run(clientConfigName, func(t *testing.T) {
 			rcc, ai := generateClientConfigs(clientConfig, worldState)
 			sta := basicServerState(worldState)
-			proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta)
+			proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta, *clientConfig.NumConn == 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -538,7 +541,7 @@ func BenchmarkIntegration(b *testing.B) {
 	for name, method := range encryptionMethods {
 		b.Run(name, func(b *testing.B) {
 			ai.EncryptionMethod = method
-			proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta)
+			proxyToCkClientD, proxyFromCkServerL, _, _, err := establishSession(rcc, ai, sta, false)
 			if err != nil {
 				b.Fatal(err)
 			}

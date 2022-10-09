@@ -20,6 +20,10 @@ import (
 var version string
 
 func main() {
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
+
 	// Should be 127.0.0.1 to listen to a proxy client on this machine
 	var localHost string
 	// port used by proxy clients to communicate with cloak client
@@ -74,9 +78,6 @@ func main() {
 		log.Info("Starting standalone mode")
 	}
 
-	log.SetFormatter(&log.TextFormatter{
-		FullTimestamp: true,
-	})
 	lvl, err := log.ParseLevel(*verbosity)
 	if err != nil {
 		log.Fatal(err)
@@ -194,12 +195,12 @@ func main() {
 			return net.ListenUDP("udp", udpAddr)
 		}
 
-		cli_client.RouteUDP(acceptor, localConfig.Timeout, remoteConfig.Singleplex, seshMaker)
+		cli_client.RouteUDP(acceptor, localConfig.Timeout, localConfig.Singleplex, seshMaker)
 	} else {
 		listener, err := net.Listen("tcp", localConfig.LocalAddr)
 		if err != nil {
 			log.Fatal(err)
 		}
-		cli_client.RouteTCP(listener, localConfig.Timeout, remoteConfig.Singleplex, seshMaker)
+		cli_client.RouteTCP(listener, localConfig.Timeout, localConfig.Singleplex, seshMaker)
 	}
 }

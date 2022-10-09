@@ -80,19 +80,21 @@ func TestStream_WriteSync(t *testing.T) {
 	// Close calls made after write MUST have a higher seq
 	var sessionKey [32]byte
 	rand.Read(sessionKey[:])
-	clientSesh := setupSesh(false, sessionKey, EncryptionMethodPlain)
-	serverSesh := setupSesh(false, sessionKey, EncryptionMethodPlain)
-	w, r := connutil.AsyncPipe()
-	clientSesh.AddConnection(common.NewTLSConn(w))
-	serverSesh.AddConnection(common.NewTLSConn(r))
 	testData := make([]byte, payloadLen)
 	rand.Read(testData)
 
 	t.Run("test single", func(t *testing.T) {
+		clientSesh := setupSesh(false, sessionKey, EncryptionMethodPlain)
+		serverSesh := setupSesh(false, sessionKey, EncryptionMethodPlain)
+		w, r := connutil.AsyncPipe()
+		clientSesh.AddConnection(common.NewTLSConn(w))
+		serverSesh.AddConnection(common.NewTLSConn(r))
+
 		go func() {
-			stream, _ := clientSesh.OpenStream()
-			stream.Write(testData)
-			stream.Close()
+			stream, err := clientSesh.OpenStream()
+			assert.NoError(t, err)
+			_, err = stream.Write(testData)
+			assert.NoError(t, err)
 		}()
 
 		recvBuf := make([]byte, payloadLen)
@@ -104,12 +106,19 @@ func TestStream_WriteSync(t *testing.T) {
 	})
 
 	t.Run("test multiple", func(t *testing.T) {
+		clientSesh := setupSesh(false, sessionKey, EncryptionMethodPlain)
+		serverSesh := setupSesh(false, sessionKey, EncryptionMethodPlain)
+		w, r := connutil.AsyncPipe()
+		clientSesh.AddConnection(common.NewTLSConn(w))
+		serverSesh.AddConnection(common.NewTLSConn(r))
+
 		const numStreams = 100
 		for i := 0; i < numStreams; i++ {
 			go func() {
-				stream, _ := clientSesh.OpenStream()
-				stream.Write(testData)
-				stream.Close()
+				stream, err := clientSesh.OpenStream()
+				assert.NoError(t, err)
+				_, err = stream.Write(testData)
+				assert.NoError(t, err)
 			}()
 		}
 		for i := 0; i < numStreams; i++ {
