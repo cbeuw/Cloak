@@ -13,6 +13,6 @@ require (
 	gitlab.com/yawning/utls.git v0.0.12-1
 	go.etcd.io/bbolt v1.3.6
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
-	golang.org/x/sys v0.0.0-20220128215802-99c3d69c2c27 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 )
