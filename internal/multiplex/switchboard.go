@@ -2,12 +2,13 @@ package multiplex
 
 import (
 	"errors"
-	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type switchboardStrategy int

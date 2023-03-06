@@ -2,11 +2,12 @@ package client
 
 import (
 	"bytes"
+	"testing"
+	"time"
+
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/multiplex"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 func TestMakeAuthenticationPayload(t *testing.T) {

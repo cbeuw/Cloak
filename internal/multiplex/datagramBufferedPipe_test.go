@@ -1,9 +1,10 @@
 package multiplex
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDatagramBuffer_RW(t *testing.T) {

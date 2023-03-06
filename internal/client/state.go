@@ -4,12 +4,13 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/common"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"

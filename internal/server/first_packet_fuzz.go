@@ -1,13 +1,15 @@
+//go:build gofuzz
 // +build gofuzz
 
 package server
 
 import (
 	"errors"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/connutil"
 	"net"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/connutil"
 )
 
 type rfpReturnValue_fuzz struct {

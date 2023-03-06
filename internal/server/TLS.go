@@ -4,11 +4,12 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/Cloak/internal/ecdh"
 	"io"
 	"math/rand"
 	"net"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/Cloak/internal/ecdh"
 
 	log "github.com/sirupsen/logrus"
 )

@@ -4,12 +4,13 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/gorilla/websocket"
-	utls "gitlab.com/yawning/utls.git"
 	"net"
 	"net/http"
 	"net/url"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/gorilla/websocket"
+	utls "gitlab.com/yawning/utls.git"
 )
 
 type WSOverTLS struct {

@@ -3,15 +3,16 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/Cloak/internal/server"
-	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/Cloak/internal/server"
+	log "github.com/sirupsen/logrus"
 )
 
 var version string

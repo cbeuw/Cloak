@@ -7,11 +7,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/Cloak/internal/ecdh"
 	"io"
 	"net"
 	"net/http"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/Cloak/internal/ecdh"
 )
 
 type WebSocket struct{}

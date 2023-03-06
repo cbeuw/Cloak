@@ -2,12 +2,13 @@ package server
 
 import (
 	"encoding/hex"
-	"github.com/cbeuw/connutil"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/cbeuw/connutil"
+	"github.com/stretchr/testify/assert"
 )
 
 type rfpReturnValue struct {

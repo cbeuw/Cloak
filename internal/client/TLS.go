@@ -2,9 +2,10 @@ package client
 
 import (
 	"encoding/binary"
+	"net"
+
 	"github.com/cbeuw/Cloak/internal/common"
 	log "github.com/sirupsen/logrus"
-	"net"
 )
 
 const appDataMaxLength = 16401

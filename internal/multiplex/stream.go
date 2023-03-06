@@ -6,9 +6,10 @@ import (
 	"net"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"sync"
 	"sync/atomic"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var ErrBrokenStream = errors.New("broken stream")

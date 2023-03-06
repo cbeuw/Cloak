@@ -2,12 +2,13 @@ package server
 
 import (
 	"encoding/base64"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"io/ioutil"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/Cloak/internal/server/usermanager"
 )
 
 func TestUserPanel_BypassUser(t *testing.T) {

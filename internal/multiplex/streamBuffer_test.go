@@ -3,6 +3,7 @@ package multiplex
 import (
 	"encoding/binary"
 	"io"
+
 	//"log"
 	"sort"
 	"testing"

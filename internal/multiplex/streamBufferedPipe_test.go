@@ -1,10 +1,11 @@
 package multiplex
 
 import (
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const readBlockTime = 500 * time.Millisecond

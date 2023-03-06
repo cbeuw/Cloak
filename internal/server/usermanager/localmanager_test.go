@@ -2,8 +2,6 @@ package usermanager
 
 import (
 	"encoding/binary"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -12,6 +10,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/stretchr/testify/assert"
 )
 
 var mockUID = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}

@@ -1,9 +1,10 @@
 package client
 
 import (
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseConfig(t *testing.T) {

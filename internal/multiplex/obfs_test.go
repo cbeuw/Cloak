@@ -3,12 +3,13 @@ package multiplex
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/crypto/chacha20poly1305"
 	"math/rand"
 	"reflect"
 	"testing"
 	"testing/quick"
+
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/chacha20poly1305"
 )
 
 func TestGenerateObfs(t *testing.T) {

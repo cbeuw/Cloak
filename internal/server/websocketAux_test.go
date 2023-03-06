@@ -2,8 +2,9 @@ package server
 
 import (
 	"bytes"
-	"github.com/cbeuw/connutil"
 	"testing"
+
+	"github.com/cbeuw/connutil"
 )
 
 func TestFirstBuffedConn_Read(t *testing.T) {
