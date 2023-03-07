@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"math/rand"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const gcmTagSize = 16

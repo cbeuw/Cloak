@@ -1,3 +1,4 @@
+//go:build go1.11
 // +build go1.11
 
 package main
@@ -7,9 +8,10 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/common"
 	"net"
 	"os"
+
+	"github.com/cbeuw/Cloak/internal/common"
 
 	"github.com/cbeuw/Cloak/internal/client"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"

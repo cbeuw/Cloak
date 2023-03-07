@@ -4,17 +4,18 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/gorilla/websocket"
-	utls "gitlab.com/yawning/utls.git"
 	"net"
 	"net/http"
 	"net/url"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/gorilla/websocket"
+	utls "gitlab.com/yawning/utls.git"
 )
 
 type WSOverTLS struct {
 	*common.WebSocketConn
-	cdnDomainPort string
+	wsUrl string
 }
 
 func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey [32]byte, err error) {
@@ -40,7 +41,7 @@ func (ws *WSOverTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey 
 		return
 	}
 
-	u, err := url.Parse("ws://" + ws.cdnDomainPort)
+	u, err := url.Parse(ws.wsUrl)
 	if err != nil {
 		return sessionKey, fmt.Errorf("failed to parse ws url: %v", err)
 	}

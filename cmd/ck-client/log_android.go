@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build android
 // +build android
 
 package main
@@ -28,9 +29,10 @@ import "C"
 
 import (
 	"bufio"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"unsafe"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var (

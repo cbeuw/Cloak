@@ -2,13 +2,14 @@ package multiplex
 
 import (
 	"bytes"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cbeuw/connutil"
 )

@@ -2,14 +2,15 @@ package multiplex
 
 import (
 	"bytes"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/connutil"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"math/rand"
 	"net"
 	"sync"
 	"testing"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/connutil"
+	"github.com/stretchr/testify/assert"
 )
 
 func serveEcho(l net.Listener) {

@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/binary"
+
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	log "github.com/sirupsen/logrus"

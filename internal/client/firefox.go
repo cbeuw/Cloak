@@ -5,6 +5,7 @@ package client
 import (
 	"encoding/binary"
 	"encoding/hex"
+
 	"github.com/cbeuw/Cloak/internal/common"
 )
 

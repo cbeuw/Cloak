@@ -3,11 +3,12 @@ package multiplex
 import (
 	"errors"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/common"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/common"
 
 	log "github.com/sirupsen/logrus"
 )

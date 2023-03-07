@@ -2,10 +2,11 @@ package server
 
 import (
 	"errors"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/gorilla/websocket"
 	"net"
 	"net/http"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/gorilla/websocket"
 
 	log "github.com/sirupsen/logrus"
 )

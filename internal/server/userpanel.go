@@ -2,10 +2,11 @@ package server
 
 import (
 	"encoding/base64"
-	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/server/usermanager"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	log "github.com/sirupsen/logrus"

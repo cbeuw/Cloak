@@ -1,11 +1,12 @@
 package client
 
 import (
-	"github.com/cbeuw/Cloak/internal/common"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/common"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 	log "github.com/sirupsen/logrus"

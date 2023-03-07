@@ -1,8 +1,9 @@
 package server
 
 import (
-	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"sync"
+
+	"github.com/cbeuw/Cloak/internal/server/usermanager"
 
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
 )

@@ -2,8 +2,6 @@ package multiplex
 
 import (
 	"bytes"
-	"github.com/cbeuw/connutil"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -13,6 +11,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/cbeuw/connutil"
+	"github.com/stretchr/testify/assert"
 )
 
 var seshConfigs = map[string]SessionConfig{

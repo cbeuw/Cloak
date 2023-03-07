@@ -2,10 +2,11 @@ package common
 
 import (
 	"errors"
-	"github.com/gorilla/websocket"
 	"io"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // WebSocketConn implements io.ReadWriteCloser

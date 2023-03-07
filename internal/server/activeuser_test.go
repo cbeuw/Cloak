@@ -3,12 +3,13 @@ package server
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"github.com/cbeuw/Cloak/internal/common"
-	mux "github.com/cbeuw/Cloak/internal/multiplex"
-	"github.com/cbeuw/Cloak/internal/server/usermanager"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	mux "github.com/cbeuw/Cloak/internal/multiplex"
+	"github.com/cbeuw/Cloak/internal/server/usermanager"
 )
 
 func getSeshConfig(unordered bool) mux.SessionConfig {

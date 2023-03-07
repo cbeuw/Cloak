@@ -1,13 +1,14 @@
 package multiplex
 
 import (
-	"github.com/cbeuw/connutil"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/cbeuw/connutil"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSwitchboard_Send(t *testing.T) {

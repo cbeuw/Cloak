@@ -4,10 +4,11 @@ import (
 	"crypto"
 	"encoding/hex"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/Cloak/internal/ecdh"
 	"testing"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/cbeuw/Cloak/internal/ecdh"
 )
 
 func TestDecryptClientInfo(t *testing.T) {

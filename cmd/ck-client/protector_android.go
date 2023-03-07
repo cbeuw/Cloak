@@ -1,3 +1,4 @@
+//go:build android
 // +build android
 
 package main
@@ -65,8 +66,9 @@ void set_timeout(int sock) {
 import "C"
 
 import (
-	log "github.com/sirupsen/logrus"
 	"syscall"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // In Android, once an app starts the VpnService, all outgoing traffic are routed by the system

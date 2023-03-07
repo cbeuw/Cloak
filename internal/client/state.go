@@ -4,12 +4,13 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/common"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/common"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
@@ -36,6 +37,7 @@ type RawConfig struct {
 	BrowserSig    string // nullable
 	Transport     string // nullable
 	CDNOriginHost string // nullable
+	CDNWsUrlPath  string // nullable
 	StreamTimeout int    // nullable
 	KeepAlive     int    // nullable
 }
@@ -224,10 +226,13 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 		} else {
 			cdnDomainPort = net.JoinHostPort(raw.CDNOriginHost, raw.RemotePort)
 		}
+		if raw.CDNWsUrlPath == "" {
+			raw.CDNWsUrlPath = "/"
+		}
 
 		remote.TransportMaker = func() Transport {
 			return &WSOverTLS{
-				cdnDomainPort: cdnDomainPort,
+				wsUrl: "ws://" + cdnDomainPort + raw.CDNWsUrlPath,
 			}
 		}
 	case "direct":

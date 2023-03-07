@@ -5,8 +5,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/cbeuw/Cloak/internal/common"
 	"time"
+
+	"github.com/cbeuw/Cloak/internal/common"
 
 	log "github.com/sirupsen/logrus"
 )

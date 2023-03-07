@@ -2,6 +2,7 @@ package usermanager
 
 import (
 	"encoding/binary"
+
 	"github.com/cbeuw/Cloak/internal/common"
 	log "github.com/sirupsen/logrus"
 	bolt "go.etcd.io/bbolt"
