@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-go get github.com/mitchellh/gox
+go install github.com/mitchellh/gox@latest
 
 mkdir -p release
 
