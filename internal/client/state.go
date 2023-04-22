@@ -242,6 +242,8 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 		switch strings.ToLower(raw.BrowserSig) {
 		case "firefox":
 			browser = &Firefox{}
+		case "safari":
+			browser = &Safari{}
 		case "chrome":
 			fallthrough
 		default:

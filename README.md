@@ -169,7 +169,7 @@ TCP connection will spawn a separate short-lived session that will be closed aft
 behave like GoQuiet. This maybe useful for people with unstable connections.
 
 `BrowserSig` is the browser you want to **appear** to be using. It's not relevant to the browser you are actually using.
-Currently, `chrome` and `firefox` are supported.
+Currently, `chrome`, `firefox` and `safari` are supported.
 
 `KeepAlive` is the number of seconds to tell the OS to wait after no activity before sending TCP KeepAlive probes to the
 Cloak server. Zero or negative value disables it. Default is 0 (disabled). Warning: Enabling it might make your server

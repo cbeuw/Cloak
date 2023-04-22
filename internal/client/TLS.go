@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"net"
 
 	"github.com/cbeuw/Cloak/internal/common"
@@ -15,6 +16,14 @@ type clientHelloFields struct {
 	sessionId      []byte
 	x25519KeyShare []byte
 	serverName     string
+}
+
+func decodeHex(s string) []byte {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 
 type browser interface {
