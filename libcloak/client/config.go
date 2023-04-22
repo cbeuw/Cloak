@@ -1,19 +1,12 @@
 package client
 
 import (
-	"crypto"
-	"encoding/json"
 	"fmt"
 	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/Cloak/libcloak/client/browsers"
 	"github.com/cbeuw/Cloak/libcloak/client/transports"
-	"io/ioutil"
 	"net"
 	"strings"
 	"time"
-
-	"github.com/cbeuw/Cloak/internal/common"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/cbeuw/Cloak/internal/ecdh"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
@@ -179,17 +172,18 @@ func (raw *Config) Process(worldState common.WorldState) (remote RemoteConnConfi
 				CDNPort: cdnPort,
 			}
 		}
-	case "direct":
-		var browser browser
+	case "direct", "":
+		var browser transports.Browser
 		switch strings.ToLower(raw.BrowserSig) {
 		case "firefox":
-			browser = firefox
+			browser = transports.Firefox
 		case "safari":
-			browser = safari
-		case "chrome":
-			fallthrough
+			browser = transports.Safari
+		case "chrome", "":
+			browser = transports.Chrome
 		default:
-			browser = chrome
+			err = fmt.Errorf("unknown browser signature %v", raw.BrowserSig)
+			return
 		}
 		remote.TransportMaker = func() transports.Transport {
 			return &transports.DirectTLS{

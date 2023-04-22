@@ -2,15 +2,10 @@ package transports
 
 import (
 	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/cbeuw/Cloak/libcloak/client/browsers"
 	utls "github.com/refraction-networking/utls"
 	log "github.com/sirupsen/logrus"
 	"net"
-
-	"github.com/cbeuw/Cloak/internal/common"
 )
-
-const appDataMaxLength = 16401
 
 type clientHelloFields struct {
 	random         []byte
@@ -19,31 +14,30 @@ type clientHelloFields struct {
 	serverName     string
 }
 
-type browser int
+type Browser int
 
 const (
-	chrome = iota
-	firefox
-	safari
+	Chrome = iota
+	Firefox
+	Safari
 )
 
 type DirectTLS struct {
 	*common.TLSConn
-	Browser browsers.Browser
-	browser browser
+	Browser Browser
 }
 
-func buildClientHello(browser browser, fields clientHelloFields) ([]byte, error) {
+func buildClientHello(browser Browser, fields clientHelloFields) ([]byte, error) {
 	// We don't use utls to handle connections (as it'll attempt a real TLS negotiation)
 	// We only want it to build the ClientHello locally
 	fakeConn := net.TCPConn{}
 	var helloID utls.ClientHelloID
 	switch browser {
-	case chrome:
+	case Chrome:
 		helloID = utls.HelloChrome_Auto
-	case firefox:
+	case Firefox:
 		helloID = utls.HelloFirefox_Auto
-	case safari:
+	case Safari:
 		helloID = utls.HelloSafari_Auto
 	}
 
@@ -92,7 +86,7 @@ func (tls *DirectTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey
 		serverName:     authInfo.MockDomain,
 	}
 	var ch []byte
-	ch, err = buildClientHello(tls.browser, fields)
+	ch, err = buildClientHello(tls.Browser, fields)
 	if err != nil {
 		return
 	}
