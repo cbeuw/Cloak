@@ -2,6 +2,12 @@ package client
 
 import (
 	"encoding/hex"
+	"github.com/cbeuw/Cloak/internal/common"
+	"github.com/dreadl0ck/ja3"
+	"github.com/dreadl0ck/tlsx"
+	"github.com/stretchr/testify/assert"
+	"sort"
+	"strings"
 	"testing"
 )
 
@@ -26,21 +32,34 @@ func TestMakeGREASE(t *testing.T) {
 	}
 }
 
-func TestComposeExtension(t *testing.T) {
-	serverName := "github.com"
-	keyShare, _ := hex.DecodeString("690f074f5c01756982269b66d58c90c47dc0f281d654c7b2c16f63c9033f5604")
+func TestChromeJA3(t *testing.T) {
+	result := common.AddRecordLayer((&Chrome{}).composeClientHello(hd), common.Handshake, common.VersionTLS11)
 
-	result := (&Chrome{}).composeExtensions(serverName, keyShare)
-	target, _ := hex.DecodeString("3a3a00000000000f000d00000a6769746875622e636f6d00170000ff01000100000a000a00080a0a001d00170018000b00020100002300000010000e000c02683208687474702f312e31000500050100000000000d0012001004030804040105030805050108060601001200000033002b00296a6a000100001d0020690f074f5c01756982269b66d58c90c47dc0f281d654c7b2c16f63c9033f5604002d00020101002b000706dada03040303001b0003020002446900050003026832eaea000100001500cd00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
-	for p := 0; p < len(result); p++ {
-		if result[p] != target[p] {
-			if result[p]&0x0F == 0xA && target[p]&0x0F == 0xA &&
-				((p > 0 && result[p-1] == result[p] && target[p-1] == target[p]) ||
-					(p < len(result)-1 && result[p+1] == result[p] && target[p+1] == target[p])) {
-				continue
-			}
-			t.Errorf("inequality at %v", p)
-		}
+	hello := tlsx.ClientHelloBasic{}
+	err := hello.Unmarshal(result)
+	assert.Nil(t, err)
+
+	// Chrome shuffles the order of extensions, so it needs special handling
+	full := string(ja3.Bare(&hello))
+	// TLSVersion,Ciphers,Extensions,EllipticCurves,EllipticCurvePointFormats
+	parts := strings.Split(full, ",")
+
+	// TLSVersion,Ciphers
+	assert.Equal(t,
+		[]string{
+			"771",
+			"4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53",
+		}, parts[0:2])
+	// EllipticCurves,EllipticCurvePointFormats
+	assert.Equal(t,
+		[]string{
+			"29-23-24", "0",
+		}, parts[3:5])
+
+	normaliseExtensions := func(extensions string) []string {
+		extensionParts := strings.Split(parts[2], "-")
+		sort.Strings(extensionParts)
+		return extensionParts
 	}
-
+	assert.Equal(t, normaliseExtensions("10-5-45-0-17513-13-18-11-23-16-35-27-65281-43-51-21"), normaliseExtensions(parts[2]))
 }

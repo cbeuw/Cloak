@@ -1,10 +1,10 @@
-// Fingerprint of Chrome 99
+// Fingerprint of Chrome 112
 
 package client
 
 import (
 	"encoding/binary"
-	"encoding/hex"
+	"math/rand"
 
 	"github.com/cbeuw/Cloak/internal/common"
 )
@@ -45,33 +45,44 @@ func (c *Chrome) composeExtensions(serverName string, keyShare []byte) []byte {
 		return ret
 	}
 
-	// extension length is always 403, and server name length is variable
+	shuffle := func(exts [][]byte) {
+		var qword [8]byte
+		common.CryptoRandRead(qword[:])
+		seed := int64(binary.BigEndian.Uint64(qword[:]))
+		rand.Seed(seed)
+		rand.Shuffle(len(exts), func(i, j int) { exts[i], exts[j] = exts[j], exts[i] })
+	}
 
+	// extension length is always 403, and server name length is variable
 	var ext [18][]byte
-	ext[0] = addExtRec(makeGREASE(), nil)                           // First GREASE
-	ext[1] = addExtRec([]byte{0x00, 0x00}, generateSNI(serverName)) // server name indication
-	ext[2] = addExtRec([]byte{0x00, 0x17}, nil)                     // extended_master_secret
-	ext[3] = addExtRec([]byte{0xff, 0x01}, []byte{0x00})            // renegotiation_info
-	ext[4] = addExtRec([]byte{0x00, 0x0a}, makeSupportedGroups())   // supported groups
-	ext[5] = addExtRec([]byte{0x00, 0x0b}, []byte{0x01, 0x00})      // ec point formats
-	ext[6] = addExtRec([]byte{0x00, 0x23}, nil)                     // Session tickets
-	ALPN, _ := hex.DecodeString("000c02683208687474702f312e31")
-	ext[7] = addExtRec([]byte{0x00, 0x10}, ALPN)                                 // app layer proto negotiation
-	ext[8] = addExtRec([]byte{0x00, 0x05}, []byte{0x01, 0x00, 0x00, 0x00, 0x00}) // status request
-	sigAlgo, _ := hex.DecodeString("001004030804040105030805050108060601")
-	ext[9] = addExtRec([]byte{0x00, 0x0d}, sigAlgo)                 // Signature Algorithms
-	ext[10] = addExtRec([]byte{0x00, 0x12}, nil)                    // signed cert timestamp
-	ext[11] = addExtRec([]byte{0x00, 0x33}, makeKeyShare(keyShare)) // key share
-	ext[12] = addExtRec([]byte{0x00, 0x2d}, []byte{0x01, 0x01})     // psk key exchange modes
-	suppVersions, _ := hex.DecodeString("069A9A03040303")           // 9A9A needs to be a GREASE
+	ext[0] = addExtRec(makeGREASE(), nil) // First GREASE
+
+	// Start shufflable extensions: https://chromestatus.com/feature/5124606246518784
+	ext[1] = addExtRec([]byte{0x00, 0x00}, generateSNI(serverName))                           // server name indication
+	ext[2] = addExtRec([]byte{0x00, 0x17}, nil)                                               // extended_master_secret
+	ext[3] = addExtRec([]byte{0xff, 0x01}, []byte{0x00})                                      // renegotiation_info
+	ext[4] = addExtRec([]byte{0x00, 0x0a}, makeSupportedGroups())                             // supported groups
+	ext[5] = addExtRec([]byte{0x00, 0x0b}, []byte{0x01, 0x00})                                // ec point formats
+	ext[6] = addExtRec([]byte{0x00, 0x23}, nil)                                               // Session tickets
+	ext[7] = addExtRec([]byte{0x00, 0x10}, decodeHex("000c02683208687474702f312e31"))         // app layer proto negotiation
+	ext[8] = addExtRec([]byte{0x00, 0x05}, []byte{0x01, 0x00, 0x00, 0x00, 0x00})              // status request
+	ext[9] = addExtRec([]byte{0x00, 0x0d}, decodeHex("001004030804040105030805050108060601")) // Signature Algorithms
+	ext[10] = addExtRec([]byte{0x00, 0x12}, nil)                                              // signed cert timestamp
+	ext[11] = addExtRec([]byte{0x00, 0x33}, makeKeyShare(keyShare))                           // key share
+	ext[12] = addExtRec([]byte{0x00, 0x2d}, []byte{0x01, 0x01})                               // psk key exchange modes
+	suppVersions := decodeHex("069A9A03040303")                                               // 9A9A needs to be a GREASE
 	copy(suppVersions[1:3], makeGREASE())
 	ext[13] = addExtRec([]byte{0x00, 0x2b}, suppVersions)             // supported versions
 	ext[14] = addExtRec([]byte{0x00, 0x1b}, []byte{0x02, 0x00, 0x02}) // compress certificate
-	applicationSettings, _ := hex.DecodeString("0003026832")
-	ext[15] = addExtRec([]byte{0x44, 0x69}, applicationSettings) // application settings
-	ext[16] = addExtRec(makeGREASE(), []byte{0x00})              // Last GREASE
-	// len(ext[1]) + 175 + len(ext[16]) = 403
-	// len(ext[16]) = 228 - len(ext[1])
+	ext[15] = addExtRec([]byte{0x44, 0x69}, decodeHex("0003026832"))  // application settings
+	// End shufflable extensions
+
+	shuffle(ext[1:16])
+
+	ext[16] = addExtRec(makeGREASE(), []byte{0x00}) // Last GREASE
+	// len(ext[1]) + len(all other ext) + len(ext[17]) = 403
+	// len(all other ext) = 175
+	// len(ext[17]) = 228 - len(ext[1])
 	// 2+2+len(padding) = 228 - len(ext[1])
 	// len(padding) = 224 - len(ext[1])
 	ext[17] = addExtRec([]byte{0x00, 0x15}, make([]byte, 224-len(ext[1]))) // padding
@@ -84,20 +95,22 @@ func (c *Chrome) composeExtensions(serverName string, keyShare []byte) []byte {
 
 func (c *Chrome) composeClientHello(hd clientHelloFields) (ch []byte) {
 	var clientHello [12][]byte
-	clientHello[0] = []byte{0x01}             // handshake type
-	clientHello[1] = []byte{0x00, 0x01, 0xfc} // length 508
-	clientHello[2] = []byte{0x03, 0x03}       // client version
-	clientHello[3] = hd.random                // random
-	clientHello[4] = []byte{0x20}             // session id length 32
-	clientHello[5] = hd.sessionId             // session id
-	clientHello[6] = []byte{0x00, 0x20}       // cipher suites length 32
-	cipherSuites, _ := hex.DecodeString("130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035")
-	clientHello[7] = append(makeGREASE(), cipherSuites...) // cipher suites
-	clientHello[8] = []byte{0x01}                          // compression methods length 1
-	clientHello[9] = []byte{0x00}                          // compression methods
-	clientHello[11] = c.composeExtensions(hd.serverName, hd.x25519KeyShare)
-	clientHello[10] = []byte{0x00, 0x00} // extensions length 403
-	binary.BigEndian.PutUint16(clientHello[10], uint16(len(clientHello[11])))
+	clientHello[0] = []byte{0x01}                                                                                       // handshake type
+	clientHello[1] = []byte{0x00, 0x01, 0xfc}                                                                           // length 508
+	clientHello[2] = []byte{0x03, 0x03}                                                                                 // client version
+	clientHello[3] = hd.random                                                                                          // random
+	clientHello[4] = []byte{0x20}                                                                                       // session id length 32
+	clientHello[5] = hd.sessionId                                                                                       // session id
+	clientHello[6] = []byte{0x00, 0x20}                                                                                 // cipher suites length 32
+	clientHello[7] = append(makeGREASE(), decodeHex("130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035")...) // cipher suites
+	clientHello[8] = []byte{0x01}                                                                                       // compression methods length 1
+	clientHello[9] = []byte{0x00}                                                                                       // compression methods
+
+	extensions := c.composeExtensions(hd.serverName, hd.x25519KeyShare)
+	clientHello[10] = []byte{0x00, 0x00}
+	binary.BigEndian.PutUint16(clientHello[10], uint16(len(extensions))) // extension length
+	clientHello[11] = extensions
+
 	var ret []byte
 	for _, c := range clientHello {
 		ret = append(ret, c...)
