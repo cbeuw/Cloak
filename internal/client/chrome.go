@@ -4,9 +4,8 @@ package client
 
 import (
 	"encoding/binary"
-	"math/rand"
-
 	"github.com/cbeuw/Cloak/internal/common"
+	"math/rand"
 )
 
 type Chrome struct{}
@@ -49,8 +48,9 @@ func (c *Chrome) composeExtensions(serverName string, keyShare []byte) []byte {
 		var qword [8]byte
 		common.CryptoRandRead(qword[:])
 		seed := int64(binary.BigEndian.Uint64(qword[:]))
-		rand.Seed(seed)
-		rand.Shuffle(len(exts), func(i, j int) { exts[i], exts[j] = exts[j], exts[i] })
+		source := rand.NewSource(seed)
+		r := rand.New(source)
+		r.Shuffle(len(exts), func(i, j int) { exts[i], exts[j] = exts[j], exts[i] })
 	}
 
 	// extension length is always 403, and server name length is variable
@@ -58,7 +58,8 @@ func (c *Chrome) composeExtensions(serverName string, keyShare []byte) []byte {
 	ext[0] = addExtRec(makeGREASE(), nil) // First GREASE
 
 	// Start shufflable extensions: https://chromestatus.com/feature/5124606246518784
-	ext[1] = addExtRec([]byte{0x00, 0x00}, generateSNI(serverName))                           // server name indication
+	ext[1] = addExtRec([]byte{0x00, 0x00}, generateSNI(serverName)) // server name indication
+	sniLen := len(ext[1])
 	ext[2] = addExtRec([]byte{0x00, 0x17}, nil)                                               // extended_master_secret
 	ext[3] = addExtRec([]byte{0xff, 0x01}, []byte{0x00})                                      // renegotiation_info
 	ext[4] = addExtRec([]byte{0x00, 0x0a}, makeSupportedGroups())                             // supported groups
@@ -80,12 +81,12 @@ func (c *Chrome) composeExtensions(serverName string, keyShare []byte) []byte {
 	shuffle(ext[1:16])
 
 	ext[16] = addExtRec(makeGREASE(), []byte{0x00}) // Last GREASE
-	// len(ext[1]) + len(all other ext) + len(ext[17]) = 403
+	// sniLen + len(all other ext) + len(ext[17]) = 403
 	// len(all other ext) = 175
-	// len(ext[17]) = 228 - len(ext[1])
-	// 2+2+len(padding) = 228 - len(ext[1])
-	// len(padding) = 224 - len(ext[1])
-	ext[17] = addExtRec([]byte{0x00, 0x15}, make([]byte, 224-len(ext[1]))) // padding
+	// len(ext[17]) = 228 - sniLen
+	// 2+2+len(padding) = 228 - sniLen
+	// len(padding) = 224 - sniLen
+	ext[17] = addExtRec([]byte{0x00, 0x15}, make([]byte, 224-sniLen)) // padding
 	var ret []byte
 	for _, e := range ext {
 		ret = append(ret, e...)

@@ -34,6 +34,7 @@ func TestMakeGREASE(t *testing.T) {
 
 func TestChromeJA3(t *testing.T) {
 	result := common.AddRecordLayer((&Chrome{}).composeClientHello(hd), common.Handshake, common.VersionTLS11)
+	assert.Equal(t, 517, len(result))
 
 	hello := tlsx.ClientHelloBasic{}
 	err := hello.Unmarshal(result)
