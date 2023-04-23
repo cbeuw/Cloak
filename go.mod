@@ -4,8 +4,6 @@ go 1.14
 
 require (
 	github.com/cbeuw/connutil v0.0.0-20200411215123-966bfaa51ee3
-	github.com/dreadl0ck/ja3 v1.0.4
-	github.com/dreadl0ck/tlsx v1.0.1-google-gopacket
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/juju/ratelimit v1.0.1

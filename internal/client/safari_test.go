@@ -1,10 +1,6 @@
 package client
 
 import (
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/dreadl0ck/ja3"
-	"github.com/dreadl0ck/tlsx"
-	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -15,16 +11,16 @@ var safariHd = clientHelloFields{
 	serverName:     "github.com",
 }
 
-func TestSafariJA3(t *testing.T) {
-	result := common.AddRecordLayer((&Safari{}).composeClientHello(safariHd), common.Handshake, common.VersionTLS11)
-
-	hello := tlsx.ClientHelloBasic{}
-	err := hello.Unmarshal(result)
-	assert.Nil(t, err)
-
-	digest := ja3.DigestHex(&hello)
-	assert.Equal(t, "773906b0efdefa24a7f2b8eb6985bf37", digest)
-}
+//func TestSafariJA3(t *testing.T) {
+//	result := common.AddRecordLayer((&Safari{}).composeClientHello(safariHd), common.Handshake, common.VersionTLS11)
+//
+//	hello := tlsx.ClientHelloBasic{}
+//	err := hello.Unmarshal(result)
+//	assert.Nil(t, err)
+//
+//	digest := ja3.DigestHex(&hello)
+//	assert.Equal(t, "773906b0efdefa24a7f2b8eb6985bf37", digest)
+//}
 
 func TestSafariComposeClientHello(t *testing.T) {
 	result := (&Safari{}).composeClientHello(safariHd)

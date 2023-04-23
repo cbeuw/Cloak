@@ -121,7 +121,7 @@ var singleplexTCPConfig = client.RawConfig{
 	RemotePort:       "9999",
 	LocalHost:        "127.0.0.1",
 	LocalPort:        "9999",
-	BrowserSig:       "chrome",
+	BrowserSig:       "safari",
 }
 
 func generateClientConfigs(rawConfig client.RawConfig, state common.WorldState) (client.LocalConnConfig, client.RemoteConnConfig, client.AuthInfo) {

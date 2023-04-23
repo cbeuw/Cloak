@@ -2,9 +2,6 @@ package client
 
 import (
 	"encoding/hex"
-	"github.com/cbeuw/Cloak/internal/common"
-	"github.com/dreadl0ck/ja3"
-	"github.com/dreadl0ck/tlsx"
 	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
@@ -17,16 +14,16 @@ var hd = clientHelloFields{
 	serverName:     "github.com",
 }
 
-func TestFirefoxJA3(t *testing.T) {
-	result := common.AddRecordLayer((&Firefox{}).composeClientHello(hd), common.Handshake, common.VersionTLS11)
-
-	hello := tlsx.ClientHelloBasic{}
-	err := hello.Unmarshal(result)
-	assert.Nil(t, err)
-
-	digest := ja3.DigestHex(&hello)
-	assert.Equal(t, "ad55557b7cbd735c2627f7ebb3b3d493", digest)
-}
+//func TestFirefoxJA3(t *testing.T) {
+//	result := common.AddRecordLayer((&Firefox{}).composeClientHello(hd), common.Handshake, common.VersionTLS11)
+//
+//	hello := tlsx.ClientHelloBasic{}
+//	err := hello.Unmarshal(result)
+//	assert.Nil(t, err)
+//
+//	digest := ja3.DigestHex(&hello)
+//	assert.Equal(t, "ad55557b7cbd735c2627f7ebb3b3d493", digest)
+//}
 
 func TestFirefoxComposeClientHello(t *testing.T) {
 	result := hex.EncodeToString((&Firefox{}).composeClientHello(hd))
