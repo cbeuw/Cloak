@@ -31,3 +31,5 @@ pushd cmd/ck-server || exit 1
 CGO_ENABLED=0 gox -ldflags "-X main.version=${v}" -os="$os" -arch="$arch" -osarch="$osarch" -output="$output"
 mv ck-server-* ../../release
 popd
+
+sha256sum release/*
