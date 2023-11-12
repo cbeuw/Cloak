@@ -96,17 +96,6 @@ func (s *Stream) Read(buf []byte) (n int, err error) {
 	return
 }
 
-// WriteTo continuously write data Stream has received into the writer w.
-func (s *Stream) WriteTo(w io.Writer) (int64, error) {
-	// will keep writing until the underlying buffer is closed
-	n, err := s.recvBuf.WriteTo(w)
-	log.Tracef("%v read from stream %v with err %v", n, s.id, err)
-	if err == io.EOF {
-		return n, ErrBrokenStream
-	}
-	return n, nil
-}
-
 func (s *Stream) obfuscateAndSend(buf []byte, payloadOffsetInBuf int) error {
 	cipherTextLen, err := s.session.obfuscate(&s.writingFrame, buf, payloadOffsetInBuf)
 	s.writingFrame.Seq++
@@ -210,7 +199,6 @@ func (s *Stream) Close() error {
 func (s *Stream) LocalAddr() net.Addr  { return s.session.addrs.Load().([]net.Addr)[0] }
 func (s *Stream) RemoteAddr() net.Addr { return s.session.addrs.Load().([]net.Addr)[1] }
 
-func (s *Stream) SetWriteToTimeout(d time.Duration)  { s.recvBuf.SetWriteToTimeout(d) }
 func (s *Stream) SetReadDeadline(t time.Time) error  { s.recvBuf.SetReadDeadline(t); return nil }
 func (s *Stream) SetReadFromTimeout(d time.Duration) { s.readFromTimeout = d }
 

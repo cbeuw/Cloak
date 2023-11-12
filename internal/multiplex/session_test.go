@@ -557,7 +557,7 @@ func BenchmarkRecvDataFromRemote(b *testing.B) {
 
 					go func() {
 						stream, _ := sesh.Accept()
-						stream.(*Stream).WriteTo(ioutil.Discard)
+						io.Copy(ioutil.Discard, stream)
 					}()
 
 					binaryFrames := [maxIter][]byte{}

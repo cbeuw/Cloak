@@ -66,46 +66,6 @@ func (d *datagramBufferedPipe) Read(target []byte) (int, error) {
 	return dataLen, nil
 }
 
-func (d *datagramBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
-	d.rwCond.L.Lock()
-	defer d.rwCond.L.Unlock()
-	for {
-		if d.closed && len(d.pLens) == 0 {
-			return 0, io.EOF
-		}
-
-		hasRDeadline := !d.rDeadline.IsZero()
-		if hasRDeadline {
-			if time.Until(d.rDeadline) <= 0 {
-				return 0, ErrTimeout
-			}
-		}
-
-		if len(d.pLens) > 0 {
-			var dataLen int
-			dataLen, d.pLens = d.pLens[0], d.pLens[1:]
-			written, er := w.Write(d.buf.Next(dataLen))
-			n += int64(written)
-			if er != nil {
-				d.rwCond.Broadcast()
-				return n, er
-			}
-			d.rwCond.Broadcast()
-		} else {
-			if d.wtTimeout == 0 {
-				if hasRDeadline {
-					d.broadcastAfter(time.Until(d.rDeadline))
-				}
-			} else {
-				d.rDeadline = time.Now().Add(d.wtTimeout)
-				d.broadcastAfter(d.wtTimeout)
-			}
-
-			d.rwCond.Wait()
-		}
-	}
-}
-
 func (d *datagramBufferedPipe) Write(f *Frame) (toBeClosed bool, err error) {
 	d.rwCond.L.Lock()
 	defer d.rwCond.L.Unlock()
@@ -148,14 +108,6 @@ func (d *datagramBufferedPipe) SetReadDeadline(t time.Time) {
 	defer d.rwCond.L.Unlock()
 
 	d.rDeadline = t
-	d.rwCond.Broadcast()
-}
-
-func (d *datagramBufferedPipe) SetWriteToTimeout(t time.Duration) {
-	d.rwCond.L.Lock()
-	defer d.rwCond.L.Unlock()
-
-	d.wtTimeout = t
 	d.rwCond.Broadcast()
 }
 

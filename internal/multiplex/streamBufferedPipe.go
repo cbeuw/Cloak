@@ -58,43 +58,6 @@ func (p *streamBufferedPipe) Read(target []byte) (int, error) {
 	return n, err
 }
 
-func (p *streamBufferedPipe) WriteTo(w io.Writer) (n int64, err error) {
-	p.rwCond.L.Lock()
-	defer p.rwCond.L.Unlock()
-	for {
-		if p.closed && p.buf.Len() == 0 {
-			return 0, io.EOF
-		}
-
-		hasRDeadline := !p.rDeadline.IsZero()
-		if hasRDeadline {
-			if time.Until(p.rDeadline) <= 0 {
-				return 0, ErrTimeout
-			}
-		}
-		if p.buf.Len() > 0 {
-			written, er := p.buf.WriteTo(w)
-			n += written
-			if er != nil {
-				p.rwCond.Broadcast()
-				return n, er
-			}
-			p.rwCond.Broadcast()
-		} else {
-			if p.wtTimeout == 0 {
-				if hasRDeadline {
-					p.broadcastAfter(time.Until(p.rDeadline))
-				}
-			} else {
-				p.rDeadline = time.Now().Add(p.wtTimeout)
-				p.broadcastAfter(p.wtTimeout)
-			}
-
-			p.rwCond.Wait()
-		}
-	}
-}
-
 func (p *streamBufferedPipe) Write(input []byte) (int, error) {
 	p.rwCond.L.Lock()
 	defer p.rwCond.L.Unlock()
@@ -128,14 +91,6 @@ func (p *streamBufferedPipe) SetReadDeadline(t time.Time) {
 	defer p.rwCond.L.Unlock()
 
 	p.rDeadline = t
-	p.rwCond.Broadcast()
-}
-
-func (p *streamBufferedPipe) SetWriteToTimeout(d time.Duration) {
-	p.rwCond.L.Lock()
-	defer p.rwCond.L.Unlock()
-
-	p.wtTimeout = d
 	p.rwCond.Broadcast()
 }
 

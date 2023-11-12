@@ -13,7 +13,6 @@ package multiplex
 import (
 	"container/heap"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 )
@@ -102,10 +101,6 @@ func (sb *streamBuffer) Read(buf []byte) (int, error) {
 	return sb.buf.Read(buf)
 }
 
-func (sb *streamBuffer) WriteTo(w io.Writer) (int64, error) {
-	return sb.buf.WriteTo(w)
-}
-
 func (sb *streamBuffer) Close() error {
 	sb.recvM.Lock()
 	defer sb.recvM.Unlock()
@@ -113,5 +108,4 @@ func (sb *streamBuffer) Close() error {
 	return sb.buf.Close()
 }
 
-func (sb *streamBuffer) SetReadDeadline(t time.Time)       { sb.buf.SetReadDeadline(t) }
-func (sb *streamBuffer) SetWriteToTimeout(d time.Duration) { sb.buf.SetWriteToTimeout(d) }
+func (sb *streamBuffer) SetReadDeadline(t time.Time) { sb.buf.SetReadDeadline(t) }

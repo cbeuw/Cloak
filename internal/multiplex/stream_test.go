@@ -3,7 +3,6 @@ package multiplex
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"testing"
 	"time"
@@ -360,31 +359,6 @@ func TestStream_Read(t *testing.T) {
 						"got nil error")
 				}
 			})
-		})
-	}
-}
-
-func TestStream_SetWriteToTimeout(t *testing.T) {
-	seshes := map[string]*Session{
-		"ordered":   setupSesh(false, emptyKey, EncryptionMethodPlain),
-		"unordered": setupSesh(true, emptyKey, EncryptionMethodPlain),
-	}
-	for name, sesh := range seshes {
-		t.Run(name, func(t *testing.T) {
-			stream, _ := sesh.OpenStream()
-			stream.SetWriteToTimeout(100 * time.Millisecond)
-			done := make(chan struct{})
-			go func() {
-				stream.WriteTo(ioutil.Discard)
-				done <- struct{}{}
-			}()
-
-			select {
-			case <-done:
-				return
-			case <-time.After(500 * time.Millisecond):
-				t.Error("didn't timeout")
-			}
 		})
 	}
 }
