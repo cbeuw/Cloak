@@ -118,6 +118,13 @@ This field also has no effect if `AdminUID` isn't a valid UID or is empty.
 `KeepAlive` is the number of seconds to tell the OS to wait after no activity before sending TCP KeepAlive probes to the
 upstream proxy server. Zero or negative value disables it. Default is 0 (disabled).
 
+`LoopbackTcpSendBuffer` is the number of bytes to use for the tcp loopback send buffer. Use a low value like 4096 for a server-to-server bridge.
+
+`LoopbackTcpReceiveBuffer` is the number of bytes to use for the tcp loopback receive buffer. Use a low value like 4096 for a server-to-server bridge.
+
+These 2 options are not normally needed except when setting up a tcp server-to-server bridge using a shadowsocks or similar tcp server in the `ProxyBook` to reduce tcp performance degradation due to bufferbloat across the bridge.
+
+
 ### Client
 
 `UID` is your UID in base64.
@@ -178,6 +185,14 @@ more detectable as a proxy, but it will make the Cloak client detect internet in
 `StreamTimeout` is the number of seconds of Cloak waits for an incoming connection from a proxy program to send any
 data, after which the connection will be closed by Cloak. Cloak will not enforce any timeout on TCP connections after it
 is established.
+
+`LoopbackTcpSendBuffer` is the number of bytes to use for the tcp loopback send buffer. Use a low value like 4096 to reduce upload bufferbloat on client.
+
+`LoopbackTcpReceiveBuffer` is the number of bytes to use for the tcp loopback receive buffer. Use a low value like 4096 to reduce download bufferbloat on client if the server is very close (low ping).
+
+`RemoteTcpSendBuffer` is the number of bytes to use for the tcp remote send buffer. Use a low value like 4096 for a server-to-server bridge.
+
+`RemoteTcpReceiveBuffer` is the number of bytes to use for the tcp remote receive buffer. Use a low value like 4096 for a server-to-server bridge.
 
 ## Setup
 
