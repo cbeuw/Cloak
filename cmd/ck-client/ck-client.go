@@ -8,10 +8,10 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"github.com/cbeuw/Cloak/internal/common"
 	"net"
 	"os"
-
-	"github.com/cbeuw/Cloak/internal/common"
+	"syscall"
 
 	"github.com/cbeuw/Cloak/internal/client"
 	mux "github.com/cbeuw/Cloak/internal/multiplex"
@@ -154,7 +154,37 @@ func main() {
 
 	var seshMaker func() *mux.Session
 
-	d := &net.Dialer{Control: protector, KeepAlive: remoteConfig.KeepAlive}
+	control := func(network string, address string, rawConn syscall.RawConn) error {
+		if !authInfo.Unordered {
+			sendBufferSize := remoteConfig.TcpSendBuffer
+			receiveBufferSize := remoteConfig.TcpReceiveBuffer
+
+			err := rawConn.Control(func(fd uintptr) {
+				if sendBufferSize > 0 {
+					log.Debugf("Setting remote connection tcp send buffer: %d", sendBufferSize)
+					err := syscall.SetsockoptInt(common.Platformfd(fd), syscall.SOL_SOCKET, syscall.SO_SNDBUF, sendBufferSize)
+					if err != nil {
+						log.Errorf("setsocketopt SO_SNDBUF: %s\n", err)
+					}
+				}
+
+				if receiveBufferSize > 0 {
+					log.Debugf("Setting remote connection tcp receive buffer: %d", receiveBufferSize)
+					err = syscall.SetsockoptInt(common.Platformfd(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, receiveBufferSize)
+					if err != nil {
+						log.Errorf("setsocketopt SO_RCVBUF: %s\n", err)
+					}
+				}
+			})
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		return protector(network, address, rawConn)
+	}
+
+	d := &net.Dialer{Control: control, KeepAlive: remoteConfig.KeepAlive}
 
 	if adminUID != nil {
 		log.Infof("API base is %v", localConfig.LocalAddr)
@@ -199,8 +229,43 @@ func main() {
 	} else {
 		listener, err := net.Listen("tcp", localConfig.LocalAddr)
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
+
+		tcpListener, ok := listener.(*net.TCPListener)
+		if !ok {
+			panic("Unknown listener type")
+		}
+
+		syscallConn, err := tcpListener.SyscallConn()
+		if err != nil {
+			panic(err)
+		}
+
+		sendBufferSize := localConfig.TcpSendBuffer
+		receiveBufferSize := localConfig.TcpReceiveBuffer
+
+		err = syscallConn.Control(func(fd uintptr) {
+			if sendBufferSize > 0 {
+				log.Debugf("Setting remote connection tcp send buffer: %d", sendBufferSize)
+				err := syscall.SetsockoptInt(common.Platformfd(fd), syscall.SOL_SOCKET, syscall.SO_SNDBUF, sendBufferSize)
+				if err != nil {
+					log.Errorf("setsocketopt SO_SNDBUF: %s\n", err)
+				}
+			}
+
+			if receiveBufferSize > 0 {
+				log.Debugf("Setting remote connection tcp receive buffer: %d", receiveBufferSize)
+				err = syscall.SetsockoptInt(common.Platformfd(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, receiveBufferSize)
+				if err != nil {
+					log.Errorf("setsocketopt SO_RCVBUF: %s\n", err)
+				}
+			}
+		})
+		if err != nil {
+			panic(err)
+		}
+
 		client.RouteTCP(listener, localConfig.Timeout, remoteConfig.Singleplex, seshMaker)
 	}
 }
