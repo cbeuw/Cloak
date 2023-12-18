@@ -12,6 +12,6 @@ require (
 	github.com/stretchr/testify v1.6.1
 	gitlab.com/yawning/utls.git v0.0.12-1
 	go.etcd.io/bbolt v1.3.6
-	golang.org/x/crypto v0.1.0
+	golang.org/x/crypto v0.17.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 )
