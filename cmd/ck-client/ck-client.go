@@ -155,30 +155,28 @@ func main() {
 	var seshMaker func() *mux.Session
 
 	control := func(network string, address string, rawConn syscall.RawConn) error {
-		if !authInfo.Unordered {
-			sendBufferSize := remoteConfig.TcpSendBuffer
-			receiveBufferSize := remoteConfig.TcpReceiveBuffer
+		sendBufferSize := remoteConfig.TcpSendBuffer
+		receiveBufferSize := remoteConfig.TcpReceiveBuffer
 
-			err := rawConn.Control(func(fd uintptr) {
-				if sendBufferSize > 0 {
-					log.Debugf("Setting remote connection tcp send buffer: %d", sendBufferSize)
-					err := syscall.SetsockoptInt(common.Platformfd(fd), syscall.SOL_SOCKET, syscall.SO_SNDBUF, sendBufferSize)
-					if err != nil {
-						log.Errorf("setsocketopt SO_SNDBUF: %s\n", err)
-					}
+		err := rawConn.Control(func(fd uintptr) {
+			if sendBufferSize > 0 {
+				log.Debugf("Setting remote connection tcp send buffer: %d", sendBufferSize)
+				err := syscall.SetsockoptInt(common.Platformfd(fd), syscall.SOL_SOCKET, syscall.SO_SNDBUF, sendBufferSize)
+				if err != nil {
+					log.Errorf("setsocketopt SO_SNDBUF: %s\n", err)
 				}
-
-				if receiveBufferSize > 0 {
-					log.Debugf("Setting remote connection tcp receive buffer: %d", receiveBufferSize)
-					err = syscall.SetsockoptInt(common.Platformfd(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, receiveBufferSize)
-					if err != nil {
-						log.Errorf("setsocketopt SO_RCVBUF: %s\n", err)
-					}
-				}
-			})
-			if err != nil {
-				panic(err)
 			}
+
+			if receiveBufferSize > 0 {
+				log.Debugf("Setting remote connection tcp receive buffer: %d", receiveBufferSize)
+				err = syscall.SetsockoptInt(common.Platformfd(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, receiveBufferSize)
+				if err != nil {
+					log.Errorf("setsocketopt SO_RCVBUF: %s\n", err)
+				}
+			}
+		})
+		if err != nil {
+			panic(err)
 		}
 
 		return protector(network, address, rawConn)
