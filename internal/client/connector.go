@@ -34,8 +34,8 @@ func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.D
 			transportConn := connConfig.TransportMaker()
 			sk, err := transportConn.Handshake(remoteConn, authInfo)
 			if err != nil {
-				transportConn.Close()
 				log.Errorf("Failed to prepare connection to remote: %v", err)
+				transportConn.Close()
 				time.Sleep(time.Second * 3)
 				goto makeconn
 			}
