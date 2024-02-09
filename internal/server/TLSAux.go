@@ -164,12 +164,12 @@ func parseClientHello(data []byte) (ret *ClientHello, err error) {
 func composeServerHello(sessionId []byte, nonce [12]byte, encryptedSessionKeyWithTag [48]byte) []byte {
 	var serverHello [11][]byte
 	serverHello[0] = []byte{0x02}                                             // handshake type
-	serverHello[1] = []byte{0x00, 0x00, 0x76}                                 // length 77
+	serverHello[1] = []byte{0x00, 0x00, 0x76}                                 // length 118
 	serverHello[2] = []byte{0x03, 0x03}                                       // server version
 	serverHello[3] = append(nonce[0:12], encryptedSessionKeyWithTag[0:20]...) // random 32 bytes
 	serverHello[4] = []byte{0x20}                                             // session id length 32
 	serverHello[5] = sessionId                                                // session id
-	serverHello[6] = []byte{0xc0, 0x30}                                       // cipher suite TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+	serverHello[6] = []byte{0x13, 0x02}                                       // cipher suite TLS_AES_256_GCM_SHA384
 	serverHello[7] = []byte{0x00}                                             // compression method null
 	serverHello[8] = []byte{0x00, 0x2e}                                       // extensions length 46
 
