@@ -10,7 +10,7 @@ import (
 
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/gorilla/websocket"
-	utls "gitlab.com/yawning/utls.git"
+	utls "github.com/refraction-networking/utls"
 )
 
 type WSOverTLS struct {

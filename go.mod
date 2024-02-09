@@ -10,7 +10,6 @@ require (
 	github.com/refraction-networking/utls v1.6.2
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.1
-	gitlab.com/yawning/utls.git v0.0.12-1
 	go.etcd.io/bbolt v1.3.8
 	golang.org/x/crypto v0.19.0
 	golang.org/x/net v0.21.0 // indirect
