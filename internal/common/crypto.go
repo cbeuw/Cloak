@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"io"
+	"math/big"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -52,8 +53,8 @@ func CryptoRandRead(buf []byte) {
 	RandRead(rand.Reader, buf)
 }
 
-func RandRead(randSource io.Reader, buf []byte) {
-	_, err := randSource.Read(buf)
+func backoff(f func() error) {
+	err := f()
 	if err == nil {
 		return
 	}
@@ -61,12 +62,36 @@ func RandRead(randSource io.Reader, buf []byte) {
 		100 * time.Millisecond, 300 * time.Millisecond, 500 * time.Millisecond, 1 * time.Second,
 		3 * time.Second, 5 * time.Second}
 	for i := 0; i < 10; i++ {
-		log.Errorf("Failed to get random bytes: %v. Retrying...", err)
-		_, err = randSource.Read(buf)
+		log.Errorf("Failed to get random: %v. Retrying...", err)
+		err = f()
 		if err == nil {
 			return
 		}
 		time.Sleep(waitDur[i])
 	}
-	log.Fatal("Cannot get random bytes after 10 retries")
+	log.Fatal("Cannot get random after 10 retries")
+}
+
+func RandRead(randSource io.Reader, buf []byte) {
+	backoff(func() error {
+		_, err := randSource.Read(buf)
+		return err
+	})
+}
+
+func RandItem[T any](list []T) T {
+	return list[RandInt(len(list))]
+}
+
+func RandInt(n int) int {
+	s := new(int)
+	backoff(func() error {
+		size, err := rand.Int(rand.Reader, big.NewInt(int64(n)))
+		if err != nil {
+			return err
+		}
+		*s = int(size.Int64())
+		return nil
+	})
+	return *s
 }

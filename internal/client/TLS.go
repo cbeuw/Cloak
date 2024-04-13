@@ -1,16 +1,11 @@
 package client
 
 import (
-	cryptoRand "crypto/rand"
+	"github.com/cbeuw/Cloak/internal/common"
 	utls "github.com/refraction-networking/utls"
 	log "github.com/sirupsen/logrus"
-	"math/big"
-	"math/rand"
 	"net"
 	"strings"
-	"time"
-
-	"github.com/cbeuw/Cloak/internal/common"
 )
 
 const appDataMaxLength = 16401
@@ -40,26 +35,12 @@ var topLevelDomains = []string{"com", "net", "org", "it", "fr", "me", "ru", "cn"
 // https://github.com/ProtonVPN/wireguard-go/commit/bcf344b39b213c1f32147851af0d2a8da9266883
 func randomServerName() string {
 	charNum := int('z') - int('a') + 1
-	size := 3 + randInt(10)
+	size := 3 + common.RandInt(10)
 	name := make([]byte, size)
 	for i := range name {
-		name[i] = byte(int('a') + randInt(charNum))
+		name[i] = byte(int('a') + common.RandInt(charNum))
 	}
-	return string(name) + "." + randItem(topLevelDomains)
-}
-
-func randItem(list []string) string {
-	return list[randInt(len(list))]
-}
-
-func randInt(n int) int {
-	size, err := cryptoRand.Int(cryptoRand.Reader, big.NewInt(int64(n)))
-	if err == nil {
-		return int(size.Int64())
-	}
-	//goland:noinspection GoDeprecation
-	rand.Seed(time.Now().UnixNano())
-	return rand.Intn(n)
+	return string(name) + "." + common.RandItem(topLevelDomains)
 }
 
 func buildClientHello(browser browser, fields clientHelloFields) ([]byte, error) {
