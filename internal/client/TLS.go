@@ -32,8 +32,29 @@ type DirectTLS struct {
 
 var topLevelDomains = []string{"com", "net", "org", "it", "fr", "me", "ru", "cn", "es", "tr", "top", "xyz", "info"}
 
-// https://github.com/ProtonVPN/wireguard-go/commit/bcf344b39b213c1f32147851af0d2a8da9266883
 func randomServerName() string {
+	/*
+		Copyright: Proton AG
+		https://github.com/ProtonVPN/wireguard-go/commit/bcf344b39b213c1f32147851af0d2a8da9266883
+
+		Permission is hereby granted, free of charge, to any person obtaining a copy of
+		this software and associated documentation files (the "Software"), to deal in
+		the Software without restriction, including without limitation the rights to
+		use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+		of the Software, and to permit persons to whom the Software is furnished to do
+		so, subject to the following conditions:
+
+		The above copyright notice and this permission notice shall be included in all
+		copies or substantial portions of the Software.
+
+		THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+		IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+		FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+		AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+		LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+		OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+		SOFTWARE.
+	*/
 	charNum := int('z') - int('a') + 1
 	size := 3 + common.RandInt(10)
 	name := make([]byte, size)
