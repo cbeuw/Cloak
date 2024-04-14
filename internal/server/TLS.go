@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 
 	"github.com/cbeuw/Cloak/internal/common"
@@ -46,8 +45,7 @@ func (TLS) makeResponder(clientHelloSessionId []byte, sharedSecret [32]byte) Res
 		// the cert length needs to be the same for all handshakes belonging to the same session
 		// we can use sessionKey as a seed here to ensure consistency
 		possibleCertLengths := []int{42, 27, 68, 59, 36, 44, 46}
-		rand.Seed(int64(sessionKey[0]))
-		cert := make([]byte, possibleCertLengths[rand.Intn(len(possibleCertLengths))])
+		cert := make([]byte, possibleCertLengths[common.RandInt(len(possibleCertLengths))])
 		common.RandRead(randSource, cert)
 
 		var nonce [12]byte
