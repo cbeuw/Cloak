@@ -265,6 +265,7 @@ func (sesh *Session) recvDataFromRemote(data []byte) error {
 }
 
 func (sesh *Session) SetTerminalMsg(msg string) {
+	log.Debug("terminal message set to " + msg)
 	sesh.terminalMsgSetter.Do(func() {
 		sesh.terminalMsg = msg
 	})
