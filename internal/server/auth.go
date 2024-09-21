@@ -61,7 +61,7 @@ func decryptClientInfo(fragments authFragments, serverTime time.Time) (info Clie
 
 var ErrReplay = errors.New("duplicate random")
 var ErrBadProxyMethod = errors.New("invalid proxy method")
-var ErrBadDecryption = errors.New("decryption/authentication faliure")
+var ErrBadDecryption = errors.New("decryption/authentication failure")
 
 // AuthFirstPacket checks if the first packet of data is ClientHello or HTTP GET, and checks if it was from a Cloak client
 // if it is from a Cloak client, it returns the ClientInfo with the decrypted fields. It doesn't check if the user
