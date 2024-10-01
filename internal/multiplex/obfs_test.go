@@ -85,7 +85,6 @@ func TestObfuscate(t *testing.T) {
 		o := Obfuscator{
 			payloadCipher: nil,
 			sessionKey:    sessionKey,
-			maxOverhead:   salsa20NonceSize,
 		}
 		runTest(t, o)
 	})
@@ -98,7 +97,6 @@ func TestObfuscate(t *testing.T) {
 		o := Obfuscator{
 			payloadCipher: payloadCipher,
 			sessionKey:    sessionKey,
-			maxOverhead:   payloadCipher.Overhead(),
 		}
 		runTest(t, o)
 	})
@@ -111,7 +109,6 @@ func TestObfuscate(t *testing.T) {
 		o := Obfuscator{
 			payloadCipher: payloadCipher,
 			sessionKey:    sessionKey,
-			maxOverhead:   payloadCipher.Overhead(),
 		}
 		runTest(t, o)
 	})
@@ -122,7 +119,6 @@ func TestObfuscate(t *testing.T) {
 		o := Obfuscator{
 			payloadCipher: payloadCipher,
 			sessionKey:    sessionKey,
-			maxOverhead:   payloadCipher.Overhead(),
 		}
 		runTest(t, o)
 	})
@@ -150,7 +146,6 @@ func BenchmarkObfs(b *testing.B) {
 		obfuscator := Obfuscator{
 			payloadCipher: payloadCipher,
 			sessionKey:    key,
-			maxOverhead:   payloadCipher.Overhead(),
 		}
 
 		b.SetBytes(int64(len(testFrame.Payload)))
@@ -166,7 +161,6 @@ func BenchmarkObfs(b *testing.B) {
 		obfuscator := Obfuscator{
 			payloadCipher: payloadCipher,
 			sessionKey:    key,
-			maxOverhead:   payloadCipher.Overhead(),
 		}
 		b.SetBytes(int64(len(testFrame.Payload)))
 		b.ResetTimer()
@@ -178,7 +172,6 @@ func BenchmarkObfs(b *testing.B) {
 		obfuscator := Obfuscator{
 			payloadCipher: nil,
 			sessionKey:    key,
-			maxOverhead:   salsa20NonceSize,
 		}
 		b.SetBytes(int64(len(testFrame.Payload)))
 		b.ResetTimer()
@@ -192,7 +185,6 @@ func BenchmarkObfs(b *testing.B) {
 		obfuscator := Obfuscator{
 			payloadCipher: payloadCipher,
 			sessionKey:    key,
-			maxOverhead:   payloadCipher.Overhead(),
 		}
 		b.SetBytes(int64(len(testFrame.Payload)))
 		b.ResetTimer()
@@ -222,7 +214,6 @@ func BenchmarkDeobfs(b *testing.B) {
 		obfuscator := Obfuscator{
 			payloadCipher: payloadCipher,
 			sessionKey:    key,
-			maxOverhead:   payloadCipher.Overhead(),
 		}
 
 		n, _ := obfuscator.obfuscate(testFrame, obfsBuf, 0)
@@ -241,7 +232,6 @@ func BenchmarkDeobfs(b *testing.B) {
 		obfuscator := Obfuscator{
 			payloadCipher: payloadCipher,
 			sessionKey:    key,
-			maxOverhead:   payloadCipher.Overhead(),
 		}
 		n, _ := obfuscator.obfuscate(testFrame, obfsBuf, 0)
 
@@ -256,7 +246,6 @@ func BenchmarkDeobfs(b *testing.B) {
 		obfuscator := Obfuscator{
 			payloadCipher: nil,
 			sessionKey:    key,
-			maxOverhead:   salsa20NonceSize,
 		}
 		n, _ := obfuscator.obfuscate(testFrame, obfsBuf, 0)
 
@@ -271,9 +260,8 @@ func BenchmarkDeobfs(b *testing.B) {
 		payloadCipher, _ := chacha20poly1305.New(key[:])
 
 		obfuscator := Obfuscator{
-			payloadCipher: nil,
+			payloadCipher: payloadCipher,
 			sessionKey:    key,
-			maxOverhead:   payloadCipher.Overhead(),
 		}
 
 		n, _ := obfuscator.obfuscate(testFrame, obfsBuf, 0)
