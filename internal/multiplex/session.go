@@ -108,7 +108,7 @@ func MakeSession(id uint32, config SessionConfig) *Session {
 		sesh.InactivityTimeout = defaultInactivityTimeout
 	}
 
-	sesh.maxStreamUnitWrite = sesh.MsgOnWireSizeLimit - frameHeaderLength - sesh.maxOverhead
+	sesh.maxStreamUnitWrite = sesh.MsgOnWireSizeLimit - frameHeaderLength - maxExtraLen
 	sesh.streamSendBufferSize = sesh.MsgOnWireSizeLimit
 	sesh.connReceiveBufferSize = 20480 // for backwards compatibility
 
