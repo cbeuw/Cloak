@@ -7,11 +7,85 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '^1.22' # The Go version to download (if necessary) and use.
       - run: go test -race -coverprofile coverage.txt -coverpkg ./... -covermode atomic ./...
-      - uses: codecov/codecov-action@v1
+      - uses: codecov/codecov-action@v4
         with:
-          file: coverage.txt
+          files: coverage.txt
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  compat-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        encryption-method: [ plain, chacha20-poly1305 ]
+        num-conn: [ 0, 1, 4 ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '^1.22'
+      - name: Build Cloak
+        run: make
+      - name: Create configs
+        run: |
+          mkdir config
+          cat << EOF > config/ckclient.json
+            {
+              "Transport": "direct",
+              "ProxyMethod": "iperf",
+              "EncryptionMethod": "${{ matrix.encryption-method }}",
+              "UID": "Q4GAXHVgnDLXsdTpw6bmoQ==",
+              "PublicKey": "4dae/bF43FKGq+QbCc5P/E/MPM5qQeGIArjmJEHiZxc=",
+              "ServerName": "cloudflare.com",
+              "BrowserSig": "firefox",
+              "NumConn": ${{ matrix.num-conn }}
+            }
+          EOF
+          cat << EOF > config/ckserver.json
+            {
+              "ProxyBook": {
+                "iperf": [
+                  "tcp",
+                  "127.0.0.1:5201"
+                ]
+              },
+              "BindAddr": [
+                ":8443"
+              ],
+              "BypassUID": [
+                "Q4GAXHVgnDLXsdTpw6bmoQ=="
+              ],
+              "RedirAddr": "cloudflare.com",
+              "PrivateKey": "AAaskZJRPIAbiuaRLHsvZPvE6gzOeSjg+ZRg1ENau0Y="
+            }
+          EOF
+      - name: Start iperf3 server
+        run: docker run -d --name iperf-server --network host ajoergensen/iperf3:latest --server
+      - name: Test new client against old server
+        run: |
+          docker run -d --name old-cloak-server --network host -v $PWD/config:/go/Cloak/config cbeuw/cloak:latest build/ck-server -c config/ckserver.json --verbosity debug
+          build/ck-client -c config/ckclient.json -s 127.0.0.1 -p 8443 --verbosity debug | tee new-cloak-client.log &
+          docker run --network host ajoergensen/iperf3:latest --client 127.0.0.1 -p 1984
+          docker stop old-cloak-server
+      - name: Test old client against new server
+        run: |
+          build/ck-server -c config/ckserver.json --verbosity debug | tee new-cloak-server.log &
+          docker run -d --name old-cloak-client --network host -v $PWD/config:/go/Cloak/config cbeuw/cloak:latest build/ck-client -c config/ckclient.json -s 127.0.0.1 -p 8443 --verbosity debug
+          docker run --network host ajoergensen/iperf3:latest --client 127.0.0.1 -p 1984
+          docker stop old-cloak-client
+      - name: Dump docker logs
+        if: always()
+        run: |
+          docker container logs iperf-server > iperf-server.log
+          docker container logs old-cloak-server > old-cloak-server.log
+          docker container logs old-cloak-client > old-cloak-client.log
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.encryption-method }}-${{ matrix.num-conn }}-conn-logs
+          path: ./*.log
