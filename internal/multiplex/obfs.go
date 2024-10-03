@@ -3,10 +3,10 @@ package multiplex
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"encoding/binary"
 	"errors"
 	"fmt"
-
 	"github.com/cbeuw/Cloak/internal/common"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/salsa20"
@@ -14,6 +14,14 @@ import (
 
 const frameHeaderLength = 14
 const salsa20NonceSize = 8
+
+// maxExtraLen equals the max length of padding + AEAD tag.
+// It is 255 bytes because the extra len field in frame header is only one byte.
+const maxExtraLen = 1<<8 - 1
+
+// padFirstNFrames specifies the number of initial frames to pad,
+// to avoid TLS-in-TLS detection
+const padFirstNFrames = 5
 
 const (
 	EncryptionMethodPlain = iota
@@ -27,8 +35,6 @@ type Obfuscator struct {
 	payloadCipher cipher.AEAD
 
 	sessionKey [32]byte
-
-	maxOverhead int
 }
 
 // obfuscate adds multiplexing headers, encrypt and add TLS header
@@ -49,45 +55,34 @@ func (o *Obfuscator) obfuscate(f *Frame, buf []byte, payloadOffsetInBuf int) (in
 	// to be large enough that they may never happen in reasonable time frames. Of course, different sessions
 	// will produce the same combination of stream id and frame sequence, but they will have different session keys.
 	//
-	// Salsa20 is assumed to be given a unique nonce each time because we assume the tags produced by payloadCipher
-	// AEAD is unique each time, as payloadCipher itself is given a unique iv/nonce each time due to points made above.
-	// This is relatively a weak guarantee as we are assuming AEADs to produce different tags given different iv/nonces.
-	// This is almost certainly true but I cannot find a source that outright states this.
 	//
 	// Because the frame header, before it being encrypted, is fed into the AEAD, it is also authenticated.
 	// (rfc5116 s.2.1 "The nonce is authenticated internally to the algorithm").
 	//
 	// In case the user chooses to not encrypt the frame payload, payloadCipher will be nil. In this scenario,
-	// we pad the frame payload with random bytes until it reaches Salsa20's nonce size (8 bytes). Then we simply
-	// encrypt the frame header with the last 8 bytes of frame payload as nonce.
-	// If the payload provided by the user is greater than 8 bytes, then we use entirely the user input as nonce.
-	// We can't ensure its uniqueness ourselves, which is why plaintext mode must only be used when the user input
-	// is already random-like. For Cloak it would normally mean that the user is using a proxy protocol that sends
-	// encrypted data.
+	// we generate random bytes to be used as salsa20 nonce.
 	payloadLen := len(f.Payload)
 	if payloadLen == 0 {
 		return 0, errors.New("payload cannot be empty")
 	}
-	var extraLen int
-	if o.payloadCipher == nil {
-		extraLen = salsa20NonceSize - payloadLen
-		if extraLen < 0 {
-			// if our payload is already greater than 8 bytes
-			extraLen = 0
-		}
+	tagLen := 0
+	if o.payloadCipher != nil {
+		tagLen = o.payloadCipher.Overhead()
 	} else {
-		extraLen = o.payloadCipher.Overhead()
-		if extraLen < salsa20NonceSize {
-			return 0, errors.New("AEAD's Overhead cannot be fewer than 8 bytes")
-		}
+		tagLen = salsa20NonceSize
+	}
+	// Pad to avoid size side channel leak
+	padLen := 0
+	if f.Seq < padFirstNFrames {
+		padLen = common.RandInt(maxExtraLen - tagLen + 1)
 	}
 
-	usefulLen := frameHeaderLength + payloadLen + extraLen
+	usefulLen := frameHeaderLength + payloadLen + padLen + tagLen
 	if len(buf) < usefulLen {
 		return 0, errors.New("obfs buffer too small")
 	}
 	// we do as much in-place as possible to save allocation
-	payload := buf[frameHeaderLength : frameHeaderLength+payloadLen]
+	payload := buf[frameHeaderLength : frameHeaderLength+payloadLen+padLen]
 	if payloadOffsetInBuf != frameHeaderLength {
 		// if payload is not at the correct location in buffer
 		copy(payload, f.Payload)
@@ -97,14 +92,15 @@ func (o *Obfuscator) obfuscate(f *Frame, buf []byte, payloadOffsetInBuf int) (in
 	binary.BigEndian.PutUint32(header[0:4], f.StreamID)
 	binary.BigEndian.PutUint64(header[4:12], f.Seq)
 	header[12] = f.Closing
-	header[13] = byte(extraLen)
+	header[13] = byte(padLen + tagLen)
 
-	if o.payloadCipher == nil {
-		if extraLen != 0 { // read nonce
-			extra := buf[usefulLen-extraLen : usefulLen]
-			common.CryptoRandRead(extra)
-		}
-	} else {
+	// Random bytes for padding and nonce
+	_, err := rand.Read(buf[frameHeaderLength+payloadLen : usefulLen])
+	if err != nil {
+		return 0, fmt.Errorf("failed to pad random: %w", err)
+	}
+
+	if o.payloadCipher != nil {
 		o.payloadCipher.Seal(payload[:0], header[:o.payloadCipher.NonceSize()], payload, nil)
 	}
 
@@ -166,7 +162,6 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (o Obfuscator, e
 	switch encryptionMethod {
 	case EncryptionMethodPlain:
 		o.payloadCipher = nil
-		o.maxOverhead = salsa20NonceSize
 	case EncryptionMethodAES256GCM:
 		var c cipher.Block
 		c, err = aes.NewCipher(sessionKey[:])
@@ -177,7 +172,6 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (o Obfuscator, e
 		if err != nil {
 			return
 		}
-		o.maxOverhead = o.payloadCipher.Overhead()
 	case EncryptionMethodAES128GCM:
 		var c cipher.Block
 		c, err = aes.NewCipher(sessionKey[:16])
@@ -188,13 +182,11 @@ func MakeObfuscator(encryptionMethod byte, sessionKey [32]byte) (o Obfuscator, e
 		if err != nil {
 			return
 		}
-		o.maxOverhead = o.payloadCipher.Overhead()
 	case EncryptionMethodChaha20Poly1305:
 		o.payloadCipher, err = chacha20poly1305.New(sessionKey[:])
 		if err != nil {
 			return
 		}
-		o.maxOverhead = o.payloadCipher.Overhead()
 	default:
 		return o, fmt.Errorf("unknown encryption method valued %v", encryptionMethod)
 	}
