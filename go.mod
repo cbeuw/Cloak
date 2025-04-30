@@ -1,7 +1,6 @@
 module github.com/cbeuw/Cloak
 
 go 1.24
-
 toolchain go1.24.2
 
 require (
@@ -9,7 +8,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/juju/ratelimit v1.0.2
-	github.com/refraction-networking/utls v1.6.6
+	github.com/refraction-networking/utls v1.7.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	go.etcd.io/bbolt v1.4.0
