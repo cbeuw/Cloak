@@ -43,13 +43,22 @@ func TestParseRedirAddr(t *testing.T) {
 			t.Errorf("parsing %v error: %v", domainNoPort, err)
 			return
 		}
-		expHost, err := net.ResolveIPAddr("ip", "example.com")
+
+		expIPs, err := net.LookupIP("example.com")
 		if err != nil {
 			t.Errorf("tester error: cannot resolve example.com: %v", err)
 			return
 		}
-		if host.String() != expHost.String() {
-			t.Errorf("expected %v got %v", expHost.String(), host.String())
+
+		contain := false
+		for _, expIP := range expIPs {
+			if expIP.String() == host.String() {
+				contain = true
+			}
+		}
+
+		if !contain {
+			t.Errorf("expected one of %v got %v", expIPs, host.String())
 		}
 		if port != "" {
 			t.Errorf("port not empty when there is no port")
@@ -63,13 +72,22 @@ func TestParseRedirAddr(t *testing.T) {
 			t.Errorf("parsing %v error: %v", domainWPort, err)
 			return
 		}
-		expHost, err := net.ResolveIPAddr("ip", "example.com")
+
+		expIPs, err := net.LookupIP("example.com")
 		if err != nil {
 			t.Errorf("tester error: cannot resolve example.com: %v", err)
 			return
 		}
-		if host.String() != expHost.String() {
-			t.Errorf("expected %v got %v", expHost.String(), host.String())
+
+		contain := false
+		for _, expIP := range expIPs {
+			if expIP.String() == host.String() {
+				contain = true
+			}
+		}
+
+		if !contain {
+			t.Errorf("expected one of %v got %v", expIPs, host.String())
 		}
 		if port != "80" {
 			t.Errorf("wrong port: expected %v, got %v", "80", port)
