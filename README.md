@@ -12,7 +12,7 @@
   <img src="https://user-images.githubusercontent.com/7034308/155629720-54dd8758-ec98-4fed-b603-623f0ad83b6c.svg" />
 </p>
 
-Cloak is a [pluggable transport](https://www.ietf.org/proceedings/103/slides/slides-103-pearg-pt-slides-01) that enhances
+Cloak is a [pluggable transport](https://datatracker.ietf.org/meeting/103/materials/slides-103-pearg-pt-slides-01) that enhances
 traditional proxy tools like OpenVPN to evade [sophisticated censorship](https://en.wikipedia.org/wiki/Deep_packet_inspection) and [data discrimination](https://en.wikipedia.org/wiki/Net_bias).
 
 Cloak is not a standalone proxy program. Rather, it works by masquerading proxied traffic as normal web browsing
