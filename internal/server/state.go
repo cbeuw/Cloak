@@ -9,22 +9,26 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cbeuw/Cloak/internal/common"
 	"github.com/cbeuw/Cloak/internal/server/usermanager"
+	log "github.com/sirupsen/logrus"
 )
 
 type RawConfig struct {
-	ProxyBook    map[string][]string
-	BindAddr     []string
-	BypassUID    [][]byte
-	RedirAddr    string
-	PrivateKey   []byte
-	AdminUID     []byte
-	DatabasePath string
-	KeepAlive    int
-	CncMode      bool
+	ProxyBook                map[string][]string
+	BindAddr                 []string
+	BypassUID                [][]byte
+	RedirAddr                string
+	PrivateKey               []byte
+	AdminUID                 []byte
+	DatabasePath             string
+	KeepAlive                int
+	CncMode                  bool
+	LoopbackTcpSendBuffer    int
+	LoopbackTcpReceiveBuffer int
 }
 
 // State type stores the global state of the program
@@ -156,10 +160,46 @@ func InitState(preParse RawConfig, worldState common.WorldState) (sta *State, er
 		sta.Panel = MakeUserPanel(manager)
 	}
 
+	dialerControl := func(network, address string, c syscall.RawConn) error {
+		if !strings.HasPrefix(network, "tcp") {
+			return nil
+		}
+
+		ips, err := net.LookupHost(strings.Split(address, ":")[0])
+		if err != nil {
+			return err
+		}
+
+		for _, ipString := range ips {
+			ip := net.ParseIP(ipString)
+			if !ip.IsLoopback() {
+				return nil
+			}
+		}
+
+		return c.Control(func(fd uintptr) {
+			if preParse.LoopbackTcpSendBuffer > 0 {
+				log.Debugf("Setting loopback connection tcp send buffer: %d", preParse.LoopbackTcpSendBuffer)
+				err := syscall.SetsockoptInt(common.Platformfd(fd), syscall.SOL_SOCKET, syscall.SO_SNDBUF, preParse.LoopbackTcpSendBuffer)
+				if err != nil {
+					log.Errorf("setsocketopt SO_SNDBUF: %s\n", err)
+				}
+			}
+
+			if preParse.LoopbackTcpReceiveBuffer > 0 {
+				log.Debugf("Setting loopback connection tcp receive buffer: %d", preParse.LoopbackTcpReceiveBuffer)
+				err = syscall.SetsockoptInt(common.Platformfd(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, preParse.LoopbackTcpReceiveBuffer)
+				if err != nil {
+					log.Errorf("setsocketopt SO_RCVBUF: %s\n", err)
+				}
+			}
+		})
+	}
+
 	if preParse.KeepAlive <= 0 {
-		sta.ProxyDialer = &net.Dialer{KeepAlive: -1}
+		sta.ProxyDialer = &net.Dialer{KeepAlive: -1, Control: dialerControl}
 	} else {
-		sta.ProxyDialer = &net.Dialer{KeepAlive: time.Duration(preParse.KeepAlive) * time.Second}
+		sta.ProxyDialer = &net.Dialer{KeepAlive: time.Duration(preParse.KeepAlive) * time.Second, Control: dialerControl}
 	}
 
 	sta.RedirHost, sta.RedirPort, err = parseRedirAddr(preParse.RedirAddr)

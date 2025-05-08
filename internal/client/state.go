@@ -33,27 +33,35 @@ type RawConfig struct {
 	RemotePort       string   // jsonOptional
 	AlternativeNames []string // jsonOptional
 	// defaults set in ProcessRawConfig
-	UDP           bool   // nullable
-	BrowserSig    string // nullable
-	Transport     string // nullable
-	CDNOriginHost string // nullable
-	CDNWsUrlPath  string // nullable
-	StreamTimeout int    // nullable
-	KeepAlive     int    // nullable
+	UDP                      bool   // nullable
+	BrowserSig               string // nullable
+	Transport                string // nullable
+	CDNOriginHost            string // nullable
+	CDNWsUrlPath             string // nullable
+	StreamTimeout            int    // nullable
+	KeepAlive                int    // nullable
+	LoopbackTcpSendBuffer    int    // nullable
+	LoopbackTcpReceiveBuffer int    // nullable
+	RemoteTcpSendBuffer      int    // nullable
+	RemoteTcpReceiveBuffer   int    // nullable
 }
 
 type RemoteConnConfig struct {
-	Singleplex     bool
-	NumConn        int
-	KeepAlive      time.Duration
-	RemoteAddr     string
-	TransportMaker func() Transport
+	Singleplex       bool
+	NumConn          int
+	KeepAlive        time.Duration
+	RemoteAddr       string
+	TransportMaker   func() Transport
+	TcpSendBuffer    int
+	TcpReceiveBuffer int
 }
 
 type LocalConnConfig struct {
-	LocalAddr      string
-	Timeout        time.Duration
-	MockDomainList []string
+	LocalAddr        string
+	Timeout          time.Duration
+	MockDomainList   []string
+	TcpSendBuffer    int
+	TcpReceiveBuffer int
 }
 
 type AuthInfo struct {
@@ -83,7 +91,16 @@ func ssvToJson(ssv string) (ret []byte) {
 		r = strings.Replace(r, `\;`, `;`, -1)
 		return r
 	}
-	unquoted := []string{"NumConn", "StreamTimeout", "KeepAlive", "UDP"}
+	unquoted := []string{
+		"NumConn",
+		"StreamTimeout",
+		"KeepAlive",
+		"UDP",
+		"LoopbackTcpSendBuffer",
+		"LoopbackTcpReceiveBuffer",
+		"RemoteTcpSendBuffer",
+		"RemoteTcpReceiveBuffer",
+	}
 	lines := strings.Split(unescape(ssv), ";")
 	ret = []byte("{")
 	for _, ln := range lines {
@@ -275,6 +292,22 @@ func (raw *RawConfig) ProcessRawConfig(worldState common.WorldState) (local Loca
 		local.Timeout = 300 * time.Second
 	} else {
 		local.Timeout = time.Duration(raw.StreamTimeout) * time.Second
+	}
+
+	if raw.LoopbackTcpSendBuffer > 0 {
+		local.TcpSendBuffer = raw.LoopbackTcpSendBuffer
+	}
+
+	if raw.LoopbackTcpReceiveBuffer > 0 {
+		local.TcpReceiveBuffer = raw.LoopbackTcpReceiveBuffer
+	}
+
+	if raw.RemoteTcpSendBuffer > 0 {
+		remote.TcpSendBuffer = raw.RemoteTcpSendBuffer
+	}
+
+	if raw.RemoteTcpReceiveBuffer > 0 {
+		remote.TcpReceiveBuffer = raw.RemoteTcpReceiveBuffer
 	}
 
 	return
