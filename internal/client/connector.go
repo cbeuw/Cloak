@@ -21,8 +21,10 @@ func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.D
 	var wg sync.WaitGroup
 	for i := 0; i < connConfig.NumConn; i++ {
 		wg.Add(1)
+		transportConfig := connConfig.Transport
 		go func() {
 		makeconn:
+			transportConn := transportConfig.CreateTransport()
 			remoteConn, err := dialer.Dial("tcp", connConfig.RemoteAddr)
 			if err != nil {
 				log.Errorf("Failed to establish new connections to remote: %v", err)
@@ -31,12 +33,20 @@ func MakeSession(connConfig RemoteConnConfig, authInfo AuthInfo, dialer common.D
 				goto makeconn
 			}
 
-			transportConn := connConfig.TransportMaker()
 			sk, err := transportConn.Handshake(remoteConn, authInfo)
 			if err != nil {
 				log.Errorf("Failed to prepare connection to remote: %v", err)
 				transportConn.Close()
+
+				// In Cloak v2.11.0, we've updated uTLS version and subsequently increased the first packet size for chrome above 1500
+				// https://github.com/cbeuw/Cloak/pull/306#issuecomment-2862728738. As a backwards compatibility feature, if we fail
+				// to connect using chrome signature, retry with firefox which has a smaller packet size.
+				if transportConfig.mode == "direct" && transportConfig.browser == chrome {
+					transportConfig.browser = firefox
+					log.Warnf("failed to connect with chrome signature, falling back to retry with firefox")
+				}
 				time.Sleep(time.Second * 3)
+
 				goto makeconn
 			}
 			// sessionKey given by each connection should be identical
