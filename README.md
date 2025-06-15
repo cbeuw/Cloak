@@ -125,6 +125,8 @@ upstream proxy server. Zero or negative value disables it. Default is 0 (disable
 `Transport` can be either `direct` or `CDN`. If the server host wishes you to connect to it directly, use `direct`. If
 instead a CDN is used, use `CDN`.
 
+`RemoteHost` required if direct connection is used. Format: `<IP or domain name>[:port]`
+
 `PublicKey` is the static curve25519 public key in base64, given by the server admin.
 
 `ProxyMethod` is the name of the proxy method you are using. This must match one of the entries in the
