@@ -52,6 +52,7 @@ var ErrMangerIsVoid = errors.New("cannot perform operation with user manager as 
 var ErrNoUpCredit = errors.New("No upload credit left")
 var ErrNoDownCredit = errors.New("No download credit left")
 var ErrUserExpired = errors.New("User has expired")
+var ErrInvalidUserInfo = errors.New("Invalid user info")
 
 type UserManager interface {
 	AuthenticateUser([]byte) (int64, int64, error)

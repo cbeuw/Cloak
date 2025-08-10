@@ -222,6 +222,14 @@ func (manager *localManager) WriteUserInfo(u UserInfo) (err error) {
 		if err != nil {
 			return err
 		}
+		k, v := bucket.Cursor().First()
+		// Registration required full UserInfo
+		if k == nil && v == nil {
+			if u.SessionsCap == nil || u.UpRate == nil || u.DownRate == nil ||
+				u.UpCredit == nil || u.DownCredit == nil || u.ExpiryTime == nil {
+				return ErrInvalidUserInfo
+			}
+		}
 		if u.SessionsCap != nil {
 			if err = bucket.Put([]byte("SessionsCap"), i32ToB(*u.SessionsCap)); err != nil {
 				return err

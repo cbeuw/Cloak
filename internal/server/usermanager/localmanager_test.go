@@ -41,10 +41,16 @@ func TestLocalManager_WriteUserInfo(t *testing.T) {
 	mgr, cleaner := makeManager(t)
 	defer cleaner()
 
-	err := mgr.WriteUserInfo(mockUserInfo)
-	if err != nil {
-		t.Error(err)
-	}
+	/* New user with partial UserInfo */
+	err := mgr.WriteUserInfo(UserInfo{
+		UID:         mockUID,
+		SessionsCap: JustInt32(*mockUserInfo.SessionsCap + 1),
+	})
+	assert.Error(t, err, ErrInvalidUserInfo)
+
+	/* New user with full UserInfo */
+	err = mgr.WriteUserInfo(mockUserInfo)
+	assert.NoError(t, err)
 
 	got, err := mgr.GetUserInfo(mockUID)
 	assert.NoError(t, err)
