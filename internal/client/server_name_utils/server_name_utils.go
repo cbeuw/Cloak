@@ -198,7 +198,7 @@ func randomHumanReadableServerName() string {
 
 	switch style {
 	case 0: // Dictionary-based (e.g., "secure-bridge.com")
-		domain = randItem(prefixes) + "-" + randItem(suffixes) + randItem(topLevelDomains)
+		domain = randItem(prefixes) + "-" + randItem(suffixes) + "." + randItem(topLevelDomains)
 
 	case 1: // Phonetic/Brandable (e.g., "verantix.net")
 		// Combine 2 to 3 syllables
