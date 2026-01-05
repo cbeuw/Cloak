@@ -206,7 +206,7 @@ func randomHumanReadableServerName() string {
 		for j := 0; j < (rand.Intn(2) + 2); j++ {
 			name += randItem(syllables)
 		}
-		domain = name + randItem(topLevelDomains)
+		domain = name + "." + randItem(topLevelDomains)
 
 	case 2: // API/CDN Masking (e.g., "v2-node-42.static-cache.net")
 		vNum := rand.Intn(4) + 1
