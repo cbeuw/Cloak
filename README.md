@@ -137,7 +137,9 @@ random-like. **You may only leave it as `plain` if you are certain that your und
 encryption and authentication (via AEAD or similar techniques).**
 
 `ServerName` is the domain you want to make your ISP or firewall _think_ you are visiting. Ideally it should
-match `RedirAddr` in the server's configuration, a major site the censor allows, but it doesn't have to. Use `random` to randomize the server name for every connection made.
+match `RedirAddr` in the server's configuration, a major site the censor allows, but it doesn't have to. 
+Use `random` to randomize the server name for every connection made. Use `randomTop` to randomize the server name from
+a list of top accessed domains. Use `randomHuman` to use a randomized but human-readable server name.
 
 `AlternativeNames` is an array used alongside `ServerName` to shuffle between different ServerNames for every new
 connection. **This may conflict with `CDN` Transport mode** if the CDN provider prohibits domain fronting and rejects

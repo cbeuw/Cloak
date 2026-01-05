@@ -1,11 +1,14 @@
 package client
 
 import (
+	"net"
+	"strconv"
+	"strings"
+
+	"github.com/cbeuw/Cloak/internal/client/server_name_utils"
 	"github.com/cbeuw/Cloak/internal/common"
 	utls "github.com/refraction-networking/utls"
 	log "github.com/sirupsen/logrus"
-	"net"
-	"strings"
 )
 
 const appDataMaxLength = 16401
@@ -30,40 +33,6 @@ type DirectTLS struct {
 	browser browser
 }
 
-var topLevelDomains = []string{"com", "net", "org", "it", "fr", "me", "ru", "cn", "es", "tr", "top", "xyz", "info"}
-
-func randomServerName() string {
-	/*
-		Copyright: Proton AG
-		https://github.com/ProtonVPN/wireguard-go/commit/bcf344b39b213c1f32147851af0d2a8da9266883
-
-		Permission is hereby granted, free of charge, to any person obtaining a copy of
-		this software and associated documentation files (the "Software"), to deal in
-		the Software without restriction, including without limitation the rights to
-		use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-		of the Software, and to permit persons to whom the Software is furnished to do
-		so, subject to the following conditions:
-
-		The above copyright notice and this permission notice shall be included in all
-		copies or substantial portions of the Software.
-
-		THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-		IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-		FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-		AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-		LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-		OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-		SOFTWARE.
-	*/
-	charNum := int('z') - int('a') + 1
-	size := 3 + common.RandInt(10)
-	name := make([]byte, size)
-	for i := range name {
-		name[i] = byte(int('a') + common.RandInt(charNum))
-	}
-	return string(name) + "." + common.RandItem(topLevelDomains)
-}
-
 func buildClientHello(browser browser, fields clientHelloFields) ([]byte, error) {
 	// We don't use utls to handle connections (as it'll attempt a real TLS negotiation)
 	// We only want it to build the ClientHello locally
@@ -79,6 +48,10 @@ func buildClientHello(browser browser, fields clientHelloFields) ([]byte, error)
 	}
 
 	uclient := utls.UClient(&fakeConn, &utls.Config{ServerName: fields.serverName}, helloID)
+	defer func(uclient *utls.UConn) {
+		_ = uclient.Close()
+	}(uclient)
+
 	if err := uclient.BuildHandshakeState(); err != nil {
 		return []byte{}, err
 	}
@@ -123,8 +96,14 @@ func (tls *DirectTLS) Handshake(rawConn net.Conn, authInfo AuthInfo) (sessionKey
 		serverName:     authInfo.MockDomain,
 	}
 
+	randomAddrInput := rawConn.RemoteAddr().String() + "-" + strconv.Itoa(int(authInfo.SessionId))
+
 	if strings.EqualFold(fields.serverName, "random") {
-		fields.serverName = randomServerName()
+		fields.serverName = server_name_utils.ServerNameFor(server_name_utils.ServerNameRandom, randomAddrInput)
+	} else if strings.EqualFold(fields.serverName, "randomTop") {
+		fields.serverName = server_name_utils.ServerNameFor(server_name_utils.ServerNameTop, randomAddrInput)
+	} else if strings.EqualFold(fields.serverName, "randomHuman") {
+		fields.serverName = server_name_utils.ServerNameFor(server_name_utils.ServerNameHuman, randomAddrInput)
 	}
 
 	var ch []byte
