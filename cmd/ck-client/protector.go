@@ -1,5 +1,5 @@
-//go:build !android
-// +build !android
+//go:build !protector_android
+// +build !protector_android
 
 package main
 

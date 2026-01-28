@@ -1,5 +1,5 @@
-//go:build !android
-// +build !android
+//go:build !log_android
+// +build !log_android
 
 package main
 
